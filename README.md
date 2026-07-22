@@ -10,6 +10,8 @@ Open `index.html` in any modern browser. No install, no server, no build step. A
 
 ### Plan & estimate
 - **AI Plan Builder** — paste meeting notes or an SOW; Claude drafts the full plan: tasks, 3-point estimates, dependencies, owners, phases, and a complete WBS dictionary (deliverable / scope / acceptance per item). Natural-language updates ("add a security review after testing, 2–4 days") and per-task **AI decomposition** into sub-tasks.
+- **Differential plan updates** — "Update existing" and health-check fixes ask the AI for a **delta only** (changed / new / removed tasks), applied in place: untouched tasks keep their IDs, % complete, actual dates, and story/test-case links, with a receipt ("2 added, 1 updated, 1 removed — everything else untouched").
+- **Streams you can see and stop** — every AI call streams with a live elapsed/thinking heartbeat, follows you across tabs, and has a **⏹ Stop** button that cancels generation server-side (unspent tokens are never billed). A stopped or truncated response applies **nothing** — plans are updated atomically or not at all.
 - **PERT 3-point estimation** (TE, variance) + **CPM** critical path with FS/SS/FF/SF dependencies and lag, working-day calendar with holidays.
 - **Monte Carlo simulation** (Beta-PERT): P50/P80/P90/P95 finish dates, target-date probability, per-task criticality index.
 - **Historical calibration** — load your past-project benchmarks (`.md`/`.txt`/`.csv`); every AI estimate is calibrated against them. One-click **archive to history** feeds actuals back in when a project ends.
@@ -17,8 +19,9 @@ Open `index.html` in any modern browser. No install, no server, no build step. A
 
 ### Requirements & user stories
 - **Requirements layer traced to the WBS** — AI drafts a personas glossary, epics (from your phases), and INVEST user stories, one per work item, each with Given/When/Then acceptance criteria covering the happy path, error paths, and edge cases (plus measured performance criteria where they apply), NFRs with numbers, assumptions with impact-if-false, and client dependencies with slip consequences.
-- **Built-in requirements lint** — flags untestable words ("fast", "seamless", "robust"…), vague personas, missing error/edge coverage, and unlinked stories.
-- **Traceability everywhere** — story status rolls up from the linked task; stories and ACs flow into the WBS dictionary CSV, spreadsheet CSV, Smartsheet notes, MS Project task notes, a dedicated requirements Markdown doc, a one-row-per-AC traceability matrix CSV, and an SOW appendix.
+- **Built-in requirements lint** — flags untestable words ("fast", "seamless", "robust"…), vague personas, missing error/edge coverage, and unlinked stories; one-click AI repair of flagged stories and a targeted gap-filler for uncovered activities (test cases never count as scope needing stories).
+- **Test plan flow** — 🧪 generates one executable test case per acceptance criterion (numbered Given/When/Then-derived steps, exact expected result), nested as a **WBS decomposition of your existing UAT activities** (per-workstream matching, cycle-safe dependencies) and scheduled like any other work. Re-running re-specifies shallow test cases in place and fills coverage gaps — never duplicates. Exports: test plan `.md` (entry/exit gates, S1–S4 severity ladder, AC→TC traceability), execution sheet as **CSV or formatted Excel** with per-step line breaks and yellow fill-in Result/Defect columns for the tester.
+- **Traceability everywhere** — story status rolls up from the linked task; the on-screen matrix shows the full story sentence with its ACs and test cases; stories and ACs flow into the WBS dictionary CSV, spreadsheet CSV, Smartsheet notes, MS Project task notes, a dedicated requirements Markdown doc, a one-row-per-AC traceability matrix CSV, and an SOW appendix. Drilling into any test-case task shows its full spec: the criterion it verifies, tester steps, and pass condition.
 
 ### Track & manage
 - **Live scheduling** — change anything and the whole chain, critical path, Gantt, and forecasts recompute instantly.
@@ -27,7 +30,9 @@ Open `index.html` in any modern browser. No install, no server, no build step. A
 - **Rate cards** — named role→rate cards shared across all projects, with discounts and a default card.
 - **Baseline & variance**, actual dates, **EVM** (PV/EV/AC/SV/CV/SPI/CPI/EAC), budget tracking, status snapshots with a forecast-slip trend chart.
 - **One-click check-off** — tick tasks done in the activity list; phase and project percentages recompute instantly, weighted by expected duration (TE).
-- **Status-update round trip** — copy an email-ready update request grouped by owner, send it out, paste the replies back, and the AI updates every %, actual date, and rollup.
+- **Bulk edit with shift-click** — tick a row, shift-click another to select the range; set owner/units/%, scale estimates, move under a new parent, or scope an AI edit to just those rows. Moving tasks that would loop the schedule names the conflicting links and offers to drop exactly those.
+- **Dependency fix wizard + AI link repair** — a schedule loop opens a wizard showing each "X waits for Y" edge with its stored link and a one-click remove; 🔗 AI link repair proposes predecessors for unlinked tasks (or your selection), cycle-checking every suggestion before it applies.
+- **Status-update round trip** — copy an email-ready update request grouped by owner (scoped to your selected rows if any), send it out, paste the replies back, and the AI updates every %, actual date, and rollup; blockers auto-log to RAID.
 - **Risk explained, not just scored** — the Monte-Carlo page states *why* risk is high (P50→P90 spread, committed-date coverage vs P80) and lists the tasks driving it, each with one-click AI decomposition or re-estimation fixes.
 - **RAID log** (risks/assumptions/issues/decisions/exclusions) with P×I scoring — AI can draft it from the plan.
 - **Reserves** — contingency & management buffers (% or absolute, or set from P80), shown on the Gantt.
