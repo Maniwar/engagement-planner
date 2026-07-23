@@ -27,8 +27,12 @@ Open `index.html` in any modern browser. No install, no server, no build step. A
 
 ### Track & manage
 - **Live scheduling** — change anything and the whole chain, critical path, Gantt, and forecasts recompute instantly.
+- **A Gantt that reads like a pro tool** — pixel-QA'd connector routing: links emit from a bar's end (or a milestone's tip) and land with a single full-height drop; 3+ predecessors converging on one task merge onto a **bus spine with a single entry arrow**, and fan-outs share one exit spine with taps per successor; test-case "verified by" links render as a faint dashed layer behind the real flow; transitively-redundant edges aren't drawn at all. Milestones anchor where their instant actually falls (day boundary or end-of-day, schedule-aware) and are always entered via the diamond's top tip. Sub-day bars label as "20m"/"6.7h", zoom reaches 120px/day, the TODAY pill has its own header strip, baselines draw only when they differ from the current schedule, links survive collapsed phases by re-attaching to the summary bar (which shows a red span where the critical path runs through it), and a ? badge explains why the critical path starts mid-chart.
+- **Redundant-link hygiene** — a transitive-reduction detector (A→B→C plus a direct A→C changes nothing) powers: auto-hiding on the Gantt, a bulk "Remove N link(s)" banner on the Activity List (schedule provably identical), a health-check finding, ↩ flags with surgical removal in the task modal's 🕸 impact panel, and direct-predecessors-only rules in every AI prompt.
+- **Zero-estimate alarms in the table** — work packages with no O/M/P get red cells, a "⚠ 0" TE, and a clickable banner (they'd otherwise silently contribute 0 days and $0). Predecessor columns show live **WBS codes** (never internal ids) with full names on hover; AI-added tasks insert into the flow next to their dependency neighbours instead of the bottom of the list.
 - **WBS** with unlimited nesting, collapse/expand levels, drag-to-reorder, indent/outdent, exportable dictionary.
-- **Resources** — capacity, cost & bill rates, PTO calendars, over-allocation heatmap, leveling (within slack, or extend-timeline), add-capacity mending, managed roster with one-click 🧹 removal of idle entries (AI updates can no longer leave unused "QA Tester 2"-style roster clutter).
+- **Resources** — capacity, cost & bill rates, PTO calendars, over-allocation heatmap, leveling (within slack, or extend-timeline) with an explicit "APPLIED" receipt on the buttons and banner, add-capacity mending, managed roster with one-click 🧹 removal of idle entries (AI updates can no longer leave unused "QA Tester 2"-style roster clutter).
+- **Heatmap you can interrogate** — hovering any day lists every task that overlaps on it (units + size: the overlap IS the over-allocation); clicking any loaded day opens a drill-in card with each task one click from its editor, and over-capacity days link straight to the fix suggestions. Over-allocation cards name each overlapping task (clickable), show its effort, and total the peak as effort ÷ window.
 - **💰 Billing & cost breakdown** — per-person audit of what is billed and what is not: effort, cost rate vs bill rate, client-side (unbilled) vs internal, fixed costs, no-rate warnings, totals — exportable as CSV. Over-allocation cards show each overlapping task's *effort* with a Σ total-vs-window ratio that explains the peak %.
 - **Rate cards** — named role→rate cards shared across all projects, with discounts and a default card.
 - **Baseline & variance**, actual dates, **EVM** (PV/EV/AC/SV/CV/SPI/CPI/EAC), budget tracking, status snapshots with a forecast-slip trend chart.
@@ -40,6 +44,10 @@ Open `index.html` in any modern browser. No install, no server, no build step. A
 - **RAID log** (risks/assumptions/issues/decisions/exclusions) with P×I scoring — AI can draft it from the plan.
 - **Reserves** — contingency & management buffers (% or absolute, or set from P80), shown on the Gantt.
 - **Multi-project library** with duplicate-as-scenario and side-by-side **what-if comparison**.
+
+### Reliability
+- **Streams that never hang silently** — every AI call streams with a heartbeat that sets honest expectations (first tokens can take 1–3 minutes on long prompts); a text-aware watchdog catches the ping-alive-but-tokenless hang, aborts, and **auto-retries once** before surfacing an explanation.
+- **Atomic plan edits** — updates are delta-only with per-task upserts; a stopped or truncated response applies nothing; test-case content can never be flattened by a plan-level update.
 
 ### Communicate & sell
 - **Export-ready visuals** — the Gantt and PMI-style PERT network are self-contained SVGs: copy to clipboard as an image, or download PNG/SVG, complete with title, legend, and completeness indicators.
