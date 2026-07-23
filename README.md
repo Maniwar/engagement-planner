@@ -7,6 +7,8 @@ Open `index.html` in any modern browser. No install, no server, no build step. A
 > **Run it right now (no download):** https://maniwar.github.io/engagement-planner/
 >
 > That's this repo served straight from GitHub Pages. Everything still runs 100% in your browser — projects, snapshots and your API key live in *your* browser's storage on that site, are never uploaded anywhere, and the only network calls are the ones you make to the Anthropic API with your own key.
+>
+> **Moving from a downloaded copy?** Browser storage is per-site, so projects made in a local file won't appear on the Pages site by themselves. In the old copy: **Export ▸ 📦 Backup ALL projects (.json)** — then on the Pages site: **IMPORT** with that file. Every project comes across in one go (existing names are kept; duplicates arrive as "… (imported)").
 
 ## What it does
 
