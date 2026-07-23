@@ -4,7 +4,9 @@
 
 Open `index.html` in any modern browser. No install, no server, no build step. All data stays in your browser — projects are stored in IndexedDB (disk-backed, no 5 MB limit) with a rolling 15-snapshot history per project and a 🛟 recovery panel; on Chrome/Edge you can additionally auto-save every change to a real `.json` file on disk. Nothing is sent anywhere except direct calls you make to the Anthropic API with your own key.
 
-> If GitHub Pages is enabled for this repo, the tool runs at the Pages URL directly.
+> **Run it right now (no download):** https://maniwar.github.io/engagement-planner/
+>
+> That's this repo served straight from GitHub Pages. Everything still runs 100% in your browser — projects, snapshots and your API key live in *your* browser's storage on that site, are never uploaded anywhere, and the only network calls are the ones you make to the Anthropic API with your own key.
 
 ## What it does
 
