@@ -2,7 +2,7 @@
 
 **AI-assisted engagement planning and delivery tracking for engagement managers and PMs — in a single HTML file.**
 
-Open `index.html` in any modern browser. No install, no server, no build step. All data stays in your browser (localStorage); nothing is sent anywhere except direct calls you make to the Anthropic API with your own key.
+Open `index.html` in any modern browser. No install, no server, no build step. All data stays in your browser — projects are stored in IndexedDB (disk-backed, no 5 MB limit) with a rolling 15-snapshot history per project and a 🛟 recovery panel; on Chrome/Edge you can additionally auto-save every change to a real `.json` file on disk. Nothing is sent anywhere except direct calls you make to the Anthropic API with your own key.
 
 > If GitHub Pages is enabled for this repo, the tool runs at the Pages URL directly.
 
