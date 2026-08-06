@@ -464,6 +464,102 @@ const DATA = FIXTURE();
         }
       }
 
+      /* ── AUDIENCE IS NOT VERIFICATION ──────────────────────────────────
+         Two surfaces on one screen used the same word for different questions:
+         the coverage tile counts CLIENT-FACING ACTIVITIES, and the matrix
+         labelled a story internal whenever its evidence was an artifact rather
+         than a UAT test. On a real plan that meant "14/14 client-facing" beside
+         fourteen rows each marked internal, and neither figure was wrong by its
+         own definition — which is exactly why nobody could tell which to trust.
+
+         So: a story evidenced by an artifact must NOT thereby become internal,
+         and the two rules must be able to disagree in the constructed case
+         without the audience moving. */
+      {
+        const s10 = (reqs.stories || [])[0];
+        if (!s10) say('Audience', 'no story in the fixture — this check is vacuous');
+        else {
+          const keptV = s10.verification, keptA = s10.audience;
+          delete s10.audience;
+          /* PIN THE ACTIVITY CLIENT-FACING FIRST. This fixture's first story
+             hangs off an activity whose NAME already reads as process work, so
+             its audience is internal either way and the comparison below proved
+             nothing — it passed on a build where verification decided audience,
+             which is the whole defect. With the activity pinned, verification is
+             the only thing left that could move the answer. */
+          const t10 = (s10.wbsId != null) ? tasks.find(x => x.id === s10.wbsId) : null;
+          if (!t10) say('Audience', 'the first story links to no activity, so audience cannot be pinned '
+            + 'and this check is vacuous');
+          const keptTA = t10 ? t10.audience : null;
+          if (t10) t10.audience = 'client';
+          s10.verification = 'artifact';
+          const audArt = storyAudience(s10), verArt = isArtifactVerified(s10);
+          s10.verification = 'uat';
+          const audUat = storyAudience(s10);
+          if (t10) { if (keptTA == null) delete t10.audience; else t10.audience = keptTA; }
+          if (!verArt) say('Audience', 'a story marked verification "artifact" does not read as artifact-evidenced');
+          if (t10 && audArt !== 'client')
+            say('Audience', 'a story on an explicitly client-facing activity reads as ' + audArt
+              + ' once its evidence is an artifact — evidence is not audience');
+          if (audArt !== audUat)
+            say('Audience', 'changing only HOW a story is verified (artifact vs uat) moved its AUDIENCE from '
+              + audUat + ' to ' + audArt + ' — those are different questions and the answer to one must not '
+              + 'depend on the other');
+          /* AND THE AUDIENCE MUST STILL BE SETTABLE, or the fix has simply
+             replaced one fixed answer with another. */
+          s10.audience = 'internal';
+          if (storyAudience(s10) !== 'internal') say('Audience', 'an explicitly internal story does not read as internal');
+          s10.audience = 'client';
+          if (storyAudience(s10) !== 'client') say('Audience', 'an explicitly client-facing story does not read as client-facing');
+          if (keptA == null) delete s10.audience; else s10.audience = keptA;
+          if (keptV == null) delete s10.verification; else s10.verification = keptV;
+        }
+        /* THE CHIP'S OWN WORDS. The functions can be right while the label
+           beside them still says "internal" — that WAS the state of this
+           surface, and asserting only on storyAudience() would let the sentence
+           the reader actually sees drift straight back. */
+        {
+          const s11 = (reqs.stories || []).find(x => (x.ac || []).length);
+          if (!s11) say('Audience', 'no story with criteria — the chip wording check is vacuous');
+          else {
+            const kV = s11.verification, kA = s11.audience, kw = reqView;
+            const t11 = (s11.wbsId != null) ? tasks.find(x => x.id === s11.wbsId) : null;
+            const kTA = t11 ? t11.audience : null;
+            if (t11) t11.audience = 'client';
+            s11.verification = 'artifact';
+            reqView = 'trace';
+            renderReqs();
+            const mx = document.getElementById('traceMatrix');
+            const txt = mx ? (mx.textContent || '').replace(/\s+/g, ' ') : '';
+            if (!mx) say('Audience', 'the traceability matrix did not render, so its wording cannot be checked');
+            else {
+              if (/📋 internal/.test(txt))
+                say('Audience', 'the matrix still labels a criterion "internal" while the coverage tile counts '
+                  + 'its activity as client-facing — one screen, one word, two meanings');
+              if (!/by artifact/.test(txt))
+                say('Audience', 'an artifact-evidenced criterion with no test case says nothing about why it '
+                  + 'has none, so the row reads as a coverage gap');
+            }
+            if (kV == null) delete s11.verification; else s11.verification = kV;
+            if (kA == null) delete s11.audience; else s11.audience = kA;
+            if (t11) { if (kTA == null) delete t11.audience; else t11.audience = kTA; }
+            reqView = kw; renderReqs();
+          }
+        }
+
+        /* THE TWO SURFACES, AGAINST EACH OTHER. The tile counts client-facing
+           activities; every story on a client-facing activity must not be
+           labelled internal by the matrix, which is the contradiction itself. */
+        const cov = (typeof coverageStats === "function") ? coverageStats() : null;
+        if (cov && cov.leaves && cov.leaves.length) {
+          const clash = cov.leaves.filter(t => storiesForTask(t.id).some(s2 => storyAudience(s2) === 'internal'));
+          if (clash.length)
+            say('Audience', clash.length + ' activit' + (clash.length === 1 ? 'y is' : 'ies are')
+              + ' counted in client-facing coverage while the stor' + (clash.length === 1 ? 'y' : 'ies')
+              + ' on them read as internal — the tile and the matrix are contradicting each other on one screen');
+        }
+      }
+
       /* ── THE ORDER IS THE DRAFTER'S, AND RENUMBERING FOLLOWS IT ────────
          Section numbering is derived from POSITION and every cross-reference
          resolves from the same map, so the whole risk of letting somebody

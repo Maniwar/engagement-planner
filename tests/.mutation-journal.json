@@ -1,32 +1,29 @@
 {
- "at": "2026-08-06T22:57:05.187Z",
+ "at": "2026-08-06T23:14:38.830Z",
  "full": false,
  "ran": 2,
- "of": 333,
+ "of": 335,
  "rows": [
   {
-   "what": "ledger: the cell key forgets the measure, so every column shows the same figure",
-   "by": "resourcing-sweep.js",
+   "what": "audience: how a story is verified decides who it is for, so artifact evidence reads as internal",
+   "by": "client-facing-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Ledger :: the period columns for \"planH\" add up to 174630 against a row total of 423 — the cells are not keyed by measure, so the columns are showing a differen",
-    "Ledger :: the period columns for \"cost\" add up to 174630 against a row total of 54293 — the cells are not keyed by measure, so the columns are showing a differe",
-    "Ledger :: the period columns for \"billed\" add up to 174630 against a row total of 87103 — the cells are not keyed by measure, so the columns are showing a diffe",
-    "Ledger :: the period columns for \"margin\" add up to 174630 against a row total of 32810 — the cells are not keyed by measure, so the columns are showing a diffe",
-    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
-    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
+    "Audience :: a story on an explicitly client-facing activity reads as internal once its evidence is an artifact — evidence is not audience",
+    "Audience :: changing only HOW a story is verified (artifact vs uat) moved its AUDIENCE from client to internal — those are different questions and the answer to",
+    "variance end date held — undernea"
    ]
   },
   {
-   "what": "ledger: the last measure can be switched off, leaving a pivot of nothing",
-   "by": "resourcing-sweep.js",
+   "what": "audience: the matrix calls artifact-evidenced work internal again",
+   "by": "client-facing-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Ledger :: clicking the only selected measure off changed the selection to \"planH\" — the last one has to stay put rather than silently moving you to another numb",
-    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
-    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
+    "Audience :: the matrix still labels a criterion \"internal\" while the coverage tile counts its activity as client-facing — one screen, one word, two meanings",
+    "Audience :: an artifact-evidenced criterion with no test case says nothing about why it has none, so the row reads as a coverage gap",
+    "variance end date held — undernea"
    ]
   }
  ]

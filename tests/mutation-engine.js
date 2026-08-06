@@ -1695,6 +1695,16 @@ const MUTANTS = [
 
   /* Several measures at once, and an order the drafter chose. */
 
+  /* Two surfaces, one word, different questions. */
+
+  { what: 'audience: how a story is verified decides who it is for, so artifact evidence reads as internal',
+    find: "      const t = (s && s.wbsId != null) ? tasks.find(x => x.id === s.wbsId) : null;\n      if (!t) return 'client';",
+    with: "      if (isProcessStory(s)) return 'internal';\n      const t = (s && s.wbsId != null) ? tasks.find(x => x.id === s.wbsId) : null;\n      if (!t) return 'client';" },
+
+  { what: 'audience: the matrix calls artifact-evidenced work internal again',
+    find: "\u2705 by artifact</span>'".replace('\u2705', '\ud83d\udccb'),
+    with: "\u2705 internal</span>'".replace('\u2705', '\ud83d\udccb') },
+
   { what: 'ledger: the cell key forgets the measure, so every column shows the same figure',
     find: '    function ledgerKey4(a, b, ck, mk) { return JSON.stringify([String(a), String(b), String(ck), String(mk)]); }',
     with: '    function ledgerKey4(a, b, ck, mk) { return JSON.stringify([String(a), String(b), String(ck)]); }' },

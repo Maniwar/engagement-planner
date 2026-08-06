@@ -17444,7 +17444,7 @@ Or say what you want, in your own words:
           <td style="font-size:0.78rem;min-width:260px">${a ? escapeHtml(a.text) : '<i>no acceptance criteria</i>'}</td>
           <td style="font-size:0.72rem;white-space:nowrap">${a ? (() => { const tcs = testCasesForAC(a.id); return tcs.length
             ? tcs.map(tc => `${ekTok('tc', tc.wbs || 'TC', '', { xs: true, onclick: `event.stopPropagation();openEditModal(${tc.id})` })}<span class="badge ${tc.percentComplete >= 100 ? 'badge-done' : tc.percentComplete > 0 ? 'badge-prog' : 'badge-notstarted'}" style="cursor:pointer" onclick="openEditModal(${tc.id})" title="${escapeHtml(tc.name + ' — ' + (tc.percentComplete || 0) + '% complete.' + (tc.description ? '\nSTEPS: ' + (tc.description.length > 260 ? tc.description.slice(0, 258) + '…' : tc.description) : '') + (tc.acceptance ? '\nEXPECTED: ' + (tc.acceptance.length > 160 ? tc.acceptance.slice(0, 158) + '…' : tc.acceptance) : '') + '\nClick to open the test-case task.')}">${tc.percentComplete >= 100 ? '✓ passed' : tc.percentComplete > 0 ? tc.percentComplete + '%' : 'not run'}</span>`).join(' ')
-            : (storyAudience(s) === 'internal' ? '<span class="help-text" title="Internal delivery-side criterion — evidenced by its own artifact (signed document, distributed report, log entry); no client verification task needed.">📋 internal</span>' : '<span class="help-text" title="No test-case task references this criterion yet — 🧪 Generate test plan covers it (named TC ' + escapeHtml(a.id) + ' — …)">—</span>'); })() : ''}</td>
+            : (isArtifactVerified(s) ? '<span class="help-text" title="Evidenced by an artifact — a signed document, a distributed report, a log entry — rather than by a UAT test, so no verification task is needed. This says nothing about whether the work is client-facing; the coverage tile above answers that.">📋 by artifact</span>' : '<span class="help-text" title="No test-case task references this criterion yet — 🧪 Generate test plan covers it (named TC ' + escapeHtml(a.id) + ' — …)">—</span>'); })() : ''}</td>
           <td style="font-size:0.75rem;white-space:nowrap;${t ? 'cursor:pointer;color:var(--primary)' : ''}" ${t ? `onclick="openEditModal(${t.id}, true)" title="Open ${escapeHtml(t.wbs + ' ' + t.name)}"` : ''}>${t ? ekTask(t, { name: true, max: 24, xs: true }) : '⚠ unlinked'}</td>
           <td style="font-size:0.75rem">${t ? escapeHtml(t.owner || '—') + roleSub(t.owner) : ''}</td>
           <td style="font-size:0.75rem;white-space:nowrap">${t ? (t.percentComplete || 0) + '% · ' + taskStatus(t).label : ''}</td>
@@ -19049,10 +19049,34 @@ Return ONLY JSON: {"fixes":[{"id":<number>,"deliverable":"...","inputs":"line\\n
     // process/internal, 'uat' = product/client), so it stays consistent with what
     // the AI already tags. An explicit `audience` on the story overrides it.
     // Internal stories/TCs can be filtered out and kept out of the client SOW.
+    /* WHO IT IS FOR, AND HOW IT IS PROVEN, ARE DIFFERENT QUESTIONS — and this
+       function answered the second while every reader took it for the first.
+       Its old body deferred to isProcessStory, whose leading rule is
+       `verification === 'artifact'`, so a story evidenced by a signed document
+       rather than a UAT test was classified INTERNAL.
+
+       That is wrong in the ordinary case. "Then the scope confirmation note is
+       signed by the CEO within 2 business days" is unambiguously client-facing
+       work; it simply has a document as its evidence. The contradiction showed
+       on one screen: the coverage tile counted fourteen client-facing
+       activities while the matrix beside it labelled all fourteen stories
+       internal, and both were reading their own definition of the same word.
+
+       Audience is now audience: what you marked, else what the activity the
+       story hangs from is. isArtifactVerified answers the evidence question,
+       and every caller that was really asking THAT still asks it. */
     function storyAudience(s) {
       if (s && (s.audience === 'internal' || s.audience === 'client')) return s.audience;
-      return isProcessStory(s) ? 'internal' : 'client';
+      const t = (s && s.wbsId != null) ? tasks.find(x => x.id === s.wbsId) : null;
+      if (!t) return 'client';
+      if (t.audience === 'client' || t.audience === 'internal') return t.audience;
+      return taskNameIsProcess(t) ? 'internal' : 'client';
     }
+    /* Is this criterion evidenced by an artifact rather than a UAT test? The
+       old isProcessStory, unchanged and renamed for what it actually decides —
+       every caller below that asks "does this need a test case" wants this one,
+       not the audience. */
+    function isArtifactVerified(s) { return isProcessStory(s); }
     function isInternalStory(s) { return storyAudience(s) === 'internal'; }
     // a test case's audience follows the story of the AC it verifies
     /* Two defects lived in four lines here, and both pointed the same way: at
@@ -19557,7 +19581,7 @@ Return ONLY JSON:
         // the billing checklist: it needs a verification record even when it is
         // proven by an artifact rather than a UI walkthrough — that becomes an
         // evidence check (open the signed record, confirm it) instead of a script.
-        if (storyAudience(s) === 'internal') { skippedProcess++; return; }
+        if (isArtifactVerified(s)) { skippedProcess++; return; }   // its artifact IS the evidence
         work.push({ s, a, evidence: isProcessStory(s) });
       }));
       if (!work.length) { flashSaved('✓ Every client-facing criterion already has a verification' + (skippedProcess ? ' (' + skippedProcess + ' internal delivery criteria need none)' : '') + '.'); return; }
@@ -19748,7 +19772,7 @@ Write the test cases for the criteria above, following the contract exactly. Ret
         return;
       }
       const uncovered = [];
-      reqs.stories.forEach(s => (s.ac || []).forEach(a => { if (!testCasesForAC(a.id).length && storyAudience(s) !== 'internal') uncovered.push(a.id); }));
+      reqs.stories.forEach(s => (s.ac || []).forEach(a => { if (!testCasesForAC(a.id).length && !isArtifactVerified(s)) uncovered.push(a.id); }));
       flashSaved('🧪 ' + made + ' test case(s) created' + (respec ? ' · ' + respec + ' broken one(s) healed in place (steps, action → outcome name, real O<M<P spread)' : '') + (skippedProcess ? ' · ' + skippedProcess + ' PM/governance process criteria skipped (verified by their artifacts)' : '') + (usedHosts.size ? ' — nested under ' + [...usedHosts].map(n => '"' + n + '"').join(', ') : '') + (uncovered.length ? ' — ⚠ still uncovered: ' + uncovered.slice(0, 6).join(', ') + ' (re-run to fill)' : ' — every UAT-testable AC covered. Export ⬇ Test plan (.md)'));
     }
     // Test plan document: strategy + gates from the estimation guide + AC→TC traceability
