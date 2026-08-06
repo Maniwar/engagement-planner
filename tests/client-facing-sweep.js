@@ -142,6 +142,7 @@ const DATA = FIXTURE();
       const build = () => { const d = sowSkeletonData(); d.storiesAppendix = sowStoriesAppendix();
                             return { d: d, html: sowAssembleHtml(d, null) }; };
       const secNums = html => [...html.matchAll(/<h2[^>]*>(\d+)\./g)].map(m => +m[1]);
+      const secNames = html => [...html.matchAll(/<h2[^>]*>\d+\.\s*([^<]*)<\/h2>/g)].map(m => m[1].trim());
 
       // ── the story ids printed must be the story ids cited ────────────────
       const base = build();
@@ -460,6 +461,38 @@ const DATA = FIXTURE();
           else if (doc9.indexOf('week ' + (span + 30)) < 0)
             say('SOW weeks', 'the banner is drawn without naming the week it objects to');
           t9.description = kept; calculate();
+        }
+      }
+
+      /* ── THE ORDER IS THE DRAFTER'S, AND RENUMBERING FOLLOWS IT ────────
+         Section numbering is derived from POSITION and every cross-reference
+         resolves from the same map, so the whole risk of letting somebody
+         reorder is that one of those two stops tracking the other: a document
+         where Change Control prints third and §11 still points at it. */
+      {
+        const before = secNames(build().html);
+        if (before.length < 3) say('SOW order', 'fewer than three numbered sections — this check is vacuous');
+        else {
+          const ord = sowOrder();
+          const last = ord[ord.length - 1];
+          for (let i = ord.length - 1; i > 0; i--) sowMoveSection(last, -1);
+          const doc = build().html;
+          const after = secNames(doc);
+          if (after.length !== before.length)
+            say('SOW order', 'reordering changed how many sections print: ' + before.length + ' → ' + after.length);
+          if (after.slice().sort().join('|') !== before.slice().sort().join('|'))
+            say('SOW order', 'reordering changed WHICH sections print, not only their order');
+          if (after[0] === before[0])
+            say('SOW order', 'a section moved to the top did not become the first section');
+          if (/\{\{sec:|§undefined/.test(doc))
+            say('SOW order', 'a cross-reference did not resolve after reordering — the numbering and the '
+              + 'references have stopped tracking each other');
+          const nums = secNums(doc);
+          if (nums.join(',') !== nums.map((_, i) => i + 1).join(','))
+            say('SOW order', 'the printed numbers are not 1..n after reordering: ' + nums.join(','));
+          sowResetOrder();
+          if (secNames(build().html).join('|') !== before.join('|'))
+            say('SOW order', 'Reset order did not restore the order the tool ships with');
         }
       }
 

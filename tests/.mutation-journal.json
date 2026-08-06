@@ -1,70 +1,32 @@
 {
- "at": "2026-08-06T22:20:58.816Z",
+ "at": "2026-08-06T22:57:05.187Z",
  "full": false,
- "ran": 5,
- "of": 325,
+ "ran": 2,
+ "of": 333,
  "rows": [
   {
-   "what": "sync guide: the reason blames the browser even when the origin is what refuses",
-   "by": "dialog-sweep.js",
+   "what": "ledger: the cell key forgets the measure, so every column shows the same figure",
+   "by": "resourcing-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "QA reference · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
-    "Real export · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
-    "The schedule cannot be computed, so nothing on this tab can ",
-    "The schedule cannot be computed, so noth",
-    "⚠ Cannot calculate — 2 activities wait o"
+    "Ledger :: the period columns for \"planH\" add up to 174630 against a row total of 423 — the cells are not keyed by measure, so the columns are showing a differen",
+    "Ledger :: the period columns for \"cost\" add up to 174630 against a row total of 54293 — the cells are not keyed by measure, so the columns are showing a differe",
+    "Ledger :: the period columns for \"billed\" add up to 174630 against a row total of 87103 — the cells are not keyed by measure, so the columns are showing a diffe",
+    "Ledger :: the period columns for \"margin\" add up to 174630 against a row total of 32810 — the cells are not keyed by measure, so the columns are showing a diffe",
+    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
+    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
    ]
   },
   {
-   "what": "sync guide: it says watching is unavailable and offers nothing to do about it",
-   "by": "dialog-sweep.js",
+   "what": "ledger: the last measure can be switched off, leaving a pivot of nothing",
+   "by": "resourcing-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "QA reference · Sync guide :: a file:// page reports that file watching is available",
-    "QA reference · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
-    "QA reference · Sync guide :: the guide reports watching unavailable and offers nothing to do about it",
-    "Real export · Sync guide :: a file:// page reports that file watching is available",
-    "Real export · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
-    "Real export · Sync guide :: the guide reports watching unavailable and offers nothing to do about it",
-    "The schedule cannot be computed, so nothing on this tab can ",
-    "The schedule cannot be computed, so noth",
-    "⚠ Cannot calculate — 2 activities wait o"
-   ]
-  },
-  {
-   "what": "sync guide: never says the watched file is on your own disk, so uploading to Drive looks right",
-   "by": "dialog-sweep.js",
-   "survived": false,
-   "skipped": false,
-   "findings": [
-    "QA reference · Sync guide :: never says the watched file is on your own disk, which is the fact the whole setup rests on",
-    "Real export · Sync guide :: never says the watched file is on your own disk, which is the fact the whole setup rests on",
-    "The schedule cannot be computed, so nothing on this tab can ",
-    "The schedule cannot be computed, so noth",
-    "⚠ Cannot calculate — 2 activities wait o"
-   ]
-  },
-  {
-   "what": "sync guide: the Mac fix for a picker that cannot see the drive is gone",
-   "by": null,
-   "survived": true,
-   "skipped": false,
-   "findings": []
-  },
-  {
-   "what": "sync guide: unreachable — nothing on the page opens it",
-   "by": "dialog-sweep.js",
-   "survived": false,
-   "skipped": false,
-   "findings": [
-    "QA reference · Sync guide :: nothing on the page opens the guide, so it is unreachable",
-    "Real export · Sync guide :: nothing on the page opens the guide, so it is unreachable",
-    "The schedule cannot be computed, so nothing on this tab can ",
-    "The schedule cannot be computed, so noth",
-    "⚠ Cannot calculate — 2 activities wait o"
+    "Ledger :: clicking the only selected measure off changed the selection to \"planH\" — the last one has to stay put rather than silently moving you to another numb",
+    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
+    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
    ]
   }
  ]

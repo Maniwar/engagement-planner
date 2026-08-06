@@ -3033,7 +3033,7 @@
         <div class="modal-header"><h3 id="sowSecTitle">Sections in this SOW</h3>
           <button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeOverlay('sowSecModal')" aria-label="Close dialog">✕</button></div>
         <div class="modal-body">
-          <p class="help-text" style="margin:0 0 0.5rem">Untick a section to leave it out. The rest <b>renumber as you click</b>, and every cross-reference in the document re-points to wherever its section actually lands — so §11 stays change control however many sections are above it.</p>
+          <p class="help-text" style="margin:0 0 0.5rem">Untick a section to leave it out, or use <b>↑ ↓</b> to reorder. The rest <b>renumber as you click</b>, and every cross-reference in the document re-points to wherever its section actually lands — so change control keeps its right number however many sections move above it.</p>
           <div id="sowSecList" style="border:1px solid var(--border);border-radius:8px;padding:0 0.6rem"></div>
           <p class="help-text" id="sowSecSummary" style="margin:0.5rem 0 0;font-weight:600"></p>
           <!-- What goes INSIDE a section, not just which sections. Dropping the
@@ -3049,6 +3049,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" onclick="sowAllSections()">Include everything</button>
+          <button class="btn-secondary" id="sowResetOrderBtn" onclick="sowResetOrder()" title="Put the sections back in the order the tool ships with">↕ Reset order</button>
           <button class="btn-primary" onclick="closeOverlay('sowSecModal')">Done</button>
         </div>
       </div>
@@ -12323,10 +12324,27 @@ Or say what you want, in your own words:
               + 'Cost cannot exist before estimates do.';
             bud.cta = { label: 'Add estimates', act: "switchTab('tasks')" };
           } else if (unrated) {
+            /* WHICH RATE. There are two — cost and bill — and this bar is the
+               COST side, so "no day rate" sent somebody who had filled in every
+               bill rate back to the roster to look for something already there.
+               Worse when the rates were typed per hour: those convert perfectly
+               well, so "no DAY rate" reads as a complaint about the unit, which
+               is not the problem either. Naming the bill rates that ARE set is
+               what makes it read as a precise finding rather than an app that
+               cannot see its own data. */
+            const rows0 = billingData().rows.filter(r => !r.client);
+            const billedNotCosted = rows0.filter(r => !r.rate && r.bill > 0).length;
             bud.why = '<b>' + unrated + '</b> assigned ' + ptrPl(unrated, 'resource') + ' '
-              + (unrated === 1 ? 'has' : 'have') + ' no day rate, so the whole plan prices at <b>$0</b>. '
-              + 'That is a missing rate card, not a free project.';
-            bud.cta = { label: 'Set day rates', act: "resGoto('team')" };
+              + (unrated === 1 ? 'has' : 'have') + ' no <b>cost</b> rate'
+              + (billedNotCosted
+                  ? ' — but ' + (billedNotCosted === unrated ? 'their' : billedNotCosted + ' of them have a')
+                    + ' <b>bill</b> rate' + (billedNotCosted === unrated ? 's are set' : '') + '. Those are the two '
+                    + 'sides of a pair: the PRICE is fine, and what cannot be worked out is what delivery '
+                    + 'COSTS you — so margin, and this bar, have nothing to stand on.'
+                  : ', so the whole plan costs <b>$0</b>. That is a missing rate card, not a free project.')
+              + (rows0.some(r => resRateUnit(r.nm) === 'hour')
+                  ? ' <span class="help-text">(Hourly rates are converted at 8 h to the day — the unit is not the issue.)</span>' : '');
+            bud.cta = { label: 'Set cost rates', act: "resGoto('team')" };
           } else if (unassigned) {
             bud.why = '<b>' + unassigned + '</b> ' + ptrPl(unassigned, 'activity', 'activities')
               + ' ' + (unassigned === 1 ? 'has' : 'have') + ' nobody assigned, so there is no rate to '
@@ -28498,6 +28516,46 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
       saveLocal();
       renderSowSectionPicker();
     }
+    /* ORDER IS A DRAFTING DECISION, NOT A CONSTANT. The eleven sections were
+       emitted in source order, which encodes one house style — and a reviewer
+       who wants Commercial Terms up front, or Assumptions ahead of Scope, had
+       no way to say so short of editing the generated HTML by hand after every
+       regeneration. Numbering is already derived from POSITION and every
+       cross-reference resolves from the same map, so reordering re-points
+       {{sec:change}} for free: nothing downstream needs to know what moved.
+
+       Merged rather than replaced, because a saved order predates any section
+       added to the product later. An unknown key is dropped; a missing one is
+       slotted back beside the neighbour it was designed to follow, since
+       appending it would quietly put a new confidentiality clause below the
+       signature block. */
+    function sowOrder() {
+      const known = SOW_SECTIONS.map(s => s.key);
+      const stored = (pricing && Array.isArray(pricing.sowOrder)) ? pricing.sowOrder.map(String) : [];
+      const out = stored.filter((k, i) => known.indexOf(k) >= 0 && stored.indexOf(k) === i);
+      known.forEach((k, i) => {
+        if (out.indexOf(k) >= 0) return;
+        let at = 0;
+        for (let j = i - 1; j >= 0; j--) { const p = out.indexOf(known[j]); if (p >= 0) { at = p + 1; break; } }
+        out.splice(at, 0, k);
+      });
+      return out;
+    }
+    function sowSectionsOrdered() {
+      return sowOrder().map(k => SOW_SECTIONS.find(s => s.key === k)).filter(Boolean);
+    }
+    function sowMoveSection(key, dir) {
+      const ord = sowOrder();
+      const i = ord.indexOf(String(key));
+      const j = i + (dir < 0 ? -1 : 1);
+      if (i < 0 || j < 0 || j >= ord.length) return;
+      ord.splice(j, 0, ord.splice(i, 1)[0]);
+      pricing.sowOrder = ord;
+      saveLocal();
+      renderSowSectionPicker();
+    }
+    function sowOrderChanged() { return sowOrder().join(',') !== SOW_SECTIONS.map(s => s.key).join(','); }
+    function sowResetOrder() { delete pricing.sowOrder; saveLocal(); renderSowSectionPicker(); }
     function sowAllSections() { pricing.sowOff = []; saveLocal(); renderSowSectionPicker(); }
     function sowSetDeliveryStories(on) { pricing.sowDeliveryStories = !!on; saveLocal(); renderSowSectionPicker(); }
     function sowOpenSections() {
@@ -28524,25 +28582,44 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
         };
       } catch (e) { empties = {}; }
       const off = sowOffSet();
+      const ordered = sowSectionsOrdered();
       let n = 0;
-      host.innerHTML = SOW_SECTIONS.map(sec => {
+      host.innerHTML = ordered.map((sec, idx) => {
         const on = !off.has(sec.key);
         const empty = !!empties[sec.key];
         const num = (on && !empty) ? ++n : null;
+        /* THE ROW IS NO LONGER A LABEL. A <label> hands every click inside it to
+           its control, so a move button placed in one would reorder the section
+           AND tick it off in the same press. Only the checkbox and its text are
+           the label now; the buttons sit outside it. */
+        const mv = (dir, glyph, tip, dis) =>
+          `<button type="button" class="btn-sm btn-ghost" style="padding:0 0.35rem;line-height:1.4;${dis ? 'opacity:0.25;cursor:default' : ''}"
+             ${dis ? 'disabled' : ''} onclick="sowMoveSection('${sec.key}',${dir})"
+             title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${glyph}</button>`;
         /* flex:0 0 auto on the control and the number, or the checkbox stretches
            to fill the row and the text it labels collapses to a column of single
            letters. A default flex item grows; only the text should. */
-        return `<label style="display:flex;gap:0.6rem;align-items:flex-start;padding:0.45rem 0.2rem;border-bottom:1px solid var(--border);cursor:pointer;${on ? '' : 'opacity:0.5'}">
-          <input type="checkbox" ${on ? 'checked' : ''} onchange="sowToggleSection('${sec.key}')" style="flex:0 0 auto;width:16px;height:16px;margin-top:0.15rem" />
-          <span style="flex:0 0 2.2rem;font-variant-numeric:tabular-nums;font-weight:700;color:${num ? 'var(--primary)' : '#94a3b8'}">${num ? num + '.' : '—'}</span>
-          <span style="flex:1 1 auto;min-width:0">
-            <span style="font-weight:600">${escapeHtml(sec.name)}</span>
-            ${sec.heavy && !on ? ' <span class="badge badge-warn" style="font-size:0.6rem">load-bearing</span>' : ''}
-            <span class="help-text" style="display:block;font-size:0.75rem">${escapeHtml(sec.note)}${empty ? ' — nothing recorded, so it would not print anyway' : ''}</span>
-          </span></label>`;
+        return `<div style="display:flex;gap:0.4rem;align-items:flex-start;padding:0.45rem 0.2rem;border-bottom:1px solid var(--border);${on ? '' : 'opacity:0.5'}">
+          <label style="display:flex;gap:0.6rem;align-items:flex-start;flex:1 1 auto;min-width:0;cursor:pointer">
+            <input type="checkbox" ${on ? 'checked' : ''} onchange="sowToggleSection('${sec.key}')" style="flex:0 0 auto;width:16px;height:16px;margin-top:0.15rem" />
+            <span style="flex:0 0 2.2rem;font-variant-numeric:tabular-nums;font-weight:700;color:${num ? 'var(--primary)' : '#94a3b8'}">${num ? num + '.' : '—'}</span>
+            <span style="flex:1 1 auto;min-width:0">
+              <span style="font-weight:600">${escapeHtml(sec.name)}</span>
+              ${sec.heavy && !on ? ' <span class="badge badge-warn" style="font-size:0.6rem">load-bearing</span>' : ''}
+              <span class="help-text" style="display:block;font-size:0.75rem">${escapeHtml(sec.note)}${empty ? ' — nothing recorded, so it would not print anyway' : ''}</span>
+            </span>
+          </label>
+          <span style="flex:0 0 auto;display:flex;gap:0.1rem;margin-top:0.1rem">
+            ${mv(-1, '↑', 'Move ' + sec.name + ' earlier', idx === 0)}
+            ${mv(1, '↓', 'Move ' + sec.name + ' later', idx === ordered.length - 1)}
+          </span></div>`;
       }).join('');
       const dv = document.getElementById('sowDelivStories');
       if (dv) dv.checked = sowWantsDeliveryStories();
+      // the reset is meaningless until something has been moved, and a button
+      // that does nothing is worse than one that is not there
+      const rb = document.getElementById('sowResetOrderBtn');
+      if (rb) rb.style.display = sowOrderChanged() ? '' : 'none';
       const dropped = SOW_SECTIONS.filter(x => off.has(x.key));
       const heavy = dropped.filter(x => x.heavy);
       const sum = document.getElementById('sowSecSummary');
@@ -28766,6 +28843,18 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
       add('change', 'Change Control',
         `<p style="font-size:13px">${n.changeControl || 'Changes to scope, schedule, or price require a written change order describing the impact, approved by both parties before work proceeds.'}</p>`);
 
+      /* THE DRAFTER'S ORDER, APPLIED HERE AND NOWHERE ELSE. Sections are built
+         in source order above because that is the readable way to write them;
+         the document's order is a stored preference. Sorting once, immediately
+         before numbering, means every {{sec:key}} in every body resolves from
+         the same map and re-points itself — no section needs to know it moved,
+         and a section absent from the order list keeps its source position
+         rather than being dropped. */
+      const ord = sowOrder();
+      secs.sort((a, b) => {
+        const ia = ord.indexOf(a.key), ib = ord.indexOf(b.key);
+        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+      });
       const numOf = {};
       secs.forEach((s, i) => { numOf[s.key] = i + 1; });
       const html = secs.map((s, i) =>
@@ -32765,8 +32854,38 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
     const LEDGER_MAX_COLS = 40;
     let ledgerView = null;
     function ledgerDefaults() {
-      return { row: 'person', row2: 'none', period: 'week', measure: 'planH',
+      return { row: 'person', row2: 'none', period: 'week', measures: ['planH'],
         orgs: [], people: [], side: 'all', from: '', to: '', q: '' };
+    }
+    /* ONE NUMBER AT A TIME IS NOT HOW ANYBODY READS A BILLING TABLE. "How many
+       hours, and what does that bill at" is a single question, and answering it
+       meant flipping the control back and forth and holding the first answer in
+       your head. Several measures can be on at once; each period column becomes
+       a small group of sub-columns.
+
+       Migrating rather than resetting: a view saved before this carried a single
+       `measure` string, and somebody who set one up should find it still set
+       up. At least one always stays on — a pivot of nothing is a blank screen
+       with no way back. */
+    function ledgerMeasures(s) {
+      const st = s || ledgerState();
+      let ms = Array.isArray(st.measures) ? st.measures.slice() : [];
+      if (!ms.length && st.measure) ms = [st.measure];
+      ms = ms.filter(k => LEDGER_MEASURES[k]);
+      return ms.length ? ms : ['planH'];
+    }
+    function ledgerToggleMeasure(k) {
+      const st = ledgerState();
+      const ms = ledgerMeasures(st);
+      const i = ms.indexOf(k);
+      if (i >= 0) { if (ms.length === 1) return; ms.splice(i, 1); } else {
+        // keep them in the declared order, so the columns never reshuffle
+        // themselves under the reader as a side effect of which was clicked first
+        const order = Object.keys(LEDGER_MEASURES);
+        ms.push(k); ms.sort((x, y) => order.indexOf(x) - order.indexOf(y));
+      }
+      delete st.measure;
+      ledgerSet('measures', ms);
     }
     /* The view is a VIEW, not plan data: it lives in localStorage under its own
        key rather than in the document, so choosing a cut never dirties the file,
@@ -32929,7 +33048,8 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
       });
     }
     function ledgerPivot(s) {
-      const M = LEDGER_MEASURES[s.measure] || LEDGER_MEASURES.planH;
+      const mKeys = ledgerMeasures(s);
+      const M = LEDGER_MEASURES[mKeys[0]];      // the leading measure orders the rows
       const all = ledgerFacts();
       const facts = ledgerFiltered(all, s);
       const colLabel = new Map();
@@ -32940,12 +33060,18 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         if (!colLabel.has(p.k)) colLabel.set(p.k, p.label);
         const a = ledgerDimVal(f, s.row);
         const b = (s.row2 === 'none' || s.row2 === s.row) ? '' : ledgerDimVal(f, s.row2);
-        const v = Number(M.of(f)) || 0;
-        const g = groups.get(a) || { a: a, total: 0, subs: new Map() };
-        g.total += v;
-        if (b) g.subs.set(b, (g.subs.get(b) || 0) + v);
+        const g = groups.get(a) || { a: a, total: 0, subs: new Map(), tot: {}, subTot: {} };
+        mKeys.forEach(mk => {
+          const v = Number(LEDGER_MEASURES[mk].of(f)) || 0;
+          g.tot[mk] = (g.tot[mk] || 0) + v;
+          if (b) { g.subTot[mk] = g.subTot[mk] || {}; g.subTot[mk][b] = (g.subTot[mk][b] || 0) + v; }
+          const ck = ledgerKey4(a, b, p.k, mk);
+          cells.set(ck, (cells.get(ck) || 0) + v);
+        });
+        const v0 = Number(M.of(f)) || 0;
+        g.total += v0;
+        if (b) g.subs.set(b, (g.subs.get(b) || 0) + v0);
         groups.set(a, g);
-        cells.set(ledgerKey(a, b, p.k), (cells.get(ledgerKey(a, b, p.k)) || 0) + v);
       });
       let colKeys = [...colLabel.keys()].sort();
       const droppedCols = Math.max(0, colKeys.length - LEDGER_MAX_COLS);
@@ -32955,16 +33081,23 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
       const rows = [...groups.values()].sort((x, y) => Math.abs(y.total) - Math.abs(x.total)
         || String(x.a).localeCompare(String(y.a)));
       const grand = rows.reduce((t, r) => t + r.total, 0);
-      return { M: M, facts: facts, allFacts: all, rows: rows, colKeys: colKeys,
+      return { M: M, mKeys: mKeys, facts: facts, allFacts: all, rows: rows, colKeys: colKeys,
         colLabel: colLabel, cells: cells, grand: grand, droppedCols: droppedCols };
     }
     // JSON, not a delimiter character: a person named "A|B" must not collide
     // with the pair (A, B), and a raw control byte inside an HTML file is its
     // own small hazard for every tool that later touches the file.
     function ledgerKey(a, b, ck) { return JSON.stringify([String(a), String(b), String(ck)]); }
-    function ledgerCell(pv, a, b, ck) { return pv.cells.get(ledgerKey(a, b, ck)) || 0; }
-    function ledgerRowTotal(pv, a, b) {
-      return pv.colKeys.reduce((t, ck) => t + ledgerCell(pv, a, b, ck), 0);
+    function ledgerKey4(a, b, ck, mk) { return JSON.stringify([String(a), String(b), String(ck), String(mk)]); }
+    function ledgerCell(pv, a, b, ck, mk) { return pv.cells.get(ledgerKey4(a, b, ck, mk || pv.mKeys[0])) || 0; }
+    // a group's own figure plus everything nested under it, for one measure
+    function ledgerGroupCell(pv, g, ck, mk) {
+      let v = ledgerCell(pv, g.a, '', ck, mk);
+      Object.keys((g.subTot && g.subTot[mk]) || {}).forEach(b => { v += ledgerCell(pv, g.a, b, ck, mk); });
+      return v;
+    }
+    function ledgerGroupTotal(pv, g, mk) {
+      return (g.tot && g.tot[mk]) || 0;
     }
     function ledgerHtml() {
       if (!leafTasks().some(t => !t.isSummary)) return '';
@@ -32992,6 +33125,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         + '<select id="' + id + '" class="mini-inp" style="min-width:9.5rem;width:100%" onchange="ledgerSet(\'' + key + '\',this.value)">'
         + opts.map(o => '<option value="' + esc(o[0]) + '"' + (String(s[key]) === String(o[0]) ? ' selected' : '') + '>'
             + esc(o[1]) + '</option>').join('') + '</select></label>';
+      const MSEL = ledgerMeasures(s);
       const chip = (key, val, label, on) => '<button type="button" class="btn-sm" style="border-radius:999px;padding:2px 10px;'
         + (on ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : 'background:#fff;color:var(--text)')
         + '" onclick="ledgerToggle(\'' + key + '\',' + JSON.stringify(val).replace(/"/g, '&quot;') + ')">'
@@ -33005,7 +33139,27 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         + sel('lgRow', 'row', LEDGER_DIMS)
         + sel('lgRow2', 'row2', [['none', '— nothing —']].concat(LEDGER_DIMS))
         + sel('lgPer', 'period', LEDGER_PERIODS)
-        + sel('lgMeas', 'measure', Object.keys(LEDGER_MEASURES).map(k => [k, LEDGER_MEASURES[k].label]))
+        /* SIX MEASURES BEHIND A CLOSED DROPDOWN LABELLED "Number" is three of
+           them — every money figure this panel exists to produce — invisible
+           until somebody thinks to open it. The panel's own intro promises that
+           "Billed $ totals to the same figure as the billing table", and the
+           control was sitting on Planned hours with no sign the money was one
+           click away. Shown as a segmented row instead: what is available and
+           what is selected, both legible without clicking anything. */
+        + '<div style="display:flex;flex-direction:column;gap:2px">'
+        + '<span class="help-text" style="' + LBL + '">Number <span style="text-transform:none;font-weight:400">(pick more than one)</span></span>'
+        + '<span style="display:inline-flex;flex-wrap:wrap;gap:2px;background:#fff;border:1px solid var(--border);'
+        + 'border-radius:7px;padding:2px">'
+        + Object.keys(LEDGER_MEASURES).map(k => {
+            const M2 = LEDGER_MEASURES[k], on = MSEL.indexOf(k) >= 0;
+            return '<button type="button" class="btn-sm" style="border:0;border-radius:5px;padding:2px 8px;'
+              + 'font-size:0.75rem;white-space:nowrap;'
+              + (on ? 'background:var(--primary);color:#fff;font-weight:600' : 'background:transparent;color:var(--text)')
+              + '" onclick="ledgerToggleMeasure(' + JSON.stringify(k).replace(/"/g, '&quot;') + ')"'
+              + ' title="' + esc(M2.tip) + '"' + (on ? ' aria-current="true"' : '') + '>'
+              + esc(M2.label) + '</button>';
+          }).join('')
+        + '</span></div>'
         + sel('lgSide', 'side', [['all', 'Everyone'], ['billable', 'Billable only'], ['client', 'Client-side only']])
         /* A date box narrower than "mm/dd/yyyy" renders as "mm/□" and a search
            box at its intrinsic width showed six characters of a placeholder
@@ -33037,9 +33191,13 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
               : 'No activity carries assigned people with an estimate yet.') + '</p></div>';
       }
       const M = pv.M;
-      const num = v => (Math.abs(v) < 0.005) ? '<span class="help-text">·</span>' : esc(M.fmt(v));
+      const MK = pv.mKeys;
+      const multi = MK.length > 1;
+      const num = (v, mk) => (Math.abs(v) < 0.005) ? '<span class="help-text">·</span>'
+        : esc(LEDGER_MEASURES[mk || MK[0]].fmt(v));
       const th = (txt, extra) => '<th style="text-align:right;white-space:nowrap' + (extra || '') + '">' + txt + '</th>';
-      const cellTd = (v, cls) => '<td class="wl-td' + (cls ? ' ' + cls : '') + '" style="text-align:right;white-space:nowrap">' + num(v) + '</td>';
+      const cellTd = (v, cls, mk) => '<td class="wl-td' + (cls ? ' ' + cls : '')
+        + '" style="text-align:right;white-space:nowrap">' + num(v, mk) + '</td>';
       const twoLevel = s.row2 !== 'none' && s.row2 !== s.row;
       /* A TABLE WITH NO MIN-WIDTH DOES NOT SCROLL, IT CRUSHES. At thirty-one day
          columns the browser honoured the container instead: headers overlapped
@@ -33048,33 +33206,52 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
          was scrollable, because technically it was, by four pixels. Stating the
          width the columns actually need is what turns that back into a wide
          table you scroll sideways. */
-      const minW = 'min-width:' + (14 + pv.colKeys.length * 5.5 + 6).toFixed(1) + 'rem';
-      const head = '<thead><tr><th style="min-width:12rem;white-space:nowrap">'
-        + esc((LEDGER_DIMS.find(d => d[0] === s.row) || [, 'Rows'])[1])
-        + (twoLevel ? ' → ' + esc((LEDGER_DIMS.find(d => d[0] === s.row2) || [, ''])[1]) : '') + '</th>'
-        + pv.colKeys.map(k => th(esc(pv.colLabel.get(k)))).join('')
-        + th('Total', ';background:#f1f5f9') + '</tr></thead>';
+      const minW = 'min-width:' + (14 + (pv.colKeys.length + 1) * MK.length * 5.5).toFixed(1) + 'rem';
+      const rowHdr = esc((LEDGER_DIMS.find(d => d[0] === s.row) || [, 'Rows'])[1])
+        + (twoLevel ? ' → ' + esc((LEDGER_DIMS.find(d => d[0] === s.row2) || [, ''])[1]) : '');
+      /* WITH SEVERAL MEASURES the period is no longer a column, it is a GROUP of
+         columns, and a single header row would leave six numbers under one date
+         with nothing saying which is hours and which is money. So a spanning
+         period row on top and the measure names beneath it — and with one
+         measure selected the second row is dropped entirely, because a header
+         that repeats "Billed $" across every column is noise. */
+      const head = '<thead>'
+        + '<tr><th style="min-width:12rem;white-space:nowrap"' + (multi ? ' rowspan="2"' : '') + '>' + rowHdr + '</th>'
+        + pv.colKeys.map(k => multi
+            ? '<th colspan="' + MK.length + '" style="text-align:center;white-space:nowrap;border-left:1px solid var(--border)">'
+              + esc(pv.colLabel.get(k)) + '</th>'
+            : th(esc(pv.colLabel.get(k)))).join('')
+        + (multi
+            ? '<th colspan="' + MK.length + '" style="text-align:center;white-space:nowrap;background:#f1f5f9;border-left:1px solid var(--border)">Total</th>'
+            : th('Total', ';background:#f1f5f9'))
+        + '</tr>'
+        + (multi
+            ? '<tr>' + pv.colKeys.concat(['__tot']).map((k, ci) => MK.map((mk, mi) =>
+                '<th style="text-align:right;white-space:nowrap;font-weight:600;font-size:0.68rem;color:var(--muted)'
+                + (mi === 0 ? ';border-left:1px solid var(--border)' : '')
+                + (k === '__tot' ? ';background:#f1f5f9' : '') + '" title="' + esc(LEDGER_MEASURES[mk].tip) + '">'
+                + esc(LEDGER_MEASURES[mk].label) + '</th>').join('')).join('') + '</tr>'
+            : '')
+        + '</thead>';
+      const rowCells = (g, b) => pv.colKeys.map(k => MK.map(mk =>
+          cellTd(b == null ? ledgerGroupCell(pv, g, k, mk) : ledgerCell(pv, g.a, b, k, mk),
+                 b == null ? 'wl-tot' : '', mk)).join('')).join('')
+        + MK.map(mk => cellTd(b == null ? ledgerGroupTotal(pv, g, mk)
+            : ((g.subTot && g.subTot[mk] && g.subTot[mk][b]) || 0), 'wl-tot', mk)).join('');
       const body = pv.rows.map(g => {
-        const grpCells = pv.colKeys.map(k => {
-          let v = ledgerCell(pv, g.a, '', k);
-          if (twoLevel) [...g.subs.keys()].forEach(b => { v += ledgerCell(pv, g.a, b, k); });
-          return cellTd(v, 'wl-tot');
-        }).join('');
         const grpRow = '<tr><td class="wl-td" style="font-weight:700;white-space:nowrap">' + esc(g.a) + '</td>'
-          + grpCells + cellTd(g.total, 'wl-tot') + '</tr>';
+          + rowCells(g, null) + '</tr>';
         if (!twoLevel) return grpRow;
         const subs = [...g.subs.entries()].sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]) || String(x[0]).localeCompare(String(y[0])));
-        return grpRow + subs.map(([b, tot]) => '<tr><td class="wl-td" style="padding-left:1.6rem;color:var(--muted);white-space:nowrap">'
-          + '↳ ' + esc(b) + '</td>'
-          + pv.colKeys.map(k => cellTd(ledgerCell(pv, g.a, b, k))).join('')
-          + cellTd(tot) + '</tr>').join('');
+        return grpRow + subs.map(([b]) => '<tr><td class="wl-td" style="padding-left:1.6rem;color:var(--muted);white-space:nowrap">'
+          + '↳ ' + esc(b) + '</td>' + rowCells(g, b) + '</tr>').join('');
       }).join('');
-      const foot = '<tfoot><tr><td class="wl-td wl-tot" style="white-space:nowrap">Total — ' + esc(M.label) + '</td>'
-        + pv.colKeys.map(k => cellTd(pv.rows.reduce((t, g) => {
-            let v = ledgerCell(pv, g.a, '', k);
-            if (twoLevel) [...g.subs.keys()].forEach(b => { v += ledgerCell(pv, g.a, b, k); });
-            return t + v; }, 0), 'wl-tot')).join('')
-        + cellTd(pv.grand, 'wl-tot') + '</tr></tfoot>';
+      const foot = '<tfoot><tr><td class="wl-td wl-tot" style="white-space:nowrap">Total'
+        + (multi ? '' : ' — ' + esc(M.label)) + '</td>'
+        + pv.colKeys.map(k => MK.map(mk =>
+            cellTd(pv.rows.reduce((t, g) => t + ledgerGroupCell(pv, g, k, mk), 0), 'wl-tot', mk)).join('')).join('')
+        + MK.map(mk => cellTd(pv.rows.reduce((t, g) => t + ledgerGroupTotal(pv, g, mk), 0), 'wl-tot', mk)).join('')
+        + '</tr></tfoot>';
       const notes = [];
       if (pv.droppedCols) notes.push('<span style="color:var(--warn)">⚠ ' + pv.droppedCols + ' further column'
         + (pv.droppedCols === 1 ? ' is' : 's are') + ' not shown — this table stops at ' + LEDGER_MAX_COLS
@@ -33084,12 +33261,15 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
          the billing table's Σ Total to the dollar; if it ever does not, one of
          the two is wrong and the reader is told which figure to distrust rather
          than left to notice on their own. */
-      if (s.measure === 'billed' && !ledgerFiltersOn()) {
+      if (MK.indexOf('billed') >= 0 && !ledgerFiltersOn()) {
         let bt = null;
         try { bt = billingData().totBill; } catch (e) {}
-        if (bt != null) notes.push(Math.abs(bt - pv.grand) <= 1
-          ? '✓ Ties to the billing table below: ' + fmtMoney(pv.grand) + '.'
-          : '<span style="color:var(--critical)">⚠ This totals ' + fmtMoney(pv.grand)
+        // with several measures on, pv.grand is the LEADING one; the tie-out is
+        // a statement about Billed specifically, so it reads Billed's own total
+        const billTot = pv.rows.reduce((t, g) => t + ledgerGroupTotal(pv, g, 'billed'), 0);
+        if (bt != null) notes.push(Math.abs(bt - billTot) <= 1
+          ? '✓ Ties to the billing table below: ' + fmtMoney(billTot) + '.'
+          : '<span style="color:var(--critical)">⚠ This totals ' + fmtMoney(billTot)
             + ' but the billing table below totals ' + fmtMoney(bt) + '. They are built from the same rates and '
             + 'should agree — treat both as suspect until the difference is explained.</span>');
       }

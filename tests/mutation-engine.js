@@ -1693,6 +1693,28 @@ const MUTANTS = [
      a rival to it — a fourth money surface that disagrees with the other three,
      which is worse than not having it. */
 
+  /* Several measures at once, and an order the drafter chose. */
+
+  { what: 'ledger: the cell key forgets the measure, so every column shows the same figure',
+    find: '    function ledgerKey4(a, b, ck, mk) { return JSON.stringify([String(a), String(b), String(ck), String(mk)]); }',
+    with: '    function ledgerKey4(a, b, ck, mk) { return JSON.stringify([String(a), String(b), String(ck)]); }' },
+
+  { what: 'ledger: several measures draw one header row, so no column says which number it is',
+    find: "        + (multi\n            ? '<tr>' + pv.colKeys.concat(['__tot'])",
+    with: "        + (false\n            ? '<tr>' + pv.colKeys.concat(['__tot'])" },
+
+  { what: 'ledger: the last measure can be switched off, leaving a pivot of nothing',
+    find: '      if (i >= 0) { if (ms.length === 1) return; ms.splice(i, 1); } else {',
+    with: '      if (i >= 0) { ms.splice(i, 1); } else {' },
+
+  { what: 'SOW: the drafter reorders the sections and the document ignores it',
+    find: '      const ord = sowOrder();\n      secs.sort((a, b) => {',
+    with: '      const ord = SOW_SECTIONS.map(x => x.key);\n      secs.sort((a, b) => {' },
+
+  { what: 'SOW: a reordered section keeps its old number, so cross-references point at the wrong clause',
+    find: '      const numOf = {};\n      secs.forEach((s, i) => { numOf[s.key] = i + 1; });',
+    with: '      const numOf = {};\n      SOW_SECTIONS.forEach((s, i) => { numOf[s.key] = i + 1; });' },
+
   /* A working transport nobody can start. Each of these puts the guide back to
      the state it was in when it could not be set up from a Mac. */
 
@@ -1753,11 +1775,11 @@ const MUTANTS = [
     with: '          const rate = getRate(pr.name), bill = getBillRate(pr.name);' },
 
   { what: 'ledger: the second grouping level is chosen and its rows are never drawn',
-    find: "        return grpRow + subs.map(([b, tot]) =>",
-    with: "        return grpRow + [].map(([b, tot]) =>" },
+    find: "        return grpRow + subs.map(([b]) =>",
+    with: "        return grpRow + [].map(([b]) =>" },
 
   { what: 'ledger: the tie-out to the billing table is never printed, so nobody can tell the two agree',
-    find: "      if (s.measure === 'billed' && !ledgerFiltersOn()) {",
+    find: "      if (MK.indexOf('billed') >= 0 && !ledgerFiltersOn()) {",
     with: '      if (false) {' },
 
   { what: 'ledger: a person named "A" and the pair (A, B) collide in one cell',

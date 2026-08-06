@@ -685,7 +685,7 @@ const DATA = FIXTURE();
         cols: p.colKeys.length, facts: p.facts.length, all: p.allFacts.length }; };
       const out = {};
 
-      setAll({ measure: 'billed', period: 'all', row: 'person' });
+      setAll({ measures: ['billed'], period: 'all', row: 'person' });
       const led = sum(st());
       const bt = billingData().totBill;
       out.tieGap = Math.abs(led.grand - bt);
@@ -699,7 +699,7 @@ const DATA = FIXTURE();
          if it does not, the per-day division has lost or duplicated work, which
          is exactly the defect the weekly timesheet had. */
       ['day', 'week', 'month', 'quarter'].forEach(p => {
-        setAll({ measure: 'billed', period: p, row: 'person' });
+        setAll({ measures: ['billed'], period: p, row: 'person' });
         const g = sum(st());
         if (Math.abs(g.grand - led.grand) > 1)
           say('Ledger', 'splitting the columns by ' + p + ' changes the total from '
@@ -709,7 +709,7 @@ const DATA = FIXTURE();
 
       // Every row dimension must also preserve the total: they are cuts of one set.
       LEDGER_DIMS.forEach(([d]) => {
-        setAll({ measure: 'billed', period: 'all', row: d });
+        setAll({ measures: ['billed'], period: 'all', row: d });
         const g = sum(st());
         if (Math.abs(g.grand - led.grand) > 1)
           say('Ledger', 'grouping the rows by "' + d + '" changes the total to ' + g.grand.toFixed(0)
@@ -726,9 +726,9 @@ const DATA = FIXTURE();
       if (people.length < 2) say('Ledger', 'the fixture has fewer than two people, so the person '
         + 'filter cannot be shown to exclude anything and this check is vacuous');
       else {
-        setAll({ measure: 'planH', period: 'all', row: 'person' });
+        setAll({ measures: ['planH'], period: 'all', row: 'person' });
         const whole = sum(st());
-        setAll({ measure: 'planH', period: 'all', row: 'person', people: [people[0]] });
+        setAll({ measures: ['planH'], period: 'all', row: 'person', people: [people[0]] });
         const one = sum(st());
         out.filtered = one.facts;
         if (!(one.facts > 0)) say('Ledger', 'filtering to "' + people[0] + '" excluded everything');
@@ -754,9 +754,9 @@ const DATA = FIXTURE();
       else {
         const keptRate = clientWho.map(w => (resources[w] || {}).billRate);
         clientWho.forEach(w => { if (!resources[w]) resources[w] = { capacity: 100 }; resources[w].billRate = 1500; });
-        setAll({ measure: 'planH', period: 'all', row: 'person', side: 'client' });
+        setAll({ measures: ['planH'], period: 'all', row: 'person', side: 'client' });
         const ch = sum(st());
-        setAll({ measure: 'billed', period: 'all', row: 'person', side: 'client' });
+        setAll({ measures: ['billed'], period: 'all', row: 'person', side: 'client' });
         const cm = sum(st());
         if (!(ch.grand > 0)) say('Ledger', 'client-side people show no hours, though they do scheduled work');
         if (Math.abs(cm.grand) > 0.5) say('Ledger', 'client-side people carry a bill rate and the ledger '
@@ -775,9 +775,9 @@ const DATA = FIXTURE();
         const keptOrg2 = (resources[subject] || {}).org, keptId2 = (resources[subject] || {}).orgId;
         if (!resources[subject]) resources[subject] = { capacity: 100 };
         resources[subject].orgId = ''; resources[subject].org = 'ZZ Test Partners Ltd';
-        setAll({ measure: 'planH', period: 'all', row: 'person' });
+        setAll({ measures: ['planH'], period: 'all', row: 'person' });
         const whole = sum(st());
-        setAll({ measure: 'planH', period: 'all', row: 'person', orgs: ['ZZ Test Partners Ltd'] });
+        setAll({ measures: ['planH'], period: 'all', row: 'person', orgs: ['ZZ Test Partners Ltd'] });
         const one = sum(st());
         out.orgFiltered = one.facts;
         if (!(one.facts > 0)) say('Ledger', 'filtering to a company that one person belongs to excluded everything');
@@ -807,21 +807,21 @@ const DATA = FIXTURE();
       if (days.length < 2) out.dateCheck = 'vacuous — fewer than two dated facts';
       else {
         const mid = new Date(days[Math.floor(days.length / 2)]);
-        setAll({ measure: 'planH', period: 'all', row: 'person', from: fmtISO(mid) });
+        setAll({ measures: ['planH'], period: 'all', row: 'person', from: fmtISO(mid) });
         const late = sum(st());
         if (!(late.facts > 0)) say('Ledger', 'a From date at the midpoint of the plan excluded every row');
         if (!(late.facts < days.length)) say('Ledger', 'a From date at the midpoint of the plan excluded nothing');
       }
 
       // The screen itself, not only the arithmetic behind it.
-      setAll({ measure: 'billed', period: 'week', row: 'company', row2: 'person' });
+      setAll({ measures: ['billed'], period: 'week', row: 'company', row2: 'person' });
       const html = ledgerInnerHtml();
       const flat = strip(html);
       if (!/Total — Billed \$/.test(flat)) say('Ledger', 'the table draws no labelled total row');
       if (flat.indexOf('↳') < 0) say('Ledger', 'a second grouping level was chosen and no sub-rows were drawn');
       if (!/Company/.test(flat)) say('Ledger', 'the header does not name the dimension the rows are grouped by');
       if (html.indexOf('exportLedgerCSV()') < 0) say('Ledger', 'the view cannot be exported');
-      setAll({ measure: 'billed', period: 'all', row: 'person' });
+      setAll({ measures: ['billed'], period: 'all', row: 'person' });
       if (strip(ledgerInnerHtml()).indexOf('Ties to the billing table') < 0)
         say('Ledger', 'the unfiltered Billed view does not print its tie-out to the billing table');
       out.rendered = flat.length;
@@ -846,7 +846,7 @@ const DATA = FIXTURE();
           + 'for it — the Billed total is now short of the billing table by exactly the non-labour cost');
         else if (Math.abs(res.sum - 4321) > 0.5) say('Ledger', 'the 4,321 licence appears in the ledger as '
           + res.sum.toFixed(0));
-        setAll({ measure: 'billed', period: 'all', row: 'person' });
+        setAll({ measures: ['billed'], period: 'all', row: 'person' });
         const g4 = sum(st()), b4 = billingData().totBill;
         res.tieGap = Math.abs(g4.grand - b4);
         if (res.tieGap > 1) say('Ledger', 'with a fixed cost on the plan the ledger totals ' + g4.grand.toFixed(0)
@@ -854,6 +854,93 @@ const DATA = FIXTURE();
         if (kept4 == null) delete t4.fixedCost; else t4.fixedCost = kept4;
         return res;
       })();
+
+      ledgerView = null;
+      try { if (keep == null) localStorage.removeItem('pgt-ledger-view'); else localStorage.setItem('pgt-ledger-view', keep); } catch (e) {}
+      return out;
+    })();
+
+    /* ══ SEVERAL MEASURES AT ONCE IS A REGROUPING, NOT A RECOMPUTE ═════════
+       "How many hours, and what does that bill at" is one question, and
+       answering it used to mean flipping the control back and forth holding the
+       first number in your head. Adding a measure must not move any other one —
+       the risk in a multi-measure pivot is a cell keyed by row and period alone,
+       so the last measure written wins and every column quietly reports the
+       same figure. */
+    const multiMeasure = (() => {
+      const keep = localStorage.getItem('pgt-ledger-view');
+      const out = {};
+      const set = o => { ledgerView = Object.assign(ledgerDefaults(), o); };
+
+      set({ measures: ['billed'], period: 'week', row: 'person' });
+      const one = ledgerPivot(ledgerState());
+      const billOne = one.rows.reduce((t, g) => t + ledgerGroupTotal(one, g, 'billed'), 0);
+
+      set({ measures: ['planH', 'cost', 'billed', 'margin'], period: 'week', row: 'person' });
+      const many = ledgerPivot(ledgerState());
+      const billMany = many.rows.reduce((t, g) => t + ledgerGroupTotal(many, g, 'billed'), 0);
+      const costMany = many.rows.reduce((t, g) => t + ledgerGroupTotal(many, g, 'cost'), 0);
+      const margMany = many.rows.reduce((t, g) => t + ledgerGroupTotal(many, g, 'margin'), 0);
+      const hoursMany = many.rows.reduce((t, g) => t + ledgerGroupTotal(many, g, 'planH'), 0);
+      out.bill = Math.round(billMany); out.hours = Math.round(hoursMany);
+
+      if (Math.abs(billOne - billMany) > 1)
+        say('Ledger', 'Billed totals ' + billOne.toFixed(0) + ' alone and ' + billMany.toFixed(0)
+          + ' beside three other measures — adding a column changed a figure it must not touch');
+      if (Math.abs(margMany - (billMany - costMany)) > 1)
+        say('Ledger', 'with four measures on, margin is not billed minus cost');
+      /* THE DISCRIMINATING CASE. Hours and money are different magnitudes, so a
+         pivot that lost the measure from its key would report one of them in
+         every column and this equality would fail loudly. */
+      if (hoursMany > 0 && Math.abs(hoursMany - billMany) < 1)
+        say('Ledger', 'planned hours and billed money total the same number, which means the cells are not '
+          + 'keyed by measure and every column is showing one of them');
+      if (Math.abs(billMany - billingData().totBill) > 1)
+        say('Ledger', 'with several measures on, Billed no longer ties to the billing table');
+
+      /* READ THE CELLS, NOT THE ACCUMULATORS. The row totals are summed into
+         their own per-measure counters, so they stay right even when the CELL
+         key has lost the measure and every period column is showing the last
+         measure written. That is the whole defect a multi-measure pivot invites,
+         and it is invisible from the totals — it has to be checked by adding a
+         measure's period cells back up and comparing with that measure's own
+         total. */
+      many.mKeys.forEach(mk => {
+        const fromCells = many.rows.reduce((t, g) =>
+          t + many.colKeys.reduce((u, ck) => u + ledgerGroupCell(many, g, ck, mk), 0), 0);
+        const fromTotal = many.rows.reduce((t, g) => t + ledgerGroupTotal(many, g, mk), 0);
+        if (Math.abs(fromCells - fromTotal) > 1)
+          say('Ledger', 'the period columns for "' + mk + '" add up to ' + fromCells.toFixed(0)
+            + ' against a row total of ' + fromTotal.toFixed(0)
+            + ' — the cells are not keyed by measure, so the columns are showing a different number '
+            + 'from the one the total reports');
+      });
+
+      // the screen: a grouped header, and never a blank pivot
+      set({ measures: ['planH', 'billed'], period: 'week', row: 'person' });
+      const h2 = ledgerInnerHtml();
+      out.headRows = (h2.match(/<tr>/g) || []).length > 0 ? (h2.split('</thead>')[0].match(/<tr>/g) || []).length : 0;
+      if (out.headRows !== 2) say('Ledger', 'two measures draw ' + out.headRows
+        + ' header row(s) — without a second row nothing says which column is hours and which is money');
+      set({ measures: ['planH'], period: 'week', row: 'person' });
+      const h1 = ledgerInnerHtml();
+      if ((h1.split('</thead>')[0].match(/<tr>/g) || []).length !== 1)
+        say('Ledger', 'one measure still draws a second header row repeating the same label across every column');
+      /* CLICKING THE ONLY MEASURE OFF MUST DO NOTHING. Asserting that the
+         resolved list is non-empty proves nothing: the resolver falls back to
+         planned hours, so a build that let the list empty still LOOKS fine and
+         merely dumps you on a different measure without being asked. The
+         guarantee is that the selection is unchanged. */
+      set({ measures: ['billed'], period: 'all', row: 'person' });
+      ledgerToggleMeasure('billed');
+      const after = ledgerMeasures(ledgerState());
+      if (after.join(',') !== 'billed')
+        say('Ledger', 'clicking the only selected measure off changed the selection to "' + after.join(',')
+          + '" — the last one has to stay put rather than silently moving you to another number');
+      // a view saved before measures were a list must still work
+      ledgerView = Object.assign(ledgerDefaults(), { measure: 'cost', measures: undefined });
+      if (ledgerMeasures(ledgerState()).join(',') !== 'cost')
+        say('Ledger', 'a view saved with a single measure did not survive the change to a list');
 
       ledgerView = null;
       try { if (keep == null) localStorage.removeItem('pgt-ledger-view'); else localStorage.setItem('pgt-ledger-view', keep); } catch (e) {}
@@ -929,7 +1016,7 @@ const DATA = FIXTURE();
       return { rateCard: Math.round(pv.rateCard), fee: Math.round(pv.fee), gap: Math.round(pv.gap) };
     })();
 
-    return { contradictions: bad, ledger, timesheet, priceGap, count: n, recount: mine, built,
+    return { contradictions: bad, ledger, multiMeasure, timesheet, priceGap, count: n, recount: mine, built,
              overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, heatmap,
              lintFindings: lint.map(f => String(f.finding).slice(0, 80)) };
   });
