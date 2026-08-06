@@ -1,0 +1,18 @@
+# GitHub Pages serves this repo with Jekyll, which packs everything it does not
+# exclude into the deployment artifact. The product is one file — index.html —
+# and the test suite that guards it has no business being uploaded to a public
+# site on every push: it is a megabyte of probes and fixture plans that nobody
+# browsing the demo will ever request, and it makes each deploy slower for no
+# gain. Excluded here rather than deleted, because the suite belongs in the repo
+# beside the code it checks; it just does not belong on the web.
+exclude:
+  - tests
+  - fixtures
+  - README.md
+  - LICENSE
+
+# Nothing here is a Jekyll template — index.html is hand-written HTML that must
+# be served byte for byte. Keeping the include list empty and the exclude list
+# explicit means a new directory added later is published unless somebody says
+# otherwise, which is the safer default for a site whose whole content is one
+# page.

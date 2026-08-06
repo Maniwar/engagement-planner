@@ -1,0 +1,19 @@
+{
+ "at": "2026-08-06T22:00:46.790Z",
+ "full": false,
+ "ran": 1,
+ "of": 320,
+ "rows": [
+  {
+   "what": "ledger: the tie-out to the billing table is never printed, so nobody can tell the two agree",
+   "by": "resourcing-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "Ledger :: the unfiltered Billed view does not print its tie-out to the billing table",
+    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
+    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
+   ]
+  }
+ ]
+}

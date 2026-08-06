@@ -1,0 +1,768 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   DO THE CHARTS ADD UP.
+
+   Every other sweep asks whether a figure is right. This one asks whether the
+   pictures RECONCILE with the figures stated beside them — the question a
+   reader actually has when a bar says +$25,620 and a list under it shows five
+   numbers.
+
+   Each check is an identity that must hold on any plan, not a value that
+   happens to be true on one:
+
+     the reconciliation rows, plus cost with no activity, are the budget bar
+     booked minus plan-to-date IS that bar, computed independently
+     the spend curve ends at the envelope it claims to phase
+     the percentiles are ordered, and P80 really has 80% of runs at or below it
+     the resource headline is the sum of its own per-person rows
+     the billing rows add to the billing total, which is projectCost()
+
+   Run against both fixtures, so an identity that holds only on a tidy plan is
+   still caught by the messy one.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const { requirePlaywright, chromePath, APP, FIXTURE } = require('./_harness');
+const { chromium } = requirePlaywright();
+const fs = require('fs'), path = require('path');
+const CRM = FIXTURE();
+const QA = JSON.parse(fs.readFileSync(
+  path.resolve(__dirname, '..', 'fixtures', 'qa-reference.json'), 'utf8'));
+/* A real export. Neither of the other two fixtures has a single activity added
+   after its baseline, so the scope-verdict check below never ran on them — it sat
+   there green and vacuous. This one carries twenty-two: twelve test cases the
+   generator created and ten it re-estimated, against a feature set that never
+   moved, which is exactly the shape the verdict exists to name. */
+const FIELD = JSON.parse(fs.readFileSync(
+  path.resolve(__dirname, '..', 'fixtures', 'field-export.json'), 'utf8'));
+
+(async () => {
+  const b = await chromium.launch({headless:true,args:['--no-sandbox'],executablePath: chromePath()});
+  const page = await b.newPage({viewport:{width:1440,height:1200}});
+  page.on('dialog', d => d.accept());
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await page.goto(APP, {waitUntil:'load'});
+
+  const sweep = async (label, data) => {
+    await page.evaluate(d => { hydrate(d); calculate(); }, data);
+    await page.waitForTimeout(600);
+    /* The panel has to be DRAWN for the geometry checks below. Every other check
+       in this file works from planTruthData(), which is the right level for an
+       arithmetic identity and blind to what is painted — a mutant that stacked
+       the budget segments so the visible bar ended past the figure in the badge
+       survived this whole suite for exactly that reason. */
+    await page.evaluate(() => { switchTab('analytics'); renderAnalytics(); });
+    await page.waitForTimeout(500);
+    return page.evaluate(lbl => {
+      const bad = [];
+      const say = (w, x) => bad.push(lbl + ' \u00b7 ' + w + ' :: ' + x);
+      const note = {};
+  
+  
+  const D=planTruthData(), bud=D.rows.find(x=>x.key==='budget');
+
+  // 1. reconciliation table vs the bar
+  const R=bud.recon;
+  note.reconRows=R.rows.length;
+  note.barGap=Math.round(R.barGap);
+  /* residual is DEFINED as barGap − sum, so "rows + residual = bar" is true by
+     construction and can never fail — it was a check that could not fail, in a
+     sweep written to catch exactly that. Found by dropping a row from the table
+     and watching this stay green: the residual silently absorbed it.
+
+     What must actually hold is COVERAGE — every activity carrying a gap appears
+     in the table — and that the residual is genuinely unattributable money
+     rather than a row that went missing. */
+  if (Math.abs(R.sum + R.residual - R.barGap) > 1)
+    say('Reconciliation', 'rows+residual ' + Math.round(R.sum + R.residual) + ' vs bar ' + Math.round(R.barGap));
+  {
+    const shown = new Set(R.rows.map(x => x.id));
+    const evOf2 = t => plannedCostOf(t, hasBaseline()) * ((t.percentComplete || 0) / 100);
+    const missing = leafTasks().filter(t => {
+      if (shown.has(t.id)) return false;
+      const spread2 = pvSpread(hasBaseline(), [t]);
+      const g = actualCostOf(t) - accrualAt(spread2.segs, stripTime(new Date()).getTime());
+      return Math.abs(g) > 0.5;
+    });
+    note.uncovered = missing.length;
+    if (missing.length)
+      say('Reconciliation', missing.length + ' activit(ies) move the bar and are absent from the table, '
+        + 'e.g. "' + missing[0].name + '" — the residual is hiding them rather than naming them');
+  }
+
+  /* 1b. THE SPLIT BAR MUST STILL STATE THE GAP.
+     The Budget bar's length is a SUM — timing (EV − PV) plus overrun (AC − EV) —
+     drawn as two segments so a large neutral timing figure stops reading as a
+     large problem. Two ways that can go wrong and neither shows up as an error:
+     the parts can stop adding to the whole, and the DRAWN far end can disagree
+     with the badge. The second one actually happened: the segments stacked
+     naively, so an under-budget overrun drew back over the tip of the timing bar
+     and the longest thing on screen ended at the timing figure while the badge
+     and the percentage stated the net. */
+  const hb2 = hasBaseline();
+  if (Array.isArray(bud.segs) && bud.segs.length) {
+    const sum = bud.segs.reduce((n, s) => n + s.pct, 0);
+    note.segPcts = bud.segs.map(s => +s.pct.toFixed(3));
+    note.segSum = +sum.toFixed(3);
+    note.budPct = +(bud.pct || 0).toFixed(3);
+    if (Math.abs(sum - (bud.pct || 0)) > 0.01)
+      say('Budget bar', 'the segments add to ' + sum.toFixed(2) + '% and the bar states '
+        + (bud.pct || 0).toFixed(2) + '% — the parts no longer make the whole');
+    // and the identity they claim to be: gap = timing + overrun
+    const evNow2 = leafTasks().reduce((s2, t) => s2 + plannedCostOf(t, hb2) * ((t.percentComplete || 0) / 100), 0);
+    const acNow2 = leafTasks().reduce((s2, t) => s2 + actualCostOf(t), 0);
+    const pvNow2 = accrualAt(pvSpread(hb2, leafTasks()).segs, stripTime(new Date()).getTime());
+    const ref2 = leafTasks().reduce((s2, t) => s2 + plannedCostOf(t, hb2), 0);
+    const wantTiming = (evNow2 - pvNow2) / ref2 * 100, wantOver = (acNow2 - evNow2) / ref2 * 100;
+    if (Math.abs(bud.segs[0].pct - wantTiming) > 0.01)
+      say('Budget bar', 'the timing segment is ' + bud.segs[0].pct.toFixed(2) + '% and EV−PV is '
+        + wantTiming.toFixed(2) + '% — the neutral part is not the timing');
+    if (bud.segs[1] && Math.abs(bud.segs[1].pct - wantOver) > 0.01)
+      say('Budget bar', 'the overrun segment is ' + bud.segs[1].pct.toFixed(2) + '% and AC−EV is '
+        + wantOver.toFixed(2) + '% — the coloured part is not the overrun');
+  }
+
+  // 1c. THE CATCH-UP DATE IS A LOOKUP, SO IT HAS TO BE THE RIGHT DAY.
+  // The panel tells the reader the gap closes on a named date and that nothing
+  // has to be done about it. If that date is off, the panel is talking someone
+  // out of an alarm on a promise it cannot keep. accrualAt is monotonic, so the
+  // answer is exactly characterised: at the date the curve has reached the
+  // booked total, and the day before it has not.
+  {
+    const hb3 = hasBaseline();
+    const segs3 = pvSpread(hb3, leafTasks()).segs;
+    const ac3 = leafTasks().reduce((s2, t) => s2 + actualCostOf(t), 0);
+    const cu = ptrCurveCatchesUp(segs3, ac3, new Date());
+    note.catchUp = cu.on ? fmtISO(cu.on) : (cu.never ? 'never' : 'already there');
+    if (cu.on) {
+      const atIt = accrualAt(segs3, cu.on.getTime());
+      const dayBefore = accrualAt(segs3, cu.on.getTime() - 86400000);
+      if (!(atIt >= ac3 - 0.5))
+        say('Budget bar', 'the panel says the gap closes ' + fmtISO(cu.on) + ' but the curve is only at '
+          + Math.round(atIt) + ' there, against ' + Math.round(ac3) + ' booked');
+      if (dayBefore >= ac3 + 0.5)
+        say('Budget bar', 'the gap had already closed before ' + fmtISO(cu.on)
+          + ' — the date named is later than the real crossing');
+      if (cu.days !== Math.max(0, Math.round((cu.on.getTime() - stripTime(new Date()).getTime()) / 86400000)))
+        say('Budget bar', 'the "days from now" figure does not match the date beside it');
+    } else if (cu.never) {
+      const total3 = segs3.reduce((n, g) => n + (g.c || 0), 0);
+      if (total3 >= ac3 - 0.5)
+        say('Budget bar', 'the panel says the curve never reaches the booked total, but the plan sums to '
+          + Math.round(total3) + ' against ' + Math.round(ac3) + ' booked');
+    }
+  }
+
+  /* 1d. WHAT IS DRAWN MUST END WHERE THE BADGE SAYS.
+     The one thing the data-level checks above cannot see. When the timing and
+     overrun segments point in OPPOSITE directions the solid bar has to stop at
+     the net and the hollow "given back" band has to start there — touching, not
+     overlapping. Stacking them naively drew the band back OVER the tip of the
+     solid bar, so the longest mark on the row ended at the timing figure while
+     the badge and the percentage beside it stated the net. Every identity above
+     still held; only the picture lied. Expressed as a relationship between the
+     two drawn spans, so it needs no knowledge of the axis scale. */
+  {
+    const row = document.querySelector('.ptr-row[data-dim="budget"]');
+    const plot = row && row.querySelector('.ptr-plot');
+    const pw = plot ? plot.getBoundingClientRect().width : 0;
+    if (!plot) say('Budget bar', 'the budget row is not on the page, so nothing below tested the drawing');
+    else if (!(pw > 50)) note.plotWidth = Math.round(pw);   // panel not laid out; geometry unreadable
+    else {
+      const pb = plot.getBoundingClientRect();
+      const span = el => { const r = el.getBoundingClientRect();
+        return { a: (r.left - pb.left) / pw * 100, b: (r.right - pb.left) / pw * 100 }; };
+      const segEls = [...plot.querySelectorAll('.ptr-seg')];
+      const solid = segEls.filter(e => !e.classList.contains('ptr-return')).map(span);
+      const ret = segEls.filter(e => e.classList.contains('ptr-return')).map(span);
+      note.drawnSolid = solid.map(s2 => [+s2.a.toFixed(1), +s2.b.toFixed(1)]);
+      note.drawnReturn = ret.map(s2 => [+s2.a.toFixed(1), +s2.b.toFixed(1)]);
+      if (segEls.length && !solid.length)
+        say('Budget bar', 'the bar is drawn entirely as give-back bands with no solid part, so it states no gap');
+      ret.forEach(rb => {
+        solid.forEach(sb => {
+          const overlap = Math.min(rb.b, sb.b) - Math.max(rb.a, sb.a);
+          if (overlap > 0.3)
+            say('Budget bar', 'the hollow give-back band overlaps the solid bar by '
+              + overlap.toFixed(1) + '% of the axis — the solid bar therefore ends past the gap stated in the '
+              + 'badge, so the longest mark on the row contradicts the number beside it');
+        });
+      });
+      // and the two spans have to actually meet, or there is a gap of nothing
+      // between the bar and the band that reads as a third quantity
+      if (ret.length === 1 && solid.length) {
+        const far = Math.max.apply(null, solid.map(s2 => Math.max(s2.a, s2.b)));
+        const near = Math.min.apply(null, solid.map(s2 => Math.min(s2.a, s2.b)));
+        const touches = Math.abs(ret[0].a - far) < 0.6 || Math.abs(ret[0].b - near) < 0.6;
+        if (!touches)
+          say('Budget bar', 'the give-back band does not start where the solid bar ends ('
+            + ret[0].a.toFixed(1) + '% against ' + far.toFixed(1) + '%) — the space between them means nothing');
+      }
+    }
+  }
+
+  /* 1e. "IS THIS A SCOPE CHANGE?" MUST BE ANSWERED, AND ANSWERED CORRECTLY.
+     The scope bar measures EFFORT. Re-running the test-plan generator adds and
+     re-estimates test cases, which moves effort while the committed criteria sit
+     exactly where they were — a completely different conversation from agreeing
+     to build something more, and the only one of the two that owes a change
+     order. A reader looking at twelve new rows, every one a generated test case,
+     asked the question outright, because the bar said +1.7% and the decisive
+     clause was buried at the end of the third sentence.
+
+     The dangerous half is the CONVERSE: this verdict must never appear when real
+     scope moved, because "no change order is due" is the most expensive sentence
+     on the page to get wrong. So it is tested in both directions. */
+  {
+    const scp = D.rows.find(x => x.key === 'scope');
+    const hb4 = hasBaseline();
+    const moved4 = leafTasks().filter(t => !t.isSummary && (t.baseTe == null
+      || Math.abs((Number(t.te) || 0) - (Number(t.baseTe) || 0)) > 1e-9));
+    const allTc = moved4.length > 0 && moved4.every(isTestCaseTask);
+    const fs4 = featureScope();
+    const held = fs4.hb && !fs4.added.length && !fs4.removed.length && fs4.netAcs === 0;
+    note.scopeMoved = moved4.length;
+    note.scopeMovedAllTestCases = allTc;
+    note.scopeFeatureSetHeld = held;
+    note.scopeVerdict = scp && scp.deltaVerdict ? scp.deltaVerdict : null;
+    if (hb4 && allTc && held && scp && scp.state !== 'flat') {
+      if (!/not new scope/i.test(scp.deltaVerdict || ''))
+        say('Scope bar', moved4.length + ' activities moved and every one is a generated test case against an '
+          + 'unchanged feature set, and the row does not say so — a reader has to work out from three separate '
+          + 'clauses whether they owe a change order');
+      if (!/not a scope change/i.test(scp.note || ''))
+        say('Scope bar', 'the verdict is on the readout and the note never states it');
+      if (scp.unpriced)
+        say('Scope bar', 'the row calls test-case regeneration UNPRICED SCOPE — an accusation that a team gave '
+          + 'work away, when the committed criteria never moved');
+    }
+    /* the converse, on a plan where real scope was added */
+    const victim = leafTasks().find(t => !t.isSummary && !isTestCaseTask(t) && t.baseTe != null);
+    if (hb4 && victim) {
+      const keepTe = { o: victim.o, m: victim.m, p: victim.p };
+      victim.o += 5; victim.m += 5; victim.p += 5;
+      recompute();
+      const scp2 = planTruthData().rows.find(x => x.key === 'scope');
+      note.scopeVerdictAfterRealGrowth = scp2 && scp2.deltaVerdict ? scp2.deltaVerdict : null;
+      if (scp2 && /not new scope/i.test(scp2.deltaVerdict || ''))
+        say('Scope bar', 'a NON-test-case activity was re-estimated upward by 5 units and the row still says '
+          + '"verification work, not new scope" — it is clearing a change order that may well be owed');
+      Object.assign(victim, keepTe);
+      recompute();
+    }
+  }
+
+  /* 1e2. "AHEAD OF ITS DATES" HAS TO NAME THE DATES.
+     The row stated a consequence and withheld its cause: "$8,233 ahead of its
+     dates" with nothing saying the work finished on 24 July against a baseline
+     of 12 August, which is the entire reason the money sits ahead of the curve.
+     Reported as "it doesn't say in the activity what the target date of finish
+     should have been". A timing figure without its two dates is a number the
+     reader has to take on trust. */
+  {
+    const timed = (bud.drivers || []).filter(r => /(ahead|behind) of its dates/.test(r.sub || ''));
+    note.timingRows = timed.length;
+    const withDates = timed.filter(r => /against a (baseline|plan) of/.test(r.sub || ''));
+    note.timingRowsNamingDates = withDates.length;
+    timed.forEach(r => {
+      const t = tasks.find(x => x.id === r.id);
+      const hasRef = t && (t.baseFinish || isRealDate(t.finishDate));
+      const hasAct = t && (t.actualFinish || isRealDate(t.finishDate));
+      if (!hasRef || !hasAct) return;               // nothing to compare; the row says so
+      if (!/against a (baseline|plan) of/.test(r.sub || ''))
+        say('Budget drill-in', '"' + String(r.sub).replace(/<[^>]+>/g, '').slice(0, 60)
+          + '" states money moved by timing and never names the two dates that moved it — the reader is '
+          + 'told the consequence and has to take the cause on trust');
+      else if (!/(early|late|on the day)/.test(r.sub || ''))
+        say('Budget drill-in', 'the row names both dates and never says which way or by how much');
+    });
+  }
+
+  /* 1e3. "BOOKED" IS AN ACCRUAL, AND THE PANEL HAS TO SAY SO WHERE IT CLAIMS IT.
+     actualCostOf DERIVES cost from work recorded — day rate × logged effort plus
+     fixed cost prorated by percent complete — unless somebody typed over it. So
+     an activity finishing nineteen days early books its cost nineteen days
+     early, whether or not an invoice exists. That is the right default for
+     judging delivery and it is still an assumption, and "you are spending ahead
+     of the plan" read as money out of the door is a different conclusion from
+     the one the data supports. Reported as "it assumes payout was early as
+     well."
+
+     Two properties. The split between derived and typed money must be REAL —
+     computed from the plan, not asserted — and where any of it is derived the
+     bar that draws the conclusion has to carry the caveat. A plan where every
+     figure was typed by hand IS a cash record, so the caveat must not appear
+     there: a warning that fires when it does not apply teaches people to skip
+     warnings. */
+  {
+    const cb = costBasisSplit(leafTasks());
+    const wantDerived = leafTasks().filter(t => !t.isSummary && t.autoActualCost !== false
+      && Math.abs(actualCostOf(t)) > 0.5).length;
+    const wantTyped = leafTasks().filter(t => !t.isSummary && t.autoActualCost === false
+      && Math.abs(actualCostOf(t)) > 0.5).length;
+    note.costBasis = { derived: cb.derivedN, typed: cb.typedN };
+    if (cb.derivedN !== wantDerived || cb.typedN !== wantTyped)
+      say('Cost basis', 'the split says ' + cb.derivedN + ' derived / ' + cb.typedN + ' typed against '
+        + wantDerived + ' / ' + wantTyped + ' recomputed — the panel is about to describe the wrong model');
+    const acAll = leafTasks().reduce((s2, t) => s2 + actualCostOf(t), 0);
+    if (Math.abs(cb.total - acAll) > 1)
+      say('Cost basis', 'the two halves add to ' + Math.round(cb.total) + ' against a booked total of '
+        + Math.round(acAll) + ', so one of them is dropping money');
+    const nt = String(bud.note || '');
+    const says = /accrued|cash gone early/i.test(nt);
+    note.noteStatesAccrual = says;
+    if (cb.anyDerived && bud.state !== 'flat' && !says)
+      say('Cost basis', 'money is booked by ACCRUAL from logged effort and the budget note never says so — '
+        + '"spending ahead of the plan" reads as cash out of the door when nothing here knows whether an '
+        + 'invoice exists');
+    if (cb.allTyped && says)
+      say('Cost basis', 'every booked figure on this plan was typed by hand, so it IS a cash record, and the '
+        + 'note still warns about accrual — a caveat that fires when it does not apply teaches people to '
+        + 'skip caveats');
+  }
+
+  /* 1e4. THE CASH CURVE IS THE SAME MONEY, LATER — AND IT MUST SAY SO.
+     Terms convert the accrual into when money is expected to move. Three things
+     have to hold or the second line is worse than not drawing it: the same total
+     eventually arrives (a shift is not a discount), it never arrives EARLIER
+     than the accrual, and the panel states it is a projection. Plus the one that
+     matters most — with no terms set there must be no second line at all, since
+     drawing one implies a distinction nobody made. */
+  {
+    /* CONSTRUCT the terms. No committed fixture sets any, so cash and accrual
+       return identical segments and every identity below holds trivially — a
+       build that lost money in the shift, or paid before the work, passed. Found
+       by planting both and watching this stay green. */
+    const hbC = hasBaseline(), lvC = leafTasks();
+    const keepTerms = cashTerms;
+    cashTerms = { kind: 'net', days: 45 };
+    const acc = pvSpread(hbC, lvC), csh = pvSpread(hbC, lvC, { cash: true });
+    note.cashTermsSet = cashAnyTerms();
+    const far = 8.64e15;
+    // the constructed terms must actually MOVE something, or the rest is vacuous
+    /* Sample the PLAN'S OWN SPAN, not a window around today. The first version
+       swept ±120 days of today and reported "the terms move nothing" on the QA
+       fixture — whose whole plan sits months in the past, so both curves are
+       already at their totals everywhere it looked. The check was measuring the
+       wrong stretch of time, not a defect. */
+    const allS = acc.segs.concat(csh.segs);
+    const lo = Math.min.apply(null, allS.map(g => g.s));
+    const hi = Math.max.apply(null, allS.map(g => g.f));
+    let moved = 0;
+    for (let i = 0; i <= 40; i++) {
+      const at = lo + (hi - lo) * (i / 40);
+      if (Math.abs(accrualAt(acc.segs, at) - accrualAt(csh.segs, at)) > 1) moved++;
+    }
+    note.cashShiftSamples = moved;
+    if (!moved)
+      say('Cash curve', 'net-45 terms move the curve at none of the sampled dates, so nothing below is '
+        + 'testing the shift at all');
+    if (Math.abs(accrualAt(acc.segs, far) - accrualAt(csh.segs, far)) > 1)
+      say('Cash curve', 'the cash basis totals ' + Math.round(accrualAt(csh.segs, far)) + ' against '
+        + Math.round(accrualAt(acc.segs, far)) + ' on accrual — moving money in time must not change how '
+        + 'much of it there is');
+    // never earlier: paying before the work is not something terms can produce
+    let earlier = 0;
+    for (let i = 0; i <= 40; i++) {
+      const at = lo + (hi - lo) * (i / 40);
+      if (accrualAt(csh.segs, at) > accrualAt(acc.segs, at) + 1) earlier++;
+    }
+    note.cashEarlierSamples = earlier;
+    if (earlier)
+      say('Cash curve', 'the cash basis is AHEAD of the accrual at ' + earlier + ' sampled date(s) — terms '
+        + 'delay money, they cannot make it leave before the work that caused it');
+    if (!cashTermsNorm(keepTerms).kind !== 'none' && !loadOrgLib().some(o => cashTermsNorm(o.terms).kind !== 'none')
+        && bud && D.curve && D.curve.cashOn)
+      say('Cash curve', 'no payment terms are set anywhere and a second curve is drawn anyway — it implies '
+        + 'a distinction nobody made and cannot differ from the line it sits on');
+    cashTerms = keepTerms;
+    if (cashAnyTerms() && D.curve && D.curve.state === 'ok') {
+      if (!D.curve.cashOn)
+        say('Cash curve', 'payment terms are set and the curve draws only the accrual, so the terms change '
+          + 'nothing a reader can see');
+      else if (!(D.curve.wcap >= -1))
+        say('Cash curve', 'the working-capital figure is negative (' + Math.round(D.curve.wcap)
+          + '), which would mean paying for work before doing it');
+    }
+  }
+
+  /* 1f. A CAPPED LIST MUST OWN UP TO BEING A SAMPLE.
+     The drill-in slices to the worst five and threw the pre-cut count away, so a
+     row saying "22 activities moved" sat above a disclosure badge reading 5 and a
+     note reading "top 5" — three numbers about one set with nothing saying the
+     last two are a sample of the first. Asked about directly. */
+  D.rows.forEach(r => {
+    if (!Array.isArray(r.drivers) || !r.drivers.length) return;
+    if (r.drivers.matched == null)
+      say(r.dim + ' drill-in', 'the driver list does not record how many activities matched before the cap, '
+        + 'so nothing on screen can say whether five is all of them or the worst five of twenty-two');
+    else if (r.drivers.matched < r.drivers.length)
+      say(r.dim + ' drill-in', 'it claims ' + r.drivers.matched + ' matched and shows ' + r.drivers.length);
+  });
+  note.driverCounts = D.rows.filter(r => (r.drivers || []).length)
+    .map(r => r.key + ':' + r.drivers.length + '/' + (r.drivers.matched == null ? '?' : r.drivers.matched));
+
+  /* …and the DRAWN badge has to be the one carrying that count. The three lines
+     above interrogate planTruthData(), which is where `matched` is recorded —
+     and a build whose renderer computes its badge as `totalN = shownN`, throwing
+     the pre-cut count away at the last moment, passes all three. The data is
+     impeccable and the reader still sees 22 on the row and 5 in the disclosure.
+     Same lesson as the budget segments: an arithmetic identity is blind to what
+     is painted, so ask the painting. */
+  {
+    const host = document.getElementById('planTruth') || document.getElementById('view-analytics');
+    const drawn = host ? [...host.querySelectorAll('details.ptr-drv')] : [];
+    const withDrv = D.rows.filter(r => (r.drivers || []).length);
+    note.drawnDrillIns = drawn.length;
+    if (drawn.length !== withDrv.length)
+      say('Drill-in', withDrv.length + ' row(s) computed a driver list and ' + drawn.length
+        + ' disclosure(s) were drawn, so the pairing below cannot be trusted');
+    else drawn.forEach((el, i) => {
+      const r = withDrv[i];
+      const badge = Number(((el.querySelector('.ptr-drv-n') || {}).textContent || '').replace(/[^\d]/g, ''));
+      const shown = el.querySelectorAll('.ptr-drv-list > li').length;
+      const want = r.drivers.matched || r.drivers.length;
+      if (badge !== want)
+        say(r.dim + ' drill-in', 'the badge reads ' + badge + ' and ' + want + ' activities matched — the row '
+          + 'above states a figure covering all ' + want + ' and the disclosure beside it offers a smaller '
+          + 'number as though that were the whole set');
+      const cap = (el.textContent || '').replace(/\s+/g, ' ');
+      if (want > shown && !new RegExp('top\\s*' + shown + '\\s*of\\s*' + want).test(cap))
+        say(r.dim + ' drill-in', 'it shows ' + shown + ' of ' + want + ' and never says the list is a sample');
+    });
+  }
+
+  // 2. spend curve: does its "at today" equal the Budget row's pair?
+  const hb=hasBaseline(), today=stripTime(new Date()).getTime();
+  const spread=pvSpread(hb, leafTasks());
+  const pvNow=accrualAt(spread.segs, today);
+  const acNow=leafTasks().reduce((s,t)=>s+actualCostOf(t),0);
+  note.curvePvAtToday=Math.round(pvNow); note.bookedTotal=Math.round(acNow);
+  if (Math.abs((acNow-pvNow)-R.barGap)>1)
+    say('Spend curve','booked − plan-to-date is '+Math.round(acNow-pvNow)+' and the bar says '+Math.round(R.barGap));
+
+  // 3. curve endpoint must be the envelope it claims
+  const end=accrualAt(spread.segs, 8.64e15);
+  note.curveEndpoint=Math.round(end);
+  const env=leafTasks().reduce((s,t)=>s+plannedCostOf(t,hb),0);
+  note.envelope=Math.round(env);
+  if (Math.abs(end-env)>1) say('Spend curve','ends at '+Math.round(end)+' against an envelope of '+Math.round(env));
+
+  // 4. Monte Carlo: percentiles ordered, mean within the range, P80 count honest
+  const m=mcResult;
+  if(m){ note.p50=+m.p50.toFixed(1); note.p80=+m.p80.toFixed(1); note.p95=+m.p95.toFixed(1);
+    if(!(m.min<=m.p50 && m.p50<=m.p80 && m.p80<=m.p90 && m.p90<=m.p95 && m.p95<=m.max))
+      say('Monte Carlo','percentiles are not in order');
+    const under=m.durations.filter(v=>v<=m.p80).length/m.durations.length;
+    note.actuallyUnderP80=+(under*100).toFixed(1);
+    if(Math.abs(under-0.8)>0.02) say('Monte Carlo','P80 has '+(under*100).toFixed(1)+'% of runs at or below it');
+    if(!(m.mean>=m.min&&m.mean<=m.max)) say('Monte Carlo','the mean is outside its own range');
+  }
+
+  // 5. resource chart: person-day pairs vs the per-person breakdown
+  const rl=computeResourceLoad();
+  const perSum=Object.values(rl.perResource).reduce((s,R2)=>s+((R2.overDays||[]).length),0);
+  note.overResourceDays=rl.overResourceDays; note.perPersonOverDays=perSum;
+  if (rl.overResourceDays!==perSum)
+    say('Resources','the headline says '+rl.overResourceDays+' over-capacity person-days and the per-person rows add to '+perSum);
+
+  // 6. billing table totals vs projectCost
+  const bd=billingData();
+  const rowCost=bd.rows.reduce((s,x)=>s+x.cost,0)+(bd.fixedTotal||0);
+  note.billingTotal=Math.round(bd.totCost); note.billingRowsSum=Math.round(rowCost);
+  if (Math.abs(rowCost-bd.totCost)>1) say('Billing','rows add to '+Math.round(rowCost)+' and the total says '+Math.round(bd.totCost));
+  if (Math.abs(bd.totCost-projectCost())>1)
+    say('Billing','the billing total is '+Math.round(bd.totCost)+' and projectCost() is '+Math.round(projectCost()));
+
+      return { contradictions: bad, counts: note };
+    }, label);
+  };
+
+  /* ═══ CONSTRUCTED: THE CASES NO FIXTURE HAPPENS TO CONTAIN ═══════════════
+     Two conditions below cannot be reached by loading a plan and hoping. Both
+     were live defects, both were invisible to every fixture in this repo, and
+     the first version of the check for one of them was green against a build
+     with the bug deliberately put back — because the shape it needed was not
+     there to find. That is the fixture-cannot-reach-the-branch failure this
+     directory has a whole probe for, so these are BUILT and the construction is
+     asserted before anything is concluded from it. */
+  const constructed = await (async () => {
+    const bad = [], note = {};
+    const say = (w, x) => bad.push('Constructed · ' + w + ' :: ' + x);
+
+    /* ── 1. AN ACTIVITY BOOKED AT EXACTLY WHAT WAS DUE ──────────────────────
+       It contributes nothing to the bar. It used to be dropped from the
+       reconciliation for that, while its booked figure and its due figure
+       stayed in the column totals — so the two columns a reader starts from did
+       not add up, by the amount of the largest activity on the plan. The
+       derived columns all footed correctly throughout, which is why every
+       existing check passed. */
+    await page.evaluate(d => { hydrate(d); calculate(); }, CRM);
+    await page.waitForTimeout(400);
+    const built = await page.evaluate(() => {
+      const today = stripTime(new Date()).getTime();
+      const cand = leafTasks()
+        .map(t => ({ t: t, due: accrualAt(pvSpread(hasBaseline(), [t]).segs, today) }))
+        .filter(x => x.due > 500).sort((a, b) => b.due - a.due)[0];
+      if (!cand) return null;
+      cand.t.autoActualCost = false;
+      cand.t.actualCost = cand.due;          // booked exactly what was due → contributes 0
+      /* AND a milestone carrying real money, because the other half of the same
+         defect was that milestones were filtered out of the table entirely. No
+         fixture in this repo has a milestone with cost booked against it, so
+         without this the mutant that restores that filter SURVIVES the whole
+         suite — which it did, on the first attempt at this check. */
+      const ms = leafTasks().filter(t => t.milestone)[0];
+      if (ms) { ms.autoActualCost = false; ms.actualCost = 1300; ms.percentComplete = 100; }
+      calculate();
+      const gapNow = actualCostOf(cand.t)
+        - accrualAt(pvSpread(hasBaseline(), [cand.t]).segs, today);
+      return { name: cand.t.name, due: Math.round(cand.due), gap: Math.round(gapNow * 100) / 100,
+               milestone: ms ? ms.name : null, milestoneBooked: ms ? actualCostOf(ms) : 0 };
+    });
+    if (!built) {
+      say('setup', 'no activity on this plan has more than $500 due by today, so the zero-contribution '
+        + 'case could not be built and nothing below was tested');
+    } else if (Math.abs(built.gap) >= 0.5) {
+      say('setup', 'meant to book "' + built.name + '" at exactly its ' + built.due
+        + ' due by today, and its contribution came out at ' + built.gap
+        + ' — the case this check exists for was never created');
+    } else if (!(built.milestoneBooked > 0.5)) {
+      say('setup', 'no milestone on this plan carries booked cost, so the half of this check about '
+        + 'milestones being filtered out of the table tested nothing');
+    } else {
+      note.zeroContributor = built.name;
+      note.zeroContributorDue = built.due;
+      note.costedMilestone = built.milestone;
+      await page.evaluate(() => { switchTab('analytics'); renderAnalytics(); });
+      await page.waitForTimeout(400);
+      /* COVERAGE, then footing — and the ACTIVITY rows only.
+         The first version of this check summed every printed row against the
+         total and went green on a build with the bug put back, because the
+         residual line absorbed the missing $7,500 into "booked cost with no
+         activity behind it" and the columns added up again. That is the exact
+         trap already documented forty lines above in this file, walked into by
+         the person who wrote the warning. A total that foots because the gap
+         was renamed is not a total that foots.
+
+         So the residual is EXCLUDED from the row sum and separately required to
+         be empty of money. It has to be: every dollar in the booked total comes
+         from a leaf, so there is no such thing as booked cost with no activity
+         behind it once the table stops dropping activities — the line is now a
+         tripwire rather than a bucket. And coverage is asserted by ID, which no
+         amount of arithmetic downstream can satisfy: every activity with money
+         on either side must appear as its own openable row. */
+      const foot = await page.evaluate(() => {
+        const t = document.querySelector('.ptr-rc-t');
+        if (!t) return { drawn: false };
+        const cash = c => { const v = (c.textContent || '').replace(/[\s,]/g, '');
+          if (/^—?$/.test(v)) return 0;
+          const n = parseFloat(v.replace(/[^0-9.]/g, ''));
+          return Number.isFinite(n) ? (/[−-]/.test(v) ? -n : n) : NaN; };
+        const heads = [...t.querySelectorAll('thead th')].map(h => (h.textContent || '').toLowerCase());
+        const all = [...t.querySelectorAll('tbody tr')];
+        const acts = all.filter(tr => tr.querySelector('.ptr-rc-open'));
+        const resid = all.filter(tr => !tr.querySelector('.ptr-rc-open'));
+        const ft = [...t.querySelectorAll('tfoot tr td')];
+        const ix = key => heads.findIndex(h => h.indexOf(key) >= 0);
+        const col = (rows, key) => {
+          const i = ix(key);
+          if (i < 0 || ft.length <= i) return null;
+          let s = 0;
+          for (const tr of rows) { const c = [...tr.children];
+            if (c.length <= i) return null; const v = cash(c[i]);
+            if (!Number.isFinite(v)) return null; s += v; }
+          return { rows: s, total: cash(ft[i]) };
+        };
+        const drawnIds = new Set(acts.map(tr => {
+          const m = (tr.querySelector('.ptr-rc-open').getAttribute('onclick') || '').match(/openEditModal\((\d+)/);
+          return m ? Number(m[1]) : -1;
+        }));
+        const today = stripTime(new Date()).getTime();
+        const missing = leafTasks().filter(t2 => {
+          if (drawnIds.has(t2.id)) return false;
+          const booked = actualCostOf(t2) || 0;
+          const due = accrualAt(pvSpread(hasBaseline(), [t2]).segs, today);
+          return booked > 0.5 || due > 0.5;
+        }).map(t2 => t2.name);
+        return { drawn: true, actRows: acts.length, residRows: resid.length, missing: missing,
+                 booked: col(acts, 'booked'), due: col(acts, 'due by today'), budget: col(acts, 'budget'),
+                 residBooked: resid.length ? col(resid, 'booked') : null,
+                 residDue: resid.length ? col(resid, 'due by today') : null };
+      });
+      if (!foot.drawn) say('table', 'the reconciliation did not draw at all, so its columns were not read');
+      else {
+        note.builtRows = foot.actRows;
+        note.builtResidualRows = foot.residRows;
+        if (foot.missing.length)
+          say('table', foot.missing.length + ' activit(ies) carry booked cost or plan-to-date and have no '
+            + 'row in the table, e.g. "' + foot.missing[0] + '" — their money is still in the totals');
+        if (foot.residBooked && Math.abs(foot.residBooked.rows) > 1)
+          say('table', 'the "no activity behind it" line carries ' + Math.round(foot.residBooked.rows)
+            + ' of booked cost. Every dollar of that total comes from an activity, so this is a row the '
+            + 'table dropped wearing a label that says it could not be opened');
+        if (foot.residDue && Math.abs(foot.residDue.rows) > 1)
+          say('table', 'the "no activity behind it" line carries ' + Math.round(foot.residDue.rows)
+            + ' of plan-to-date, which no project-level figure can produce');
+        const tol = Math.max(2, foot.actRows * 0.5 + 1);
+        [['booked', 'Booked'], ['due', 'Due by today'], ['budget', 'Budget']].forEach(([k, lbl]) => {
+          const c = foot[k];
+          if (!c || !Number.isFinite(c.total)) { say('table', 'the "' + lbl + '" column could not be read, '
+            + 'so its footing was not checked'); return; }
+          if (Math.abs(c.rows - c.total) > tol)
+            say('table', 'with one activity booked at exactly what was due, the "' + lbl
+              + '" column adds to ' + Math.round(c.rows) + ' across the activity rows it prints and its '
+              + 'own total says ' + Math.round(c.total) + ' — the row that contributes nothing was dropped '
+              + 'and its money was not');
+        });
+      }
+    }
+
+    /* ── 2. AHEAD OF THE CURVE AND OVER THE VALUE ARE NOT THE SAME FINDING ──
+       Spending ahead of the spend line because the WORK is ahead costs nothing
+       and closes itself. Finished work costing more than it was budgeted is a
+       real overrun that happens to be hidden by a curve the plan set high. They
+       used to wear one amber, which put the alarm colour on the benign case —
+       and the benign case is the common one, so the alarm was mostly wrong.
+
+       The property is that the two do not render identically. Asserted that way
+       round on purpose: naming the exact class the benign case should carry
+       would pass a rename and fail a redesign, which is the wrong sensitivity
+       in both directions. The one class named is the WARNING one, because "the
+       benign case must not wear the warning" is the actual requirement. */
+    const tones = {};
+    for (const mode of ['early', 'over', 'clear']) {
+      await page.evaluate(d => { hydrate(d); calculate(); }, CRM);
+      await page.waitForTimeout(300);
+      tones[mode] = await page.evaluate(m => {
+        const hb = hasBaseline(), today = stripTime(new Date()).getTime();
+        const pv = accrualAt(pvSpread(hb, leafTasks()).segs, today);
+        // an overrun the curve still covers needs the work BEHIND the baseline
+        if (m === 'over') leafTasks().forEach(t => { t.percentComplete = Math.min(t.percentComplete || 0, 20); });
+        calculate();
+        const evOf = t => plannedCostOf(t, hb) * ((t.percentComplete || 0) / 100);
+        const ev = leafTasks().reduce((s, t) => s + evOf(t), 0);
+        const want = m === 'early' ? ev
+          : m === 'over' ? (ev + pv) / 2
+          : Math.min(ev, pv) * 0.5;   // 'clear': under the curve and under the value, nothing to report
+        leafTasks().forEach(t => { t.autoActualCost = false;
+          t.actualCost = ev > 0 ? want * (evOf(t) / ev) : 0; });
+        calculate();
+        switchTab('analytics'); renderAnalytics();
+        const ac = leafTasks().reduce((s, t) => s + actualCostOf(t), 0);
+        const badge = document.querySelector('.ptr-row[data-dim="budget"] .badge');
+        return { pv: Math.round(pv), ev: Math.round(ev), ac: Math.round(ac),
+                 overCurve: ac - pv > 1, overValue: ac - ev > 1,
+                 cls: badge ? badge.className : null,
+                 txt: badge ? (badge.textContent || '').trim() : null };
+      }, mode);
+      await page.waitForTimeout(200);
+    }
+    note.toneEarly = tones.early; note.toneOver = tones.over; note.toneClear = tones.clear;
+    // the construction, verified before any conclusion is drawn from it
+    if (!(tones.early.overCurve && !tones.early.overValue))
+      say('tone setup', 'the "ahead of the curve, nothing overrun" case did not build — booked '
+        + tones.early.ac + ' against ' + tones.early.pv + ' due and ' + tones.early.ev
+        + ' earned, so nothing below was tested');
+    else if (!(tones.over.overValue && !tones.over.overCurve))
+      say('tone setup', 'the "overrun the curve still covers" case did not build — booked '
+        + tones.over.ac + ' against ' + tones.over.pv + ' due and ' + tones.over.ev + ' earned');
+    else if (tones.clear.overCurve || tones.clear.overValue)
+      say('tone setup', 'the "nothing to report" case did not build — booked ' + tones.clear.ac
+        + ' against ' + tones.clear.pv + ' due and ' + tones.clear.ev + ' earned');
+    else if (!tones.early.cls || !tones.over.cls || !tones.clear.cls)
+      say('tone', 'the Budget row drew no badge in one of the three cases, so the colours were not compared');
+    else {
+      /* THREE findings, so THREE treatments. Pairwise distinctness is the
+         property and it is asserted without naming a single class, because both
+         collapses are real regressions and they fail in opposite directions:
+         merging `early` into the warning puts the alarm on the benign case,
+         and merging it into the all-clear says nothing is happening when
+         $15,638 of spend is sitting ahead of the line with an explanation the
+         reader needs. The one class named anywhere below is the warning, for
+         the one requirement that genuinely is about a specific colour. */
+      const same = (a, b) => tones[a].cls === tones[b].cls;
+      if (same('early', 'over'))
+        say('tone', 'being ahead of the spend curve with nothing overrun and having genuinely overrun a '
+          + 'budget both render as "' + tones.early.cls + '" — one treatment over two findings that point '
+          + 'opposite ways, and the harmless one is the common one');
+      if (same('early', 'clear'))
+        say('tone', 'being ahead of the spend curve by ' + (tones.early.ac - tones.early.pv)
+          + ' and having nothing to report at all both render as "' + tones.early.cls
+          + '" — a measured gap the reader has to understand is being drawn as an all-clear');
+      if (same('over', 'clear'))
+        say('tone', 'a real overrun and a clean project both render as "' + tones.over.cls + '"');
+      if (/badge-warn/.test(tones.early.cls))
+        say('tone', 'spending ahead of the curve with the finished work to show for it wears the warning '
+          + 'badge (' + tones.early.cls + ') — the row says in words that nothing is wrong');
+      if (!/badge-warn/.test(tones.over.cls))
+        say('tone', 'finished work costing more than it was budgeted does NOT wear the warning badge ('
+          + tones.over.cls + ') — the one case the amber exists for');
+    }
+
+    /* ── 3. SHAPING MOVES WHEN, NEVER HOW MUCH ─────────────────────────────
+       The spend shape says where inside an activity's own window the money is
+       expected. Every reading of the envelope, the margin and the variance
+       against them assumes the total is untouched by that choice — the weights
+       normalise, and if they ever stopped normalising the Budget bar would move
+       because somebody picked a dropdown, which is the single worst thing this
+       control could do.
+
+       Both halves are asserted, and the second is the one that matters. A
+       shaping implementation that quietly did NOTHING would satisfy "the total
+       is unchanged" perfectly, and the check would be green on a dead feature —
+       so the curve is also required to actually MOVE, measured a quarter of the
+       way into the reshaped activity's window where front and back must differ
+       by construction. No fixture carries a shaped activity, so one is built. */
+    await page.evaluate(d => { hydrate(d); calculate(); }, CRM);
+    await page.waitForTimeout(400);
+    const shaped = await page.evaluate(() => {
+      const hb = hasBaseline();
+      const t0 = leafTasks().filter(t => !t.milestone && taskCost(t) > 0)
+        .sort((a, b) => taskCost(b) - taskCost(a))[0];
+      if (!t0 || !t0.startDate || !t0.finishDate) return null;
+      const s = stripTime(t0.startDate).getTime(), f = stripTime(t0.finishDate).getTime() + 86400000;
+      const q = s + (f - s) / 4;                       // inside the reshaped window
+      const read = () => { const sp = pvSpread(hb, leafTasks());
+        return { tot: Math.round(sp.segs.reduce((a, g) => a + g.c, 0) * 100) / 100,
+                 phased: Math.round(sp.phased * 100) / 100,
+                 atQ: Math.round(accrualAt(sp.segs, q) * 100) / 100 }; };
+      const out = { name: t0.name, cost: Math.round(taskCost(t0)) };
+      ['even', 'front', 'back', 'bell'].forEach(k => { t0.curve = k; out[k] = read(); });
+      t0.curve = 'even';
+      return out;
+    });
+    if (!shaped) note.shaping = 'SKIPPED-no-costed-dated-leaf';
+    else {
+      note.shaping = shaped;
+      ['front', 'back', 'bell'].forEach(k => {
+        if (Math.abs(shaped[k].tot - shaped.even.tot) > 0.5)
+          say('spend shape', 'setting an activity to "' + k + '" changed the TOTAL planned spend from '
+            + shaped.even.tot + ' to ' + shaped[k].tot + ' — a shape is meant to move when the money '
+            + 'lands, not how much there is, and every envelope and margin figure on this page reads '
+            + 'that total');
+        if (Math.abs(shaped[k].phased - shaped.even.phased) > 0.5)
+          say('spend shape', '"' + k + '" changed the phased total (' + shaped.even.phased + ' → '
+            + shaped[k].phased + '), so the chart and its own "of which datable" figure disagree');
+      });
+      if (Math.abs(shaped.front.atQ - shaped.back.atQ) < 1)
+        say('spend shape', 'front-loaded and back-loaded draw the SAME curve a quarter of the way into '
+          + '"' + shaped.name + '" (' + shaped.front.atQ + ' vs ' + shaped.back.atQ + ') — the control '
+          + 'is wired to nothing and every check above it passes on a feature that does not exist');
+      if (!(shaped.front.atQ > shaped.even.atQ) || !(shaped.back.atQ < shaped.even.atQ))
+        say('spend shape', 'front-loaded is not ahead of flat, or back-loaded is not behind it, at the '
+          + 'first quarter of the window (front ' + shaped.front.atQ + ' · even ' + shaped.even.atQ
+          + ' · back ' + shaped.back.atQ + ') — the two shapes are the wrong way round');
+    }
+    return { contradictions: bad, counts: note };
+  })();
+
+  const qa = await sweep('QA reference', QA);
+  const crm = await sweep('Real export', CRM);
+  const fld = await sweep('Field export', FIELD);
+  const R = { contradictions: [].concat(qa.contradictions, crm.contradictions, fld.contradictions,
+                                        constructed.contradictions),
+              qaCounts: qa.counts, crmCounts: crm.counts, fieldCounts: fld.counts,
+              constructed: constructed.counts,
+              pageErrors: errs.slice(0, 8) };
+  console.log(JSON.stringify(R, null, 1));
+  await b.close();
+  if (R.contradictions.length || errs.length) process.exitCode = 1;
+})();

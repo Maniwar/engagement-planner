@@ -1,0 +1,210 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# The commit gate for index.html — the single-file product this repo ships.
+#
+# This file is the source of truth for the hook. It is not itself active —
+# git only runs .git/hooks/pre-commit, which is outside version control, so a
+# fresh clone has no gate at all. Install it with:
+#
+#     ln -sf ../../tests/pre-commit .git/hooks/pre-commit
+#
+# Two jobs, in order:
+#
+#   1. Rewrite the visible build stamp to now (UTC), so "which build am I
+#      looking at" is answerable from the page footer rather than from memory.
+#
+#   2. Refuse the commit if any check is red. Every commit to this file lands
+#      on a public demo, so a red suite is a shipped defect. The hand-derived
+#      plan, twenty-one sweeps and the drawing mutation check take about ten
+#      minutes — the price of this one file being the release. The
+#      engine mutation check is another 26-40 minutes and is opt-in via FULL=1;
+#      run it before anything the user will look at.
+#
+#      Measured, not estimated, and stated as a RANGE on purpose — see the long
+#      note above that check for why a single figure here has been wrong three
+#      times. If you add a check, re-time it and correct this line: a stale
+#      number is the same class of thing the suite exists to catch, and someone
+#      deciding whether they have time to commit reads it.
+#
+# Escape hatches: SKIP_TESTS=1 git commit, or git commit --no-verify.
+#
+# The checks read the WORKING TREE, not the index. If you stage a subset of
+# your edits the gate is testing the file you can see, not the file you are
+# committing — which is the right default for this repo, where the product is
+# one file and partial staging of it is never intentional.
+# ═══════════════════════════════════════════════════════════════════════════
+set -e
+f=index.html
+[ -f "$f" ] || exit 0
+grep -q 'id="buildStamp"' "$f" || exit 0
+
+stamp=$(date -u +%Y.%m.%d.%H%M)
+perl -pi -e "s/build \d{4}\.\d{2}\.\d{2}\.\d{4}/build $stamp/" "$f"
+git add "$f"
+
+# only gate commits that actually touch the product
+git diff --cached --name-only | grep -qx "$f" || exit 0
+# written as an if, not `[ ... ] && { ... }`: under set -e a false test at the
+# top level is a failed command, and the hook would abort — refusing every
+# commit for the crime of not having SKIP_TESTS set
+if [ -n "$SKIP_TESTS" ]; then
+  echo "pre-commit: SKIP_TESTS set — checks not run"
+  exit 0
+fi
+
+if ! node -e "require('./tests/_harness').requirePlaywright()" >/dev/null 2>&1; then
+  echo "pre-commit: playwright/chromium not available here — checks skipped, NOT passed"
+  exit 0
+fi
+
+echo "pre-commit: checking $stamp …"
+fail=0
+
+# the hand-derived plan first: its expected values were worked out on paper from
+# the fixture inputs, so it can catch an app that is wrong and self-consistent —
+# the failure every other check is blind to
+if node tests/run-test-plan.js > /tmp/ptr-plan.$$ 2>&1; then
+  # read the count back rather than printing a number that goes stale the next
+  # time a case is added — a hardcoded "42" is the same class of lie the suite
+  # is here to catch
+  n=$(sed -n 's/.*"total": \([0-9]*\).*/\1/p' /tmp/ptr-plan.$$ | head -1)
+  echo "  ✓ test plan  ${n:-?} cases"
+else
+  echo "  ✗ TEST PLAN"; sed -n '1,40p' /tmp/ptr-plan.$$ | sed 's/^/      /'; fail=1
+fi
+rm -f /tmp/ptr-plan.$$
+
+# Before asking whether the product is right, ask whether the checks can still
+# say no. Two ways they have died here: no exit code (seven sweeps once printed
+# findings and exited 0, so every one arrived as a tick), and a call in a
+# reporting branch that the page does not have (money() vs fmtMoney(), eleven
+# times, green until the moment it was right). Both are invisible from outside.
+# Cheap — one browser, a few seconds — so it runs on every commit, first.
+if node tests/harness-meta.js > /tmp/ptr-hm.$$ 2>&1; then
+  echo "  ✓ harness meta         every check can still fail"
+else
+  echo "  ✗ HARNESS META — a check cannot report what it finds"
+  sed -n '1,40p' /tmp/ptr-hm.$$ | sed 's/^/      /'; fail=1
+fi
+rm -f /tmp/ptr-hm.$$
+
+for t in tests/golden-reference.js tests/*sweep*.js; do
+  n=$(basename "$t" .js)
+  if node "$t" > /tmp/ptr-t.$$ 2>&1; then
+    echo "  ✓ $n"
+  else
+    echo "  ✗ $n"; sed -n '1,30p' /tmp/ptr-t.$$ | sed 's/^/      /'; fail=1
+  fi
+  rm -f /tmp/ptr-t.$$
+done
+
+# A check is only worth its runtime if it can still fail. Plant defects and
+# confirm the suite names them, so a check that quietly went vacuous is caught
+# here rather than by the user — which is how the PERT weighting was broken with
+# every one of these green.
+if node tests/mutation-drawn-surfaces.js > /tmp/ptr-m.$$ 2>&1; then
+  echo "  ✓ mutation · drawing   every planted defect caught"
+else
+  echo "  ✗ MUTATION · DRAWING — a planted defect went unnoticed, so the sweep has a hole"
+  sed -n '1,30p' /tmp/ptr-m.$$ | sed 's/^/      /'; fail=1
+fi
+rm -f /tmp/ptr-m.$$
+
+# The same question asked of the ENGINE: break a load-bearing identity in turn —
+# the PERT weighting, the backward pass, the working calendar, earned value,
+# save/load field coverage, the margin, an export total, undo, the baseline roll,
+# the commitment log, the estimate bank's calibration, a wizard button that acts
+# on the wrong object, a caption that states a figure typed by hand, a render
+# boundary that swallows instead of reporting — and confirm something goes red.
+# Two hundred and seventeen of them, and the honest figure is a RANGE: four
+# consecutive full runs on this four-core box took 26, 33, 37 and 40 minutes.
+# It runs min(4, cores-2) lanes, so more cores is less wall-clock.
+#
+# Do not read that spread as noise to be averaged away. The dominant term is not
+# machine load — the FASTEST of the four ran while the sweep suite was competing
+# for the same cores. It is WHICH CHECK CATCHES EACH MUTANT: the runner stops at
+# the first check that goes red, so a mutant caught by the first of twenty-two
+# costs a fraction of one caught by the last, and LIKELY (below) only orders the
+# attempts, it does not guarantee them. Add a mutant, or add assertions to a
+# check that sits early in the order, and every mutant behind it repays the
+# difference.
+#
+# So a single measurement here is a weak estimate wearing a precise number, and
+# this line has carried three of those. It claimed ten minutes, which was true
+# at a hundred and fourteen mutants and stayed while the set nearly doubled;
+# then twenty-five, taken from a run sharing cores; then 32m51s, quoted to the
+# second off ONE run. All three were wrong in the way that costs something —
+# somebody plans around the number and skips the check. A range with its cause
+# named is more useful than a figure with a false decimal place.
+#
+# If you add mutants, re-run it a couple of times and widen the range rather
+# than replacing it, and correct the "~26-40m" in the skipped message below.
+#
+# It fails on a SKIPPED mutant as well as a survivor, and the two mean different
+# things: a survivor says the product has an unguarded region, a skip says this
+# file is stale because the code its anchor pointed at was edited. Read which one
+# it printed before going hunting.
+# The other half of "can this check still fail". The mutants ask whether a
+# defect would be NOTICED; this asks whether the check is reading its input at
+# all. Every sweep is run twice — real plan, then an empty one — and its output
+# must change. A report that is identical whether the plan holds twenty-nine
+# activities or none is not reading the plan, and no amount of prose in the file
+# changes that. Root cause behind four defects fixed one at a time before it
+# existed. ~7m, so it rides with FULL.
+if [ -n "$FULL" ]; then
+  if node tests/vacuity-check.js > /tmp/ptr-v.$$ 2>&1; then
+    echo "  ✓ vacuity              every check reads its input"
+  else
+    echo "  ✗ VACUITY — a check reports the same thing on a full plan and an empty one"
+    sed -n '1,30p' /tmp/ptr-v.$$ | sed 's/^/      /'; fail=1
+  fi
+  rm -f /tmp/ptr-v.$$
+else
+  echo "  · vacuity              skipped (FULL=1 to run it, ~7m)"
+fi
+
+# The OTHER other half. The mutants change what the panels say and require a
+# check to go red; vacuity asks whether a check reads the plan at all. This
+# changes only HOW the page is dressed — an unused class, a hidden empty span, a
+# space either side of some text, none of it visible to a human — and requires
+# every check to stay GREEN. A check that goes red was asserting on the
+# packaging: a position, a style value, an exact class string. That is the
+# second root cause in this directory, nine-plus instances, all of them in the
+# checks rather than in the product, and until this file it was caught by
+# reading and by screenshot rather than by machinery. ~9m, so it rides with FULL.
+if [ -n "$FULL" ]; then
+  if node tests/anchor-check.js > /tmp/ptr-a.$$ 2>&1; then
+    echo "  ✓ anchoring            every check reads the property, not the packaging"
+  else
+    echo "  ✗ ANCHORING — a check breaks when the page is restyled without changing what it says"
+    sed -n '1,30p' /tmp/ptr-a.$$ | sed 's/^/      /'; fail=1
+  fi
+  rm -f /tmp/ptr-a.$$
+else
+  echo "  · anchoring            skipped (FULL=1 to run it, ~9m)"
+fi
+
+if [ -n "$FULL" ]; then
+  if node tests/mutation-engine.js > /tmp/ptr-e.$$ 2>&1; then
+    echo "  ✓ mutation · engine    every broken identity caught"
+  else
+    echo "  ✗ MUTATION · ENGINE — an identity can be broken with the suite still green"
+    sed -n '1,30p' /tmp/ptr-e.$$ | sed 's/^/      /'; fail=1
+  fi
+  rm -f /tmp/ptr-e.$$
+else
+  echo "  · mutation · engine    skipped (FULL=1 to run it, ~26-40m)"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "pre-commit: REFUSING the commit — the checks above are red."
+  echo "            Fix them, or commit with SKIP_TESTS=1 if you mean it."
+  exit 1
+fi
+
+# the results document is generated from the cases, so keep it with the commit
+# that made it true
+if [ -f tests/TEST-RESULTS.md ]; then git add tests/TEST-PLAN.md tests/TEST-RESULTS.md; fi
+echo "pre-commit: all green"
+exit 0

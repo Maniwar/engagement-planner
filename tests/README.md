@@ -1,0 +1,637 @@
+# Checks
+
+Headless Playwright checks for `pert-gantt-tracker.html`. Run any of them with
+`node tests/<name>.js` from the repo root; each prints JSON and sets an exit
+code — green is 0, a finding is 1, and `harness-meta.js` enforces that on every
+file in here. `_harness.js` finds playwright-core and the pre-installed Chromium
+wherever the runner put them, so nothing is tied to one working directory.
+
+Things that only OBSERVE live in `tests/probes/` and are not checks. See that
+directory's README for why the distinction is kept visible.
+
+## The two sweeps
+
+Both load `fixtures/crm-rollout.json` — a real export, with the shape the sample
+data has never had: a baseline taken after the work started, so activities
+finish before their own baseline windows ever open. Every defect found by
+reading a screenshot rather than the DOM has needed that shape to appear.
+
+`contradiction-sweep.js` checks one panel against its own arithmetic. It
+recomputes every figure independently from the stored fields and asserts on
+what the panel MEANS, not what it does: no row may read as a fault unless the
+finished work actually cost more than it was budgeted, a red RAID chip must
+have an issue or a turned risk behind it, the printed delta must equal AC − PV,
+and the driver list's claim about summing to the bar must be the true one.
+
+`cross-surface-sweep.js` checks the surfaces against EACH OTHER. The Plan-truth
+bars, the Plan vs actual roll-up cards, the spend curve and the health check all
+restate the same handful of numbers, and the defect that matters is any two of
+them disagreeing on one screen. It also enforces that a card's pair and its
+delta share a reference — the check that was missing when the Budget card read
+"$54,293 → $27,900" above "$26,760 above the plan to date", where every figure
+was individually correct and the card as a whole said two unrelated things.
+
+`client-facing-sweep.js` checks what LEAVES THE BUILDING — the status report,
+the SOW draft, the exports, and whether client-safe mode actually withholds
+what it claims to. A number wrong on a screen costs an argument; the same
+number wrong in a status report costs money. It caught the report quoting
+earned value with no mention of what had been booked, and reporting "variance
+on plan" while four activities sat 81 activity-days off their own baselines.
+
+`pricing-sweep.js` checks the money you QUOTE — the least-guarded money
+surface and the one where being wrong costs most, since a margin figure is
+what you decide to sign on. It recomputes revenue independently (bill rate ×
+effort × units, client-kind people billing nothing) rather than calling
+`laborRevenue()`: a check that shares a function with the thing it checks
+agrees by construction and proves nothing. It runs five states the sample
+never reaches — fixed fee with and without a typed price, T&M with a
+not-to-exceed cap, a plan priced below cost, and a plan where nobody has a
+day rate — plus the client-kind, rate-card-currency and stale-simulation
+paths. It found no defects, which given the T&M cap-versus-fee bug this
+panel once had is worth having on the record.
+
+Note what it taught about testing rather than about the app: the first
+version called `calculate()` after editing a bill rate, and `calculate()`
+re-runs the Monte Carlo — so it refreshed the exact staleness the detector
+exists to catch and reported a false positive. The paths that genuinely go
+stale are the UI setters that deliberately do not recompute (`setBillRate`,
+`setKind`), and those are what it exercises now.
+
+`resourcing-sweep.js` checks the panel that answers "can we commit to this
+date". The unit is the trap: `computeResourceLoad` counts (person × day)
+PAIRS over capacity, not days and not people, and those differ the moment two
+people are over on the same date. It found the Level button reporting
+"Over-allocated days" and the Resources tab — the screen you open in order to
+fix the problem — never stating the total at all.
+
+Two things it taught about writing these. It first tested PTO on a COMPLETED
+activity, where the "finished conflicts are history" rule correctly suppressed
+it, and reported a bug that was not there. And every count check ran green
+against a fixture with zero over-allocation, which is vacuous — so it now
+CONSTRUCTS a conflict across two people and several days and makes each
+surface account for it.
+
+`schedule-sweep.js` checks the date you COMMIT to — the planning half, where
+a wrong figure costs the commitment rather than an argument. It recomputes the
+PERT formula, the four network identities (EF−ES, LF−LS, slack both ways),
+every dependency edge against its own type and lag, whether the critical path
+is a continuous chain that reaches the finish, whether every scheduled date
+lands on a working day, and whether the Monte Carlo mean matches the
+deterministic finish (Beta-PERT with lambda 4 has a mean of exactly TE, so a
+gap is proof the sampler and the forward pass disagree — measured drift is
+0.31%).
+
+It found the reserves guidance promising that a committed date "carries 80%
+confidence". A P80 is a DURATION and a date is a whole working day, so the
+date absorbs more of the distribution than the percentile it was cut from —
+82.8% on this plan. Conservative, never the other way, but wrong in the
+direction that costs money: you buy more reserve than you meant to.
+
+`ai-boundary-sweep.js` checks what the model is ALLOWED to say — with no API
+key, and none needed. The app's AI safety is not the model behaving; it is the
+CATALOGUE handed to the model (the only ids it may reference) and the
+VALIDATORS that drop anything coming back which cannot resolve. Both are pure
+functions of local state plus a response object, so every response here is
+hand-written adversarially: invented panels, fabricated citations,
+hallucinated ids, owners not on the roster, RAID types the log does not have,
+scores off the 1–5 scale, fix verbs the tool cannot perform, and injected
+markup.
+
+All of it holds. Every drop is reported by name rather than silently. The
+capture path fills the form and never writes to the register. Screen-share
+mode bites inside ptDigest, before a request body is built, so no money is in
+the text even in principle. And the sweep asserts it made ZERO outbound
+requests — if it ever calls out, it is not the thing it claims to be.
+
+One deliberate non-finding: an injected sentence is KEPT. Dropping text for
+containing frightening words is keyword filtering and fails on the first
+phrasing you did not anticipate. The protection is that a reading has no
+execution power and is escaped when drawn — so the sweep proves the escaping
+instead of trusting it.
+
+`dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
+not just show numbers, they narrate them — "this is not a scope change, all 22
+changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is
+overrun". That kind of line is the most valuable thing on the screen and the
+easiest thing in the codebase to fake, because a sentence typed once from one
+run of one plan is indistinguishable from a computed one: correct on the plan it
+was written against and quietly wrong on every other plan forever. Nothing else
+here would notice — the numbers it describes are still computed correctly, the
+DOM still renders, no arithmetic identity is violated.
+
+The property is mechanical. Run two materially different plans through
+Analytics, Plan vs actual, Resources and the Gantt narrative, and harvest every
+text node stating money or a calendar date. They must all come out DIFFERENT,
+because the plans are different. One that survives both character for character
+is not reading either. Two carve-outs, because otherwise it reports noise:
+today's date is the same day in both runs and is stripped before a line is
+judged, and a legend ("$/hr") is not a claim, so a claim needs three digits of
+money or a real date. It also fails if either plan yields under five claims —
+a run that harvested nothing proves nothing, and would go green forever the day
+a container id changed.
+
+`navigation-sweep.js` checks two things a person other than you depends on.
+
+**The address bar.** Nine tabs and no history: drilling from Analytics into an
+activity and on into Plan vs actual left Back meaning "leave the application",
+so a mis-click cost the session, the URL never said where you were, and a link
+to the Gantt could not be sent. Every tab writes a fragment now, and the sweep
+holds all four directions — forward navigation writes one, Back and Forward walk
+them, the entry with NO fragment is the first tab rather than a press that
+visibly does nothing, and a fragment present at load opens that tab after the
+plan is computed rather than before. Every tab is round-tripped, so one of them
+cannot go quietly unaddressable.
+
+**The worklist.** It answers "what can this person start now", and it answered
+with a truncated name and a date: on a plan of generated test cases every row
+read "TC AC-11.3 - edge: mo...", which identifies nothing. The state of the work
+was absent and so was the open RAID entry raised against it, sitting in the same
+file. The properties are asked rather than the layout: a row names its activity
+fully enough to act on, states what is happening to it, names what it waits on
+WITH the owner of that, and carries any open RAID entry — and the copied
+document holds the same facts in both clipboard flavours.
+
+Two notes on the checks themselves. The RAID case is CONSTRUCTED, because no
+committed fixture happens to carry an open entry against an unfinished leaf: the
+sample's two open entries sit on a completed activity and on a summary, so a
+check that merely looked would pass on a build that never reads RAID at all. And
+indistinguishable names are compared within one person's table, not across the
+panel — a shared activity legitimately appears on several cards, and the first
+version of that check called three such rows a defect.
+
+Two later additions to it, both about a summary with no way out. The worklist
+card capped three groups and discarded finished work at the DATA layer, so
+"and 6 more" was the end of the road — the caps are a view setting now, and the
+sweep tests "Show every row" alone against the one person whose group is over
+the cap, because the first version switched on the hidden groups at the same
+time and compared totals, which rise either way. The drill-in is checked against
+the person with the MOST work: picking the first person with any finished row
+gave a target whose every group sat under the cap, so a build that capped the
+drill-in to three rows passed — the view that exists BECAUSE the card caps was
+itself capped, invisibly.
+
+`ai-boundary-sweep.js` gained the +AC path for the same reason it holds the RAID
+catalogue: the model's reply is the untrusted part. An AC id is an IDENTITY —
+test cases point at it, the traceability matrix is keyed on it, the SOW quotes it
+— so the case that matters is a reply that re-emits an id already in use. Ids are
+assigned locally and the reply's are ignored; the sweep stubs a model that hands
+back existing ids, an invalid type and an empty criterion, and asserts nothing
+that existed moved, changed, or collided.
+
+`bank-sweep.js` gained the dimension that survives the engagement. The bank
+could calibrate by activity kind, work type and role, and could not answer the
+question that recurs every time the same subcontractor turns up on another
+engagement: does THAT firm's work run over. A role cannot answer it (two firms
+both field "integration developers") and an individual's name usually cannot
+either, because people rarely repeat across clients while the partner does.
+
+Three properties, and the first one matters most: the company has to reach the
+ARCHIVED row. Everything else in this file builds its rows by hand, so a build
+that never records a company when it archives a real plan would pass every
+synthetic case while the calibration sat correct about data that never arrives.
+The check sets a company on the roster, asks the archiver for its rows, and
+requires the field. Then: work shared between two firms counts for BOTH — `org`
+is the owner's company and `orgs` is every company that touched the activity,
+and the two are asserted separately because accepting either would let the set
+that makes joint work count twice go missing unnoticed. And what the calibration
+learns has to reach the PROMPT, since a signal computed and never sent
+calibrates nothing.
+
+`error-boundary-sweep.js` asks whether one panel failing can still take the
+page, which is a different question from any other file here. Everything else
+checks that a computation is right; this one checks what happens when something
+is wrong.
+
+The plan behind it is in `corrupt-file-sweep.js`: two collided activity ids, a
+TypeError thrown inside `findScheduleCycleIds`, and that single throw escaping
+the finder, `openDepFixWizard`, `recompute`, `ensureCalculated` and `switchTab`
+in turn. Every render after it never ran, so the panels kept the markup they
+were BORN with, and a reader with forty-one activities was told "Nothing to
+compare yet. Add activities and press Calculate." The file went on looking like
+a working application with nothing in it. That corrupt file is healed at the
+door now, which fixes the one cause; the shape it exposed was general, and this
+sweep holds it as properties instead.
+
+A throw in one render leaves the others drawn — the check kills the FIRST of the
+three renders Analytics does and requires the two after it to be there, because
+"every render after the throw never happened" was the actual failure. The panel
+that failed says so IN PLACE, names itself, carries the real error, says the
+plan is unharmed (the first thing a person wants to know and the one thing they
+cannot check for themselves), and offers to save it. `calculate()` still saves
+after a render in it throws, because a throw in the first of eight used to cost
+the seven after it and the save with them, silently. And a throw inside the
+schedule pass is turned into the same "no schedule" answer `ensureCalculated`'s
+callers already handle, rather than escaping — the original shape exactly.
+
+Two of its checks are about the notice not becoming its own defect. The message
+is PREPENDED, never `innerHTML=`, because `#pertContainer` holds the `<svg>`
+`renderPERT` draws into and `#taskTableWrap` holds the `<thead>` and `#taskBody`
+`renderTaskTable` fills: blanking either destroys what the retry needs, and ↻ Try
+again could then only fail, on its own error message. And a panel that has since
+drawn correctly must stop saying it could not be drawn — a stale failure notice
+over a correct panel is the same lie as the birth state, pointing the other way.
+
+The last check reads the SOURCE, with comments stripped. A behavioural check
+cannot tell an empty `catch {}` from a boundary until it happens to ask that
+panel what it says, so a swallow put back beside a boundary would be invisible
+to almost everything above. The first version of that scan read the comment
+QUOTING the swallow it replaced and reported the defect the prose documents —
+a check that trips on prose gets silenced by deleting the prose, which is
+exactly the wrong repair.
+
+Nine mutants back it: rethrow instead of catch, catch and tell nobody, no
+banner, a swallow restored in `switchTab`, a bare render in `calculate()`, an
+unguarded `recompute()`, a host id that is not in the document, a notice that
+blanks its host, and a notice that outlives the failure. All nine caught.
+
+## The five checks that had never failed
+
+A hundred and three mutants in, five of the twenty-two checks had never once
+been the one to go red: `golden-reference`, `client-facing-sweep`,
+`cross-surface-sweep`, `schedule-sweep` and `task-editor-sweep`. That is not
+proof they were broken — a mutant stops at the FIRST check that notices, and
+something earlier in the running order usually did. But it is the absence of
+proof, and the premise of the whole apparatus is that an unexercised check is
+worth nothing until it has failed once on purpose.
+
+Eleven mutants now target regions belonging to those five, with `LIKELY` routing
+each to the check under examination so the verdict names it. Getting them caught
+turned up three things that were wrong in the CHECKS, all of the same species:
+an assertion that could not fire.
+
+**Three of schedule-sweep's four dependency types had never executed.** It holds
+FS, SS, FF and SF; crm-rollout carries 26 dependencies and field-export 31, and
+all 57 are FS. So the forward and backward passes could compute SS, FF and SF
+however they liked with the suite green — the PERT-weighting shape exactly: a
+correct check and a fixture that cannot tell the difference. The sweep now
+constructs one link of each type with a non-zero lag, reschedules, and asserts
+the textbook identity, with a coverage assertion so the block cannot go quietly
+vacuous if the rewiring stops taking.
+
+That check then needed two corrections of its own. It first asked only that the
+successor start no EARLIER than the constraint, and an SS link scheduled as
+though it were FS passed — treating SS as FS puts the successor LATER, which a
+one-sided test cannot see, and a type that is silently stricter than it says
+pushes the committed date out for a reason nothing on screen gives. It asserts
+equality now, since the constructed link is the only predecessor. And the first
+version of THAT reported the shipped build, because the forward pass has a third
+floor the check had forgotten: `if (start < 0) start = 0`. An SF link whose lag
+puts the required start before day zero is not the binding constraint. The check
+was wrong, not the app; where the clamp binds it now asserts the clamp.
+
+**client-facing-sweep's audience fallback had never run.** All ten test cases in
+the fixture carry `audience:"internal"`, so `testCaseAudience` returns on its
+first line every time and the half that decides what an UNKNOWN audience becomes
+was never reached. The loop was counting to zero on a build that answered
+"client" to every unknown — the exact defect it was written against. The case is
+constructed now: audience removed, AC id resolving to nothing.
+
+**cross-surface-sweep was reading the wrong element.** Its "must not paint the
+project red when the verdict is not bad" check picked the card's delta with
+`.find(x => /font-weight:700/.test(style))`, and both the value pair and the
+delta are 700 — so it read the pair, which is painted ordinary text colour on
+every plan there has ever been. A build that rendered every Budget card critical
+passed it. The delta is now identified by what it says rather than by its
+position, and a null colour is itself a finding.
+
+The result: 217 mutants, all caught, and every one of the 22 checks now appears
+as the catcher at least once. That is the property worth stating plainly —
+there is no longer a check in this directory that has only ever been green.
+
+One mutant is deliberately absent and says so in the file: silencing the
+Schedule card's count of activities off their own dates. cross-surface compares
+that count against the bar's, and the bar only prints one in the projVar ≠ 0
+wording — on crm-rollout the finish is held, so both take their other branch and
+there is nothing to disagree about. It survives for want of a fixture, not for
+want of a check, and listing it would report a permanent false hole.
+
+### A mutant can go stale in MEANING, not only in its anchor
+
+The engine already separates two verdicts: SURVIVED says a region of the product
+is unguarded, SKIPPED says this file is stale because the code its anchor pointed
+at was edited. There is a third case it cannot tell apart from the first, and it
+cost a full run to notice.
+
+A mutant planted a getter in an object literal so a stored field would read live
+state instead of a snapshot. Later, a normaliser was introduced between that
+literal and the stored record — and the normaliser COPIES the array. The getter
+fired once, froze into a plain array, and the mutant stopped expressing anything
+at all. It reported SURVIVED, which reads as "the suite has a hole here" and was
+the exact opposite: the refactor had made the defect unreachable, so there was
+nothing left to catch.
+
+The anchor still matched exactly once, so the staleness check said nothing. That
+check asks whether the mutant APPLIED; this is a mutant that applied cleanly and
+meant nothing afterwards. Nothing mechanical here distinguishes them, and the
+honest position is that a surviving mutant deserves the question "does this still
+break what its name says" before it is treated as a finding about the product.
+
+The repair is the general one: move the mutant to whichever side of the refactor
+still owns the behaviour. This one moved from the writer to the reader, where
+"answer from today's log rather than from what the version recorded" is still a
+single edit away.
+
+### Running one mutant
+
+`node tests/mutation-engine.js <substring> [<substring> …]` keeps only the
+mutants whose description contains one of the substrings. Two hundred mutants is
+twenty-six to forty minutes — the right price for a release gate and the wrong one for "I
+just added one, is it caught?", where the honest alternatives were to run the lot
+or to hand-edit the array. Editing a probe so it finishes is exactly how a probe
+stops covering what it says it covers, so the filter is a first-class argument
+and a filtered run announces itself in its own summary rather than reading as a
+clean full pass. A filter matching nothing exits 2 and says nothing was proven.
+
+The filter is applied AFTER the array is built, so the anchor audit and the
+"n of m" arithmetic both describe the run that actually happened.
+
+## The checks, checked
+
+`harness-meta.js` is the only file here that does not look at the product. It
+asks whether the checks can still say no, because twice the answer has been no
+and both times it was invisible from outside.
+
+**No exit code.** Seven of the seventeen sweeps once printed their
+contradictions and exited 0. The gate and the mutation harness both judge by
+exit status, so every finding arrived as a tick. It surfaced only when two
+deliberate defects were planted, reported BY NAME in a sweep's own output, and
+still counted as SURVIVED.
+
+**A reporting branch that throws.** cross-surface-sweep read `money(...)` where
+the global is `fmtMoney(...)` — eleven times, every one inside the branch that
+reports a finding. Green through all of development, and guaranteed to die the
+first time it was right.
+
+The second is why this loads the app in a browser rather than only reading
+source: whether `money` exists is a question about the page, not about the
+check. It extracts every call in a `page.evaluate` body, subtracts what is
+declared there and what the language provides, and requires the rest to be real
+functions on the loaded application. A branch nobody has ever taken is held to
+exactly the same standard as one taken every run — frequency is what hid the
+defect, and a static reading does not care.
+
+It also plants both defects into synthetic files on every run and requires
+itself to name them, which is why it is not in the mutation set: a linter that
+has gone blind reports a clean directory, and that is indistinguishable from a
+clean directory. Proving it on every commit is stronger than a mutant under
+`FULL=1`.
+
+Its first run found two dead branches, both hidden the same way:
+
+- **ai-boundary-sweep called a renderer that does not exist.** The XSS case read
+  `ptRenderItems ? ptRenderItems([kept]) : ''` inside a try/catch. There is no
+  `ptRenderItems` in the application; a bare reference to an undeclared name
+  throws ReferenceError, the catch swallowed it, and control fell to a fallback
+  that made it worse — with no API key `ptReadingHtml` returns the "Readings are
+  off" placeholder, so the injected payload was not in the markup at all and the
+  escaping assertion passed for the one reason that proves nothing. The
+  security-relevant check in that file had never rendered the payload. It now
+  builds the state the real renderer needs, and asserts the payload IS present
+  before asserting it is inert.
+- **dialog-sweep guarded a dialog that was never built.** `if (t1 && typeof
+  openDepMap === 'function')` — there is no `openDepMap`, so the guard was
+  permanently false and the branch had never run. A `typeof` guard is the polite
+  way to write an optional case and the perfect way to hide a name that does not
+  exist: nothing throws, nothing is scanned, and the opened list simply never
+  mentions it. Replaced with the story modal and the RAID form, which do exist
+  and were not being scanned, plus an assertion on which dialogs opened.
+
+The scanner needed one fix of its own, and it is the recurring lesson in this
+directory: it collected identifiers out of regex literals, so a pattern like
+`/(\d+)\s+activit(?:y|ies)/` was read as a call to `activit()`. Six false
+findings on the first run. Comments, strings, template literals and regex
+literals are all blanked before anything is read — text that LOOKS like code is
+not code, the same trap as the `switchTab` source scan that reported the defect
+its own comment documents.
+
+Two anti-vacuum assertions guard the guard: it fails if it locates fewer than 20
+evaluate bodies or resolves fewer than 30 calls against the app, since a regex
+that silently stops matching would otherwise report a clean directory forever.
+Current run: 24 checks, 65 bodies, 340 calls resolved.
+
+Probes live in `tests/probes/` and are out of scope by design — they observe and
+never fail, which is stated in their own README.
+
+## Which ASSERTIONS have never fired
+
+`node tests/probes/assertion-coverage.js` — and it is a probe, not a check, for
+a reason given below.
+
+The mutation engine proves that a check FILE can go red. That was the right
+granularity when the worry was a whole sweep gone vacuous, and it is far too
+coarse now: `baseline-sweep` is fifteen hundred lines and catches most of the
+mutant set, so "baseline-sweep has been the catcher" says nothing whatever about
+the ninety-odd individual assertions inside it. An assertion nobody ever aimed a
+mutant at has no evidence behind it, and one session produced five defects that
+lived in precisely that gap — a negative case built on a subject an earlier block
+had already touched, an assertion on a derived list that also filtered on the
+condition under test, a filter on a derived field straight after a hydrate that
+selected nothing and passed, an assertion anchored to markup that was later
+redrawn, and a mutant neutered by a refactor. Every one was found by the engine
+or by printing an intermediate count. None was found by reading.
+
+So the engine now records the OUTPUT of each catching run instead of discarding
+it — that text was already being produced, twenty-eight minutes of it — and
+writes `tests/.mutation-journal.json`. The probe reads that against the assertion
+strings extracted from the check files and reports which sentences have never
+been the one that went red.
+
+It reports rather than failing because the two populations are not the same
+thing. An assertion with no mutant behind it is unproven, not wrong, and plenty
+of them guard conditions no mutant expresses; a gate that failed on those would
+be turned off within a week. The list is for reading, and the question to ask of
+each line is "could I write a mutant that makes this fire, and if not, why not".
+
+Two things it cannot say, both printed in its own output. An assertion that HAS
+fired is proven only against the mutants that fired it. And matching is by text,
+so a check whose message is built entirely from computed values has no stable
+identity here and is reported as never-fired while doing its job.
+
+**The first answer is 293 of 800 — 37%.** Just under two thirds of the
+assertions in this directory have never once been the thing that went red. That
+is not two thirds broken; it is two thirds unproven, and the difference matters.
+But it is also the honest size of what "the suite is green" is worth.
+
+And the extractor was wrong three times before that number settled — 39%, then
+28%, then 37%. It required the reporting call's first argument to be a quoted
+literal, so `say(t.name, '…')` was invisible. It matched only `'` and `"`, so
+golden-reference reported ZERO assertions and that read as a finding about
+golden-reference. And it scanned a fixed distance forward instead of matching
+brackets, so it ran off the end of a call and listed an XSS payload — data being
+fed to the app — as something a check says. Each was found by reading the output
+rather than the summary. The instrument built to measure unreliable checks was
+unreliable in precisely the ways it exists to find, which is worth keeping in
+view rather than quietly fixing.
+
+## Nothing to test is not a pass
+
+Every sweep now states it when its input cannot reach what it asserts. Sixteen
+did already, written wherever somebody remembered; `bank`, `persistence`,
+`task-editor` and `undo` did not, and went quietly green on a plan holding no
+work at all — the one state where each of their assertions is trivially
+satisfied. A round trip over zero tasks is a perfect round trip. An undo stack
+compared empty against empty agrees. The editor cases all return early having
+never opened the editor once.
+
+This is the half `vacuity-check` cannot carry. It proves a file READS the plan;
+it cannot prove that what it read was enough to test with. The two are different
+questions and both have to be answered — mechanically for the first, in the
+check's own words for the second.
+
+## Reading the property, not the packaging
+
+`node tests/anchor-check.js` — the mechanical guard for the second root cause in
+this directory, and the last of the three to get one.
+
+The first root cause was *the fixture cannot reach the branch, and nothing says
+so*; `vacuity-check` answers it by feeding every sweep an empty plan and
+requiring the output to change. The second is *the assertion is on an artefact
+that usually accompanies the property* — a position, a style value, an attribute
+flag, the existence of a row — and it produced at least nine defects, every one
+of them in a **check** rather than in the product:
+
+- `cross-surface` found the delta with `.find(font-weight:700)` and got the value
+  pair: the first thing matching a shape, not the thing wanted.
+- a health-finding check matched `/unbilled/i` against the **area label**, so it
+  survived a rename that removed the finding entirely.
+- an outstanding-total check asserted the row *existed* rather than what it said.
+- a legend check asserted the key existed rather than that it was *visible*.
+- a bank check used `innerText`, which returns `''` for anything not being
+  rendered, and reported the shipped build for a defect that did not exist.
+- the leveling-toolbar check read the `hidden` **attribute**, agreed with the
+  code, and passed on a build where the buttons showed on all four sections.
+
+Each of those correlates with the truth until the day it does not, and on that
+day the check stays green and is counted as coverage.
+
+**The question, asked mechanically.** The mutation engine changes what the panels
+*say* and requires a check to go red. This changes only *how they say it* and
+requires every check to stay **green**. Three mutations, all invisible to a human
+looking at the page:
+
+1. an unused class on every element — no CSS rule matches it, so nothing moves;
+2. a hidden, empty, bold decoy span inside every table cell — no text, no
+   layout, and "find the bold one" now finds nothing;
+3. a space either side of the text in leaf elements — HTML collapses it, so the
+   rendering is identical and `textContent` gains two characters.
+
+A red run is therefore a defect in the **check**, never in the product.
+
+**Proven able to fail.** A green run from a probe that cannot go red is worth
+nothing, so the probe was pointed at three deliberately anchored assertions —
+exact `className` equality, "find the element with `font-weight:700`", exact
+untrimmed `textContent` — and each mutation caught its own. The scratch sweep was
+deleted afterwards; what matters is that the three mutations were each shown to
+bite something.
+
+**And it found a defect in itself first.** Appending the decoy made a table cell
+non-empty of children, so the leaf test for the padding stopped being true for
+exactly the cells it was aimed at: 93 leaf cells, 0 padded. Two of the probe's
+own three mutations cancelled, and it reported green. Found by counting what
+landed rather than by reading the code, which is the only reason it was found at
+all.
+
+**What it does not catch**, stated so nobody reads more into a green run than is
+in it. It cannot catch an assertion anchored to a *label's words*, because
+renaming a heading is not meaning-preserving and resolving a column by its header
+is the correct pattern — a probe that renamed headings would punish the right
+answer. It cannot catch *asserted the row exists rather than what it says*,
+because existence survives every mutation here by design. And it cannot catch an
+attribute read that disagrees with the computed style, because swapping `hidden`
+for `display:none` is not equivalent in general.
+
+So it covers the positional and stylistic third of the pattern. Three probes,
+three questions: the mutants ask *would you have noticed a wrong value*,
+`vacuity-check` asks *did you look at the input*, and this asks *did you look at
+the thing itself, or at what it happened to be wearing*. None of the three is the
+whole standard.
+
+## The written test plan
+
+`node tests/run-test-plan.js` runs 42 cases and writes two documents:
+
+- **`TEST-PLAN.md`** — the plan alone. Every case states the DESIGN INTENT (what
+  the app is meant to do and why), the EXPECTATION, and where the expectation
+  came from. Readable and arguable before anything executes.
+- **`TEST-RESULTS.md`** — the same document with the ACTUAL result and a verdict
+  against each case.
+
+Both are GENERATED from `tests/plan/cases-numbers.js` and
+`tests/plan/cases-behaviour.js`. A written plan maintained separately from the
+checks it describes drifts, and then the document says one thing while the suite
+does another — which is the exact failure this suite exists to catch, so it would
+be poor form to build it in here. Edit the cases; never edit the markdown.
+
+21 cases cover the NUMBERS, against the QA reference plan, where every expected
+value is derived by hand and shown with its arithmetic. 21 cover the BEHAVIOUR,
+because numbers can all be right while the screen still lies — every defect in
+this app's recent history was of that shape: an assumption shown as a cause, work
+finishing early shown as an overrun, a duration percentile attached to a date, a
+person-day count called a calendar day.
+
+Two cases document DELIBERATE choices rather than requirements, so that nobody
+rediscovers them as bugs: N10/B17 (a milestone is marked the working day after
+the work it follows, and the panel must say so) and N20/N21 (a conflict where all
+the overlapping work is finished is not counted, but the same overlap in flight
+is).
+
+Worth knowing how it earned its keep on the first run: it failed one case, and
+the case was wrong, not the app. B8 demanded that every driver row name both its
+halves — but a row with no overrun should not print "$0 ahead of its dates". You
+could read that expectation and disagree with it, which is the whole point of
+writing the plan down instead of only the assertions.
+
+## The golden reference — the one test self-consistency cannot fake
+
+Everything above checks that the application agrees with ITSELF, and with a
+recompute written after reading its source. That has caught every defect so
+far, but it has one blind spot by construction: an error absorbed into both the
+app and the recompute agrees with itself perfectly and nothing notices.
+
+`golden-reference.js` closes it. `fixtures/qa-reference.json` is a five-activity
+plan whose inputs were picked so every derived number is a whole number a person
+can check on paper — three-point estimates that make TE exact ((2+12+4)/6 = 3),
+round day rates, a calendar starting on a Monday with no holidays, and a TYPED
+contract price so nothing depends on a random simulation.
+`fixtures/qa-reference.expected.json` holds the answers, derived from those
+inputs by hand and carrying their arithmetic with them, so you can audit the
+expectation without rerunning anything.
+
+71 checks. A failure here is never style — it means a number the app shows you
+is wrong.
+
+Two things the plan is shaped to catch specifically:
+
+**The two cost measures pointing opposite ways.** Activity D is budgeted at
+$4,000 and never started, so the plan sits $3,500 UNDER the spend curve while
+the work that DID finish came in $500 OVER what it was budgeted. A panel
+reporting only the first number calls a cost overrun a saving.
+
+**The rule that finished conflicts are history.** Bob genuinely works B and C at
+100% each on 5 and 6 March, so a first-principles reading says two
+over-allocated resource-days. The app reports zero, correctly: both are complete
+and you cannot un-double-book a week that already happened. The fixture asserts
+BOTH — zero as shipped, and two when C is set back to unfinished — so the rule
+is pinned rather than rediscovered.
+
+## Read the colour, not the class
+
+`contradiction-sweep.js` reads `getComputedStyle`, not `className`. A class list
+can be correct while the colour that lands is wrong: `.ptr-drv-crit` is declared
+later at the same specificity and once repainted an under-budget row red for a
+fact about the schedule. An assertion on the class name passed; the screen was
+still wrong.
+
+## Feature probes — which are NOT checks
+
+`budget-split.js` and `raid-outcomes.js` moved to `tests/probes/`, because they
+were being read as coverage and are not. They contain zero assertions and set no
+exit code: they load a plan, put the app into a state, and print what they see.
+473 lines that could only ever report success, listed here beside the real
+sweeps. That is the same shape as the seven sweeps that once printed
+contradictions and exited 0 — a red finding arriving as a tick.
+
+They are kept because they are still the fastest way to answer "what does the
+panel actually do in this state", which is what a check is bad at. See
+`tests/probes/README.md`. `harness-meta.js` scans `tests/` only, so nothing in
+there is held to the two properties a check must have.
