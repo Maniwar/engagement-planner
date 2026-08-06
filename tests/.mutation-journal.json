@@ -1,18 +1,70 @@
 {
- "at": "2026-08-06T22:00:46.790Z",
+ "at": "2026-08-06T22:20:58.816Z",
  "full": false,
- "ran": 1,
- "of": 320,
+ "ran": 5,
+ "of": 325,
  "rows": [
   {
-   "what": "ledger: the tie-out to the billing table is never printed, so nobody can tell the two agree",
-   "by": "resourcing-sweep.js",
+   "what": "sync guide: the reason blames the browser even when the origin is what refuses",
+   "by": "dialog-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Ledger :: the unfiltered Billed view does not print its tie-out to the billing table",
-    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
-    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
+    "QA reference · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
+    "Real export · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "sync guide: it says watching is unavailable and offers nothing to do about it",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Sync guide :: a file:// page reports that file watching is available",
+    "QA reference · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
+    "QA reference · Sync guide :: the guide reports watching unavailable and offers nothing to do about it",
+    "Real export · Sync guide :: a file:// page reports that file watching is available",
+    "Real export · Sync guide :: watching is unavailable and the stated reason does not name the file:// origin",
+    "Real export · Sync guide :: the guide reports watching unavailable and offers nothing to do about it",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "sync guide: never says the watched file is on your own disk, so uploading to Drive looks right",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Sync guide :: never says the watched file is on your own disk, which is the fact the whole setup rests on",
+    "Real export · Sync guide :: never says the watched file is on your own disk, which is the fact the whole setup rests on",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "sync guide: the Mac fix for a picker that cannot see the drive is gone",
+   "by": null,
+   "survived": true,
+   "skipped": false,
+   "findings": []
+  },
+  {
+   "what": "sync guide: unreachable — nothing on the page opens it",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Sync guide :: nothing on the page opens the guide, so it is unreachable",
+    "Real export · Sync guide :: nothing on the page opens the guide, so it is unreachable",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
    ]
   }
  ]

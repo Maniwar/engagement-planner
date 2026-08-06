@@ -300,6 +300,84 @@ const QA = JSON.parse(fs.readFileSync(
         say('Dialogs', missed.join(', ') + ' never opened, so nothing in them was scanned — a dialog that '
           + 'quietly stopped being reachable is indistinguishable from a clean one');
 
+      /* ══ THE SETUP GUIDE HAS TO SAY THE THING THAT ACTUALLY GOES WRONG ═════
+         The collaboration transport worked and nobody could start it. Watching
+         points at a file ON YOUR OWN DISK, so the desktop sync client has to be
+         installed — and putting the file on drive.google.com through a browser
+         creates nothing local, which looks exactly like a broken feature. The
+         old failure path was an alert reading "this browser cannot watch a file
+         — Chrome or Edge can", which is the wrong reason two times in three
+         and, said to somebody already in Chrome, is no reason at all.
+
+         Every check here is on the SENTENCE, not on the dialog existing: a
+         guide that opens and omits the one fact you needed IS the defect. */
+      out.syncGuide = (() => {
+        const cap = syncCapability();
+        const g = {};
+        /* This harness runs on file://, so the honest verdict is "unavailable,
+           and here is why" — and the reason must name the ORIGIN, not the
+           browser. A build that blames Chrome while running in Chrome is
+           precisely what this replaced. */
+        if (cap.ok) say('Sync guide', 'a file:// page reports that file watching is available');
+        if (!/file:\/\//.test(String(cap.why)))
+          say('Sync guide', 'watching is unavailable and the stated reason does not name the file:// origin');
+        if (/Chrome or Edge can/.test(String(cap.why)))
+          say('Sync guide', 'the reason blames the browser on a page where the browser is not the problem');
+        if (!cap.fix || String(cap.fix).length < 30)
+          say('Sync guide', 'the guide reports watching unavailable and offers nothing to do about it');
+
+        openSyncGuide();
+        const modal = document.getElementById('syncGuideModal');
+        if (!modal || !modal.classList.contains('open')) { say('Sync guide', 'the guide does not open'); return g; }
+        const txt = (document.getElementById('syncGuideBody').textContent || '').replace(/\s+/g, ' ');
+        g.chars = txt.length;
+        if (txt.indexOf('on your own computer') < 0)
+          say('Sync guide', 'never says the watched file is on your own disk, which is the fact the whole '
+            + 'setup rests on');
+        if (txt.indexOf('drive.google.com') < 0)
+          say('Sync guide', 'does not warn that uploading through a browser creates nothing to point at');
+        if (txt.indexOf('Two files, never one') < 0)
+          say('Sync guide', 'does not say two files rather than one, which is what stops the sync client '
+            + 'silently leaving a second copy');
+        if (!document.querySelector('[onclick="openSyncGuide()"]'))
+          say('Sync guide', 'nothing on the page opens the guide, so it is unreachable');
+        /* THE TWO HALVES, NAMED. "Watch their file" only reads; a reader who
+           stops there sends nothing and is told nothing. */
+        if (txt.indexOf('never writes your changes anywhere') < 0)
+          say('Sync guide', 'does not say that watching only reads, which is the thing every reader assumes '
+            + 'the other way round');
+        if (txt.indexOf('You need both') < 0)
+          say('Sync guide', 'does not say both halves are needed');
+
+        /* THE MAC BRANCH, FORCED. The Windows and Mac paths are different
+           prose, and the platform this harness reports is not the one the fix
+           was written for — so asserting on whatever happens to render proves
+           only that ONE branch is intact, and a build that gutted the Mac
+           advice passed. navigator.platform is overridden for the length of
+           this check and put back. */
+        const realPlat = Object.getOwnPropertyDescriptor(Navigator.prototype, 'platform')
+          || Object.getOwnPropertyDescriptor(navigator, 'platform');
+        try {
+          Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel', configurable: true });
+          closeOverlay('syncGuideModal');
+          openSyncGuide();
+          const mtxt = (document.getElementById('syncGuideBody').textContent || '').replace(/\s+/g, ' ');
+          g.macChars = mtxt.length;
+          if (/drive letter/.test(mtxt)) say('Sync guide', 'a Mac is shown the Windows steps');
+          if (!/Mirror files/.test(mtxt))
+            say('Sync guide', 'the Mac path offers no fix for the picker being unable to see Google Drive — '
+              + 'which is the exact failure that made this feature unusable');
+          if (mtxt.indexOf('CloudStorage') < 0)
+            say('Sync guide', 'the Mac path does not name the hidden CloudStorage location the picker lands away from');
+          if (mtxt.indexOf('Available offline') < 0)
+            say('Sync guide', 'the Mac path does not say to materialise an online-only placeholder');
+        } finally {
+          if (realPlat) { try { Object.defineProperty(navigator, 'platform', realPlat); } catch (e) {} }
+        }
+        closeOverlay('syncGuideModal');
+        return g;
+      })();
+
       return { contradictions: bad, counts: out };
     }, label);
   };

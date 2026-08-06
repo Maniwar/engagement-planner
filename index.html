@@ -2641,6 +2641,12 @@
           <button onclick="setupDiskAutosave()" title="Your copy, rewritten to a real file after every change. Put that file in a folder they can see — Drive Desktop, Dropbox, OneDrive, a network share — and their sync client does the transport.">💾 Auto-save my copy to a file…</button>
           <button onclick="fsLinkTheirs()" title="Watch their file and say when it changes. It never merges by itself: it opens the same review panel, and every conflict still defaults to keeping yours.">👀 Watch their file…</button>
           <button onclick="fsUnlink()">✕ Stop watching</button>
+          <!-- Everything above was explained only in tooltips, so the one thing a
+               reader has to know BEFORE clicking — that this watches a file on
+               your own disk, which means the sync client has to be installed and
+               putting the file on drive.google.com does nothing — was invisible
+               until it had already failed. -->
+          <button onclick="openSyncGuide()" title="What this actually does, what your browser can do, and how to set the shared folder up on Mac or Windows">❓ How to set this up…</button>
           <div class="grp" style="font-weight:400;text-transform:none;white-space:normal;max-width:19rem;line-height:1.35">You each write your own file. One file both of you write is what makes a sync client leave a second copy called "plan (1).json".</div>
         </div>
       </details>
@@ -2997,6 +3003,17 @@
         </div>
       </div>
     </div>
+    <div class="modal-overlay" id="syncGuideModal" style="z-index:141">
+      <div class="modal" style="max-width:720px" role="dialog" aria-modal="true" aria-labelledby="syncGuideTitle">
+        <div class="modal-header"><h3 id="syncGuideTitle">Working on one plan with somebody else</h3>
+          <button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeOverlay('syncGuideModal')" aria-label="Close dialog">✕</button></div>
+        <div class="modal-body"><div id="syncGuideBody"></div></div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeOverlay('syncGuideModal')">Close</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="mergeModal" style="z-index:140">
       <div class="modal" style="max-width:760px" role="dialog" aria-modal="true" aria-labelledby="mergeTitle">
         <div class="modal-header"><h3 id="mergeTitle">Merge a teammate's copy</h3>
@@ -4730,6 +4747,21 @@ Or say what you want, in your own words:
           return;
         }
         const h = await showSaveFilePicker({ suggestedName: safeName() + '-autosave.json', types: [{ description: 'JSON backup', accept: { 'application/json': ['.json'] } }] });
+        /* THE SAME LOOP, SET UP THE OTHER WAY ROUND. Guarding only the watcher
+           catches the person who links their teammate second; somebody who
+           starts watching and THEN turns on autosave would overwrite the file
+           they are reading, which is worse — it does not just fail to sync, it
+           destroys their teammate's copy. */
+        if (typeof fsTheirs !== 'undefined' && fsTheirs && h.isSameEntry) {
+          let same = false;
+          try { same = await h.isSameEntry(fsTheirs); } catch (e) {}
+          if (same) {
+            alert('That is the file you are watching.\n\n“' + h.name + '” is your teammate’s copy. Auto-saving '
+              + 'onto it would overwrite their work with yours on every keystroke, and they would never be asked.'
+              + '\n\nSave yours under a different name in the same folder — you each keep your own file.');
+            return;
+          }
+        }
         diskFileHandle = h;
         try { await idbSet('disk.handle', h); } catch (e) {}
         diskAutoSave(JSON.stringify(serialize()));
@@ -16364,14 +16396,37 @@ Or say what you want, in your own words:
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.finishDate) : '—'}</td>
           <td>${calculated ? (t.percentComplete || 0) + '%' : '—'}</td>
           ${anyCost ? `<td style="text-align:right;font-size:0.8rem">${fmtMoney(taskCost(t))}</td>` : ''}
-          <td style="font-size:0.78rem;max-width:230px">${(() => {
+          <td style="font-size:0.78rem;max-width:260px;min-width:170px">${(() => {
             const ins = t.isSummary ? [] : taskInputs(t);
             if (!ins.length) return t.isSummary || t.milestone ? '<span class="help-text">—</span>'
               : '<span class="io-flag" title="Nothing feeds this activity — no predecessor, no client dependency and no stated input">nothing stated</span>';
-            const mark = { upstream: '↤', client: '◇', stated: '·' };
-            return ins.slice(0, 4).map(i => `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(
-                (i.kind === 'upstream' ? 'From ' + ((i.from && i.from.wbs ? i.from.wbs + ' ' : '') + (i.from ? i.from.name : '')) + ': '
-                 : i.kind === 'client' ? 'Client dependency (' + (i.ref || '') + '): ' : 'Stated input: ') + i.text)}">${mark[i.kind]} ${escapeHtml(i.text)}</div>`).join('')
+            /* NOWRAP + ELLIPSIS ON A 230px CELL cut every line mid-word, so a
+               column whose whole job is to say what an activity needs before it
+               can start showed "Signed-off scope confirmation …" three times
+               and told you nothing. Two wrapped lines fit the same height and
+               carry roughly three times the words.
+
+               The three kinds were also carried by ↤ ◇ · alone — glyphs that
+               are the same size, weight and colour, which is to say a category
+               nobody can see. They get a tinted chip each, so upstream work,
+               a client dependency and a stated input are distinguishable at a
+               glance rather than by decoding punctuation. */
+            const KIND = {
+              upstream: { m: '↤', bg: '#eff6ff', fg: '#1d4ed8', bd: '#bfdbfe' },
+              client:   { m: '◇', bg: '#fffbeb', fg: '#92400e', bd: '#fde68a' },
+              stated:   { m: '·', bg: '#f1f5f9', fg: '#475569', bd: '#e2e8f0' }
+            };
+            return ins.slice(0, 4).map(i => {
+              const k = KIND[i.kind] || KIND.stated;
+              const tip = (i.kind === 'upstream'
+                  ? 'From ' + ((i.from && i.from.wbs ? i.from.wbs + ' ' : '') + (i.from ? i.from.name : '')) + ': '
+                  : i.kind === 'client' ? 'Client dependency (' + (i.ref || '') + '): ' : 'Stated input: ') + i.text;
+              return `<div style="display:flex;gap:4px;align-items:flex-start;margin-bottom:3px" title="${escapeHtml(tip)}">`
+                + `<span style="flex:0 0 auto;background:${k.bg};color:${k.fg};border:1px solid ${k.bd};`
+                + `border-radius:4px;padding:0 3px;font-size:0.7rem;line-height:1.4">${k.m}</span>`
+                + `<span style="flex:1 1 auto;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;`
+                + `overflow:hidden;overflow-wrap:anywhere;line-height:1.35">${escapeHtml(i.text)}</span></div>`;
+            }).join('')
               + (ins.length > 4 ? `<div class="help-text" style="font-size:0.68rem">+${ins.length - 4} more</div>` : '');
           })()}</td>
           <td style="font-size:0.8rem">${t.aiDoc ? `<span title="${escapeHtml('A drafted document is saved on this activity: ' + (t.aiDoc.title || '') )}" style="cursor:help">📄 </span>` : ''}${(() => {
@@ -29779,16 +29834,139 @@ Do not write payment terms or exclusions — both are generated from the project
     let fsTheirs = null, fsSeen = 0, fsTimer = null, fsPending = null;
     const FS_POLL_MS = 20000;
     function fsSupported() { return typeof window.showOpenFilePicker === 'function'; }
+    /* WHY it is unavailable, not just THAT it is. The old message said "this
+       browser cannot watch a file — Chrome or Edge can", which is one of three
+       possible reasons and the wrong one two-thirds of the time: on Safari the
+       API genuinely does not exist, but on Chrome opened from a file:// path it
+       exists and refuses, and telling somebody already using Chrome to go and
+       use Chrome is the least useful sentence the app could produce. */
+    function syncCapability() {
+      const ua = navigator.userAgent || '';
+      const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+      const fileOrigin = location.protocol === 'file:';
+      if (fsSupported() && !fileOrigin) return { ok: true, why: '', fix: '' };
+      if (fileOrigin) return { ok: false,
+        why: 'This page was opened straight off your disk (the address starts with file://), and browsers '
+           + 'refuse the file-watching API on those pages for security reasons — regardless of which browser it is.',
+        fix: 'Open the hosted copy at maniwar.github.io/engagement-planner instead, or serve this file over '
+           + 'http://localhost. Everything else on this page works fine from a file:// path; only watching does not.' };
+      if (isSafari) return { ok: false,
+        why: 'Safari does not implement the File System Access API at all, so it cannot hold on to a file '
+           + 'between visits — neither writing your copy nor watching theirs.',
+        fix: 'Use Chrome or Edge for the automatic loop. Safari can still do the whole thing by hand: '
+           + 'Export ▸ Download JSON, put it in the shared folder, and use “Merge a copy” on what they send. '
+           + 'Same merge, same conflict review — you just move the file yourself.' };
+      return { ok: false,
+        why: 'This browser does not offer the File System Access API, so it cannot keep a reference to a file.',
+        fix: 'Chrome and Edge do. Until then use Export ▸ Download JSON and “Merge a copy”, which work everywhere.' };
+    }
+    /* The one fact somebody has to know BEFORE they start, and the only one the
+       tooltips never said: this watches a file ON YOUR OWN DISK. The sync client
+       is the transport, so it has to be installed and actually syncing. Putting
+       the file on drive.google.com through a browser creates nothing local, and
+       the picker then has nothing to point at — which looks exactly like the
+       feature being broken. */
+    function openSyncGuide() {
+      const c = syncCapability();
+      const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+      const box = (bg, br, html) => '<div style="background:' + bg + ';border:1px solid ' + br
+        + ';border-radius:8px;padding:0.7rem 0.9rem;margin:0 0 0.8rem;font-size:0.85rem;line-height:1.5">' + html + '</div>';
+      const el = document.getElementById('syncGuideBody');
+      if (!el) return;
+      el.innerHTML =
+        '<p style="font-size:0.9rem;line-height:1.55;margin:0 0 0.8rem">You each keep <b>your own file</b> in a '
+        + 'folder you both sync. Your copy is rewritten after every change; theirs is watched for changes. '
+        + 'When theirs moves, you are told — and <b>nothing merges on its own</b>. You get the same review panel '
+        + 'as “Merge a copy”, with every conflict defaulting to keeping yours.</p>'
+        /* THE TWO HALVES ARE INDEPENDENT and the button names do not say so.
+           "Watch their file" sounds like it establishes a connection; it only
+           READS. Somebody who sets up watching alone sits there making edits
+           that reach nobody, while the chip cheerfully reports sync is on. */
+        + '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;margin:0 0 0.8rem">'
+        + '<tr><th style="text-align:left;padding:0.3rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0">Button</th>'
+        + '<th style="text-align:left;padding:0.3rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0">What it does</th>'
+        + '<th style="text-align:left;padding:0.3rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0">Direction</th></tr>'
+        + '<tr><td style="padding:0.3rem 0.5rem;border:1px solid #e2e8f0"><b>Auto-save my copy to a file…</b></td>'
+        + '<td style="padding:0.3rem 0.5rem;border:1px solid #e2e8f0">Rewrites <i>your</i> file after every change</td>'
+        + '<td style="padding:0.3rem 0.5rem;border:1px solid #e2e8f0">you → them</td></tr>'
+        + '<tr><td style="padding:0.3rem 0.5rem;border:1px solid #e2e8f0"><b>Watch their file…</b></td>'
+        + '<td style="padding:0.3rem 0.5rem;border:1px solid #e2e8f0">Notices <i>their</i> file changed and offers the merge. '
+        + '<b>It only reads — it never writes your changes anywhere.</b></td>'
+        + '<td style="padding:0.3rem 0.5rem;border:1px solid #e2e8f0">them → you</td></tr></table>'
+        + box('#fffbeb', '#fde68a', '<b>You need both.</b> Watching on its own means you receive everything they '
+            + 'do and send nothing back — and to them your file simply never moves, which reads as the tool being '
+            + 'broken. If only one half is set up, the chip in the toolbar says so and offers the other.')
+        + (c.ok
+            ? box('#f0fdf4', '#bbf7d0', '<b>✓ This browser can do it.</b> Use <b>Auto-save my copy to a file…</b> '
+                + 'then <b>Watch their file…</b>, pointing both at the shared folder.')
+            : box('#fffbeb', '#fde68a', '<b>⚠ Automatic watching is not available here.</b> ' + escapeHtml(c.why)
+                + '<br><br>' + escapeHtml(c.fix)))
+        + box('#eff6ff', '#bfdbfe', '<b>The part that catches everybody out:</b> this watches a file <b>on your own '
+            + 'computer</b>. The sync client is what carries it to them. So the desktop app — Google Drive for '
+            + 'Desktop, Dropbox, OneDrive — has to be installed and signed in. Uploading the file to '
+            + 'drive.google.com in a browser creates nothing on your disk, so the picker has nothing to open and '
+            + 'it looks like the feature is broken.')
+        + '<h4 style="font-size:0.85rem;margin:1rem 0 0.4rem">Setting up the folder</h4>'
+        + (mac
+            ? '<ol style="font-size:0.85rem;line-height:1.6;padding-left:1.2rem;margin:0">'
+              + '<li>Install <b>Google Drive for Desktop</b> if it is not already there — it shows as <b>Google Drive</b> in the Finder sidebar.</li>'
+              + '<li><b>If Google Drive will not appear in the file picker</b>, this is the usual cause: Drive defaults to '
+              + '<b>Stream files</b>, which mounts a virtual volume under <code>~/Library/CloudStorage/</code> — a hidden '
+              + 'folder the picker often cannot hold a durable handle on. Menu-bar Drive icon → ⚙ → <b>Preferences</b> → '
+              + '<b>Google Drive</b> → switch to <b>Mirror files</b>. That makes an ordinary folder (usually '
+              + '<code>~/Google Drive</code>) with real local copies, and everything behaves normally.</li>'
+              + '<li>Quicker things to try first: in the open panel press <b>⌘⇧G</b> and paste '
+              + '<code>~/Library/CloudStorage/</code> to jump there, and right-click the file in Finder → '
+              + '<b>Available offline</b> so it is a real file rather than an online-only placeholder.</li>'
+              + '<li><b>Dropbox and OneDrive</b> mount as normal folders on macOS and need none of this.</li>'
+              + '</ol>'
+            : '<ol style="font-size:0.85rem;line-height:1.6;padding-left:1.2rem;margin:0">'
+              + '<li>Install the desktop sync client (Google Drive for Desktop, Dropbox, OneDrive) and sign in.</li>'
+              + '<li>Drive for Desktop mounts as a drive letter, usually <b>G:</b>. If the picker cannot hold on to a '
+              + 'file there, switch Drive to <b>Mirror files</b> in its preferences so the folder holds real local copies.</li>'
+              + '<li>Make sure the file is downloaded rather than online-only — right-click → <b>Always keep on this device</b>.</li>'
+              + '</ol>')
+        + '<h4 style="font-size:0.85rem;margin:1rem 0 0.4rem">Then, once per person</h4>'
+        + '<ol style="font-size:0.85rem;line-height:1.6;padding-left:1.2rem;margin:0">'
+        + '<li><b>Auto-save my copy to a file…</b> → save it into the shared folder under your own name.</li>'
+        + '<li><b>Watch their file…</b> → pick <i>their</i> file in that same folder.</li>'
+        + '<li>Both of you do both steps, pointing at each other. Two files, never one — if you both write the '
+        + 'same file, the sync client resolves it by leaving a second copy called “plan (1).json”, and neither of '
+        + 'you is told.</li></ol>'
+        + '<p class="help-text" style="margin:0.9rem 0 0">Watching is checked every ' + (FS_POLL_MS / 1000)
+        + ' seconds, and only while this tab is visible. Closing the tab is safe — the link is remembered, and '
+        + 'changes made while you were away are not replayed at you as news.</p>';
+      openOverlay(document.getElementById('syncGuideModal'));
+    }
     async function fsPerm(h, mode) {
       if (!h || !h.queryPermission) return false;
       const o = { mode: mode || 'read' };
       if ((await h.queryPermission(o)) === 'granted') return true;
       try { return (await h.requestPermission(o)) === 'granted'; } catch (e) { return false; }
     }
+    /* WATCHING YOUR OWN FILE IS A LOOP, NOT A SYNC — and it presents as a
+       working setup. Autosave rewrites your file, the watcher sees it move,
+       announces a change, and the merge then reports nothing to merge, because
+       you are diffing your plan against itself. Every symptom says "sync is
+       running"; nothing says "both ends are you". The two handles are comparable
+       with isSameEntry, so the app can simply refuse. */
+    async function fsIsMine(h) {
+      if (!h || !diskFileHandle || !h.isSameEntry) return false;
+      try { return await h.isSameEntry(diskFileHandle); } catch (e) { return false; }
+    }
     async function fsLinkTheirs() {
-      if (!fsSupported()) { alert('This browser cannot watch a file (the File System Access API is not available). Chrome or Edge can. Until then, use "Merge a copy" when they send you one.'); return; }
+      const cap = syncCapability();
+      if (!cap.ok) { openSyncGuide(); return; }   // the reason and the fix, not a dead end
       try {
         const [h] = await window.showOpenFilePicker({ types: [{ description: 'Project JSON', accept: { 'application/json': ['.json'] } }] });
+        if (await fsIsMine(h)) {
+          alert('That is your own file.\n\n“' + h.name + '” is the file your auto-save writes to. Watching it '
+            + 'would just watch yourself: every edit you make rewrites it, this would announce a change, and the '
+            + 'merge would then find nothing to merge — because it is your plan compared against itself.\n\n'
+            + 'Pick your teammate’s file instead. You each keep a separate file in the shared folder and point '
+            + 'at the other one.');
+          return;
+        }
         fsTheirs = h;
         const f = await h.getFile();
         fsSeen = f.lastModified;                 // link now, alert on the NEXT change
@@ -29805,6 +29983,21 @@ Do not write payment terms or exclusions — both are generated from the project
        folder and the sync client does the transport. */
     async function fsCheck() {
       if (!fsTheirs || document.hidden) return;
+      /* A pair set up before the guard above existed is restored from IndexedDB
+         with no picker involved, so the only place left to notice is here. Cheap
+         — one comparison every 20s — and it stops the loop rather than
+         announcing a change every time the reader saves. */
+      if (await fsIsMine(fsTheirs)) {
+        clearInterval(fsTimer);
+        const nm = fsTheirs.name;
+        fsTheirs = null; fsPending = null;
+        try { await idbDel('fs.theirs'); } catch (e) {}
+        renderSyncChip();
+        flashSaved('⚠ Stopped watching "' + nm + '" — it is the file your own auto-save writes to, so every '
+          + 'change you made looked like news from a teammate and merged to nothing. Point the watcher at '
+          + 'their file instead.');
+        return;
+      }
       if (!(await fsPerm(fsTheirs, 'read'))) { renderSyncChip(); return; }
       let f;
       try { f = await fsTheirs.getFile(); } catch (e) { return; }
@@ -29853,9 +30046,21 @@ Do not write payment terms or exclusions — both are generated from the project
         return;
       }
       el.className = 'sync-chip';
+      /* HALF A LOOP LOOKS EXACTLY LIKE A WHOLE ONE. Watching is inbound only —
+         it never writes. Somebody who sets it up and stops there receives every
+         change the other person makes and sends nothing back, and the other
+         person sees a file that never moves and concludes the tool is broken.
+         Nothing on screen distinguished that from a working pair, because the
+         chip only ever reported the half that was set up. */
+      const publishing = !!diskFileHandle;
       el.innerHTML = '<span title="Watching ' + escapeHtml(fsTheirs.name) + ' — checked every '
         + (FS_POLL_MS / 1000) + 's while this tab is open, and only while it is visible. '
         + 'Nothing merges on its own.">👀 Watching ' + escapeHtml(fsTheirs.name) + '</span>'
+        + (publishing ? '' : '<button class="btn-sm" style="margin-left:0.35rem;background:#fef3c7;'
+            + 'border-color:#fde68a;color:#92400e" onclick="setupDiskAutosave()" '
+            + 'title="You are receiving their changes but sending none of your own. Watching only READS their '
+            + 'file — your copy is not written anywhere until you set up the other half. Click to pick your own '
+            + 'file in the same shared folder.">⚠ not sending yours — fix</button>')
         + '<button class="btn-sm btn-ghost" style="margin-left:0.3rem" onclick="fsUnlink()" title="Stop watching. The file is untouched.">✕</button>';
     }
     let mergePlanState = null;

@@ -1693,6 +1693,41 @@ const MUTANTS = [
      a rival to it — a fourth money surface that disagrees with the other three,
      which is worse than not having it. */
 
+  /* A working transport nobody can start. Each of these puts the guide back to
+     the state it was in when it could not be set up from a Mac. */
+
+  { what: 'sync guide: the reason blames the browser even when the origin is what refuses',
+    find: "      if (fileOrigin) return { ok: false,",
+    with: '      if (false) return { ok: false,' },
+
+  { what: 'sync guide: it says watching is unavailable and offers nothing to do about it',
+    find: "      if (fsSupported() && !fileOrigin) return { ok: true, why: '', fix: '' };",
+    with: "      if (true) return { ok: true, why: '', fix: '' };" },
+
+  { what: 'sync guide: never says the watched file is on your own disk, so uploading to Drive looks right',
+    find: "        + box('#eff6ff', '#bfdbfe', '<b>The part that catches everybody out:</b> this watches a file <b>on your own '",
+    with: "        + box('#eff6ff', '#bfdbfe', '<b>The part that catches everybody out:</b> this watches a file <b>on a '" },
+
+  { what: 'sync guide: the Mac fix for a picker that cannot see the drive is gone',
+    find: "<b>Google Drive</b> → switch to <b>Mirror files</b>.",
+    with: "<b>Google Drive</b> → have a look around." },
+
+  { what: 'sync guide: a Mac is shown the Windows steps',
+    find: "        + (mac\n            ? '<ol style=",
+    with: "        + (false\n            ? '<ol style=" },
+
+  { what: 'sync guide: never says that watching only reads, so half a setup looks whole',
+    find: "        + '<b>It only reads — it never writes your changes anywhere.</b></td>'",
+    with: "        + '</td>'" },
+
+  { what: 'chip: watching with nothing published looks identical to a working pair',
+    find: '      const publishing = !!diskFileHandle;',
+    with: '      const publishing = true;' },
+
+  { what: 'sync guide: unreachable — nothing on the page opens it',
+    find: '          <button onclick="openSyncGuide()" title="What this actually does',
+    with: '          <button title="What this actually does' },
+
   { what: 'ledger: fixed costs are nobody’s time, so they are left out and the total no longer ties',
     find: '        const fc = Number(t.fixedCost) || 0;\n        if (fc > 0) out.push(',
     with: '        const fc = 0;\n        if (fc > 0) out.push(' },
