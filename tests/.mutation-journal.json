@@ -1,15 +1,166 @@
 {
- "at": "2026-08-07T02:14:17.999Z",
+ "at": "2026-08-07T08:11:30.950Z",
  "full": false,
- "ran": 1,
- "of": 341,
+ "ran": 11,
+ "of": 340,
  "rows": [
   {
-   "what": "PROBE: a semantically identical edit no check can possibly catch",
-   "by": null,
-   "survived": true,
+   "what": "editor: the live preview weights the estimate differently from the plan it writes into",
+   "by": "task-editor-sweep.js",
+   "survived": false,
    "skipped": false,
-   "findings": []
+   "findings": [
+    "QA reference · Editor :: O=1 M=2 P=9 previews TE 3.2 where PERT gives 3",
+    "QA reference · Editor :: O=0.5 M=1 P=6 previews TE 1.9 where PERT gives 1.75",
+    "QA reference · Editor :: O=1 M=8 P=9 previews TE 6.8 where PERT gives 7",
+    "QA reference · Editor :: finishing the entry left the readout at 4.3 instead of 4.333333333333333",
+    "Real export · Editor :: O=1 M=2 P=9 previews TE 3.2 where PERT gives 3",
+    "Real export · Editor :: O=0.5 M=1 P=6 previews TE 1.9 where PERT gives 1.75",
+    "Real export · Editor :: O=1 M=8 P=9 previews TE 6.8 where PERT gives 7",
+    "Real export · Editor :: finishing the entry left the readout at 4.3 instead of 4.333333333333333",
+    "Kick-off & Discovery"
+   ]
+  },
+  {
+   "what": "editor: a half-typed estimate collapses the readout to zero instead of holding",
+   "by": "task-editor-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Editor :: a half-typed estimate moved the readout off its last good value",
+    "Real export · Editor :: a half-typed estimate moved the readout off its last good value",
+    "Kick-off & Discovery"
+   ]
+  },
+  {
+   "what": "editor: typing the work does not move the duration",
+   "by": "task-editor-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Editor :: the three-point spread was not preserved: 2.67/2.67/2.67 — flattening it tells the simulation the estimate is certain",
+    "Real export · Editor :: the three-point spread was not preserved: 8/8/8 — flattening it tells the simulation the estimate is certain",
+    "Kick-off & Discovery"
+   ]
+  },
+  {
+   "what": "editor: work-driven duration flattens the three-point spread",
+   "by": "task-editor-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Editor :: the three-point spread was not preserved: 2.67/2.67/2.67 — flattening it tells the simulation the estimate is certain",
+    "Real export · Editor :: the three-point spread was not preserved: 8/8/8 — flattening it tells the simulation the estimate is certain",
+    "Kick-off & Discovery"
+   ]
+  },
+  {
+   "what": "editor: the estimate form does not say what the estimate comes to",
+   "by": "task-editor-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Editor :: two days open at 180% is 3.60 days of work and the estimate form never states it: \"“1d” = 1 days · “2d” = 2 days · “3d” = 3 days2d open",
+    "QA reference · Editor :: TE 4d at 150% is 6.00d of work and the Work box reads \"4d\"",
+    "Real export · Editor :: two days open at 80% is 1.60 days of work and the estimate form never states it: \"“1d” = 1 days · “2d” = 2 days · “3d” = 3 days2d open ×",
+    "Real export · Editor :: TE 4d at 50% is 2.00d of work and the Work box reads \"4d\"",
+    "Kick-off & Discovery"
+   ]
+  },
+  {
+   "what": "editor: a summary rolls up its leaves’ spans and calls it effort",
+   "by": "task-editor-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "Real export · Editor :: a phase of activities at 20% holds 9.23 of work and the editor calls its estimate 16.17 — the sum of their spans",
+    "Kick-off & Discovery"
+   ]
+  },
+  {
+   "what": "editor: a milestone is asked for units, spend shape, attendees and hours spent",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Activity editor :: a milestone still shows mUnitsGroup, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone still shows mCurveGroup, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone still shows attGroup, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone still shows mActualEffortGroup, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone still shows mTaxonomyGroup, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone still shows ompHint, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone prints running duration commentary directly under the checkbox that just declared it has none",
+    "Real export · Activity editor :: a milestone still shows mUnitsGroup, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone still shows mCurveGroup, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone still shows attGroup, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone still shows mActualEffortGroup, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone still shows mTaxonomyGroup, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone still shows ompHint, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone prints running duration commentary directly under the checkbox that just declared it has none",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "editor: the running duration commentary survives the estimate block being hidden",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Activity editor :: a milestone still shows ompHint, which asks about work it cannot have",
+    "QA reference · Activity editor :: a milestone prints running duration commentary directly under the checkbox that just declared it has none",
+    "Real export · Activity editor :: a milestone still shows ompHint, which asks about work it cannot have",
+    "Real export · Activity editor :: a milestone prints running duration commentary directly under the checkbox that just declared it has none",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "editor: nothing pairs side by side, so the second column stays empty",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Activity editor :: a field marked to pair renders 1019px wide inside a 1058px body — it is spanning both columns, so nothing actually sits beside",
+    "Real export · Activity editor :: a field marked to pair renders 1019px wide inside a 1058px body — it is spanning both columns, so nothing actually sits beside ",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "editor: the form is one tall column on any screen",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Activity editor :: on a 1440px screen the editor lays out in 1 column(s) — the form is the single tall column it always was, with two thirds of t",
+    "QA reference · Activity editor :: a field marked to pair renders 1019px wide inside a 1058px body — it is spanning both columns, so nothing actually sits beside",
+    "Real export · Activity editor :: on a 1440px screen the editor lays out in 1 column(s) — the form is the single tall column it always was, with two thirds of th",
+    "Real export · Activity editor :: a field marked to pair renders 1019px wide inside a 1058px body — it is spanning both columns, so nothing actually sits beside ",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
+  },
+  {
+   "what": "editor: hiding the work fields takes the payment fields with them",
+   "by": "dialog-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Activity editor :: a milestone has lost mFixedCost — a payment checkpoint is exactly where that belongs",
+    "QA reference · Activity editor :: a milestone has lost mInvoiced — a payment checkpoint is exactly where that belongs",
+    "QA reference · Activity editor :: a milestone has lost mPaid — a payment checkpoint is exactly where that belongs",
+    "Real export · Activity editor :: a milestone has lost mFixedCost — a payment checkpoint is exactly where that belongs",
+    "Real export · Activity editor :: a milestone has lost mInvoiced — a payment checkpoint is exactly where that belongs",
+    "Real export · Activity editor :: a milestone has lost mPaid — a payment checkpoint is exactly where that belongs",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
   }
  ]
 }

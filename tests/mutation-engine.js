@@ -1865,6 +1865,23 @@ const CHECKS = QUICK ? ['run-test-plan.js']
    minutes and were killed before ever printing a verdict. A check nobody can
    afford to run is a check that does not run. */
 const LIKELY = {
+  /* ── families added from OBSERVED catches, not from guessing ─────────────
+     97 of the 340 mutants matched nothing here, so each walked the whole check
+     list before its killer — around twenty browser launches to learn something
+     the engine had already printed on a previous run. Every entry below was
+     read off an actual "→ <sweep>" line from a run in this session.
+
+     A wrong entry costs ONE extra check and can never change a verdict: if the
+     named check does not go red the mutant still walks all the others. That is
+     what makes it safe to seed this by hand. The persistent killer map above
+     supersedes anything here the moment a mutant is judged for real. */
+  'SOW:': 'client-facing-sweep.js', 'NFR:': 'client-facing-sweep.js',
+  'week lint:': 'client-facing-sweep.js', 'audience:': 'client-facing-sweep.js',
+  'ledger:': 'resourcing-sweep.js', 'price gap:': 'resourcing-sweep.js',
+  'timesheet:': 'resourcing-sweep.js',
+  'sync guide:': 'dialog-sweep.js', 'editor:': 'dialog-sweep.js', 'chip:': 'dialog-sweep.js',
+  'io map:': 'cross-surface-sweep.js',
+
   'billing CSV': 'export-sweep.js', 'Jira CSV': 'export-sweep.js',
   'save/load': 'persistence-sweep.js', 'undo:': 'undo-sweep.js',
   'baseline:': 'baseline-sweep.js', 'change order:': 'baseline-sweep.js',
@@ -1888,9 +1905,62 @@ const LIKELY = {
   'criteria:': 'ai-boundary-sweep.js', 'effort:': 'resourcing-sweep.js', 'bank:': 'bank-sweep.js', 'handoff:': 'bank-sweep.js', 'curve:': 'navigation-sweep.js',
   'drill-in:': 'chart-reconciliation-sweep.js', 'backup:': 'persistence-sweep.js', 'accrual:': 'chart-reconciliation-sweep.js', 'cash:': 'chart-reconciliation-sweep.js'
 };
+/* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
+   judge() walks the checks until one goes red, so the cost of a mutant is
+   however many checks it takes to reach its killer. LIKELY guesses that from
+   keywords in the mutant's own description — a decent heuristic written by
+   hand, and wrong often enough that a caught mutant still averaged several
+   browser launches.
+
+   But the engine has always KNOWN the true answer: it prints "→ dialog-sweep.js"
+   for every catch, writes it to the journal, and then throws it away at the
+   start of the next run. Reading it back turns most mutants into a single check.
+
+   MERGED, never replaced: a filtered run only knows about the mutants it ran,
+   and overwriting would erase the rest of the map. Keyed by the mutant's own
+   description, which is already required to be unique.
+
+   This is an ORDERING hint and nothing more. If the remembered killer does not
+   go red, the mutant still walks every other check, so a stale entry costs one
+   extra run and can never turn a genuine hole into a false pass. */
+const KILLERS_PATH = path.join(__dirname, '.mutation-killers.json');
+const KILLERS = (() => {
+  try { return JSON.parse(fs.readFileSync(KILLERS_PATH, 'utf8')) || {}; } catch (e) { return {}; }
+})();
+/* BANKED AS IT GOES, not at the end. Both runs this file lost were killed
+   mid-flight — one by a bad diagnosis, one by the environment reclaiming a long
+   background job — and because the map was written only on completion, four
+   hours of judging taught it nothing. Writing after each verdict makes a killed
+   run leave the next one faster, which is the difference between an ordering
+   trick and a run that can actually finish here. */
+function rememberOne(r) {
+  if (!r || r.skipped) return;
+  const was = KILLERS[r.m.what];
+  if (r.by) { if (was === r.by) return; KILLERS[r.m.what] = r.by; }
+  else if (r.survived) { if (!was) return; delete KILLERS[r.m.what]; }
+  else return;
+  try { fs.writeFileSync(KILLERS_PATH, JSON.stringify(KILLERS, null, 1)); } catch (e) {}
+}
+function rememberKillers(results) {
+  let n = 0;
+  (results || []).filter(Boolean).forEach(r => {
+    if (!r.by || r.skipped) return;
+    if (KILLERS[r.m.what] !== r.by) { KILLERS[r.m.what] = r.by; n++; }
+  });
+  // a mutant that SURVIVED has no killer; drop any stale entry so the next run
+  // does not keep paying for a check that no longer catches it
+  (results || []).filter(Boolean).forEach(r => {
+    if (r.survived && KILLERS[r.m.what]) { delete KILLERS[r.m.what]; n++; }
+  });
+  if (!n) return 0;
+  try { fs.writeFileSync(KILLERS_PATH, JSON.stringify(KILLERS, null, 1)); } catch (e) {}
+  return n;
+}
 const orderFor = m => {
   const hit = Object.keys(LIKELY).find(k => m.what.indexOf(k) === 0 || m.what.indexOf(k) >= 0);
-  const first = hit ? LIKELY[hit] : null;
+  // what killed it last time beats what the keyword map guesses
+  const remembered = KILLERS[m.what];
+  const first = (remembered && CHECKS.indexOf(remembered) >= 0) ? remembered : (hit ? LIKELY[hit] : null);
   return first ? [first].concat(CHECKS.filter(c => c !== first)) : CHECKS.slice();
 };
 
@@ -1994,6 +2064,7 @@ function assertionsIn(out) {
       const i = next++;
       if (i >= SELECTED.length) return;
       results[i] = await judge(SELECTED[i], i);
+      rememberOne(results[i]);
       done++;
       if (process.stderr.isTTY) process.stderr.write('\r  ' + done + '/' + SELECTED.length + ' judged   ');
     }
@@ -2030,6 +2101,10 @@ function assertionsIn(out) {
         findings: r.findings || [] }))
     }, null, 1));
   } catch (e) { console.log('(could not write the mutation journal: ' + (e.message || e) + ')'); }
+
+  const learned = rememberKillers(results);
+  if (learned) console.log('  killer map: ' + learned + ' entr' + (learned === 1 ? 'y' : 'ies')
+    + ' updated (' + Object.keys(KILLERS).length + ' of ' + MUTANTS.length + ' mutants know their check)');
 
   fs.rmSync(tmp, { recursive: true, force: true });
   const parts = [];
