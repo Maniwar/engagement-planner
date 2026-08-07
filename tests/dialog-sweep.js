@@ -311,6 +311,74 @@ const QA = JSON.parse(fs.readFileSync(
 
          Every check here is on the SENTENCE, not on the dialog existing: a
          guide that opens and omits the one fact you needed IS the defect. */
+      /* ══ THE EDITOR IS A FORM ABOUT WORK, AND A MILESTONE IS A DATE ═══════
+         Only the estimate block was hidden, so a checkpoint asked for the share
+         of somebody's week it consumes, the shape of its spend across a window
+         it does not have, who else attends it, and the hours spent on it. What
+         must STAY is the interesting half: a milestone is exactly where a
+         payment lands, so fixed cost, invoiced and received remain. Hiding the
+         money would be the tidier-looking mistake. */
+      out.modalShape = (() => {
+        const t0 = leafTasks().find(x => !x.isSummary && !x.milestone);
+        if (!t0) { say('Activity editor', 'no leaf activity to open — this check is vacuous'); return null; }
+        openEditModal(t0.id);
+        const body = document.querySelector('#modal .modal-body');
+        if (!body) { say('Activity editor', 'the editor has no body'); return null; }
+        /* innerText, not textContent: textContent hands back hidden nodes, and
+           the first version of this check happily read the estimate block it had
+           just hidden and reported it visible. */
+        const vis = id => { const n = document.getElementById(id);
+          return !!n && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().height > 0; };
+        const g = { hAct: Math.round(body.getBoundingClientRect().height) };
+        /* THE COMPUTED LAYOUT, NOT THE CLASS NAME. Counting elements carrying
+           .mb-half proves somebody typed the class; it says nothing about
+           whether two columns exist, and it passed on a build where the grid
+           was switched off entirely and on one where every half-width item was
+           told to span both columns. What matters is the rendered geometry: two
+           tracks on the body, and a paired field noticeably narrower than it. */
+        const halves = [...body.children].filter(k => k.classList.contains('mb-half'));
+        g.half = halves.length;
+        if (!halves.length) say('Activity editor', 'no field is marked to pair, so the second column is empty');
+        const tracks = String(getComputedStyle(body).gridTemplateColumns || '').trim().split(/\s+/).filter(Boolean);
+        g.tracks = tracks.length;
+        g.bodyW = Math.round(body.getBoundingClientRect().width);
+        if (window.innerWidth >= 1000) {
+          if (tracks.length !== 2) say('Activity editor', 'on a ' + window.innerWidth + 'px screen the editor '
+            + 'lays out in ' + tracks.length + ' column(s) — the form is the single tall column it always was, '
+            + 'with two thirds of the screen empty beside it');
+          const vh = halves.filter(k => getComputedStyle(k).display !== 'none');
+          if (vh.length) {
+            const w = vh[0].getBoundingClientRect().width;
+            g.halfW = Math.round(w);
+            if (w > g.bodyW * 0.7) say('Activity editor', 'a field marked to pair renders '
+              + Math.round(w) + 'px wide inside a ' + g.bodyW + 'px body — it is spanning both columns, '
+              + 'so nothing actually sits beside anything');
+          }
+        } else g.skipped = 'viewport under the breakpoint';
+
+        const NA = ['mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup', 'mTaxonomyGroup', 'ompHint', 'estBlock'];
+        const KEEP = ['mFixedCost', 'mInvoiced', 'mPaid', 'mPct', 'mOwner'];
+        const cb = document.getElementById('mMilestone');
+        cb.checked = true; toggleMilestoneFields();
+        NA.forEach(id => { if (vis(id)) say('Activity editor', 'a milestone still shows ' + id
+          + ', which asks about work it cannot have'); });
+        KEEP.forEach(id => { if (!vis(id)) say('Activity editor', 'a milestone has lost ' + id
+          + ' — a payment checkpoint is exactly where that belongs'); });
+        const txt = (body.innerText || '').replace(/\s+/g, ' ');
+        if (!txt) say('Activity editor', 'the editor renders no text, so this check is vacuous');
+        else if (/in work, at \d+%/.test(txt))
+          say('Activity editor', 'a milestone prints running duration commentary directly under the '
+            + 'checkbox that just declared it has none');
+        g.hMs = Math.round(body.getBoundingClientRect().height);
+        if (!(g.hMs < g.hAct)) say('Activity editor', 'the milestone form is no shorter than the activity '
+          + 'form, so nothing was actually removed');
+        cb.checked = false; toggleMilestoneFields();
+        NA.forEach(id => { if (id !== 'ompHint' && !vis(id))
+          say('Activity editor', id + ' did not come back when the milestone box was unticked'); });
+        closeModal();
+        return g;
+      })();
+
       out.syncGuide = (() => {
         const cap = syncCapability();
         const g = {};

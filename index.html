@@ -264,6 +264,27 @@
     .modal-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
     .modal-body { padding: 1.25rem; }
     .modal-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 0.5rem; }
+    /* ═══ THE ACTIVITY EDITOR IS A COLUMN OF FIELDS ON A WIDE SCREEN ══════
+       Thirty-odd inputs stacked one per row in a 780px box, on a display three
+       times that wide: the form scrolled for a page and a half while two thirds
+       of the screen sat empty, and the fields that belong together — what the
+       work IS, versus how it is GOING and what it COSTS — were separated by
+       whatever happened to be declared between them in the markup.
+
+       Opt-IN rather than opt-out. Every direct child spans both columns by
+       default, so a block added later cannot silently land half-width and break
+       its own internal grid; only the small paired fields ask to sit side by
+       side. That way this rule can never damage a section nobody remembered to
+       check. Below the breakpoint it is the single column it always was. */
+    @media (min-width: 1000px) {
+      #modal .modal-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.25rem; align-items: start; }
+      #modal .modal-body > * { grid-column: 1 / -1; min-width: 0; }
+      #modal .modal-body > .mb-half { grid-column: auto; }
+    }
+    /* A field that cannot apply to this KIND of row is hidden, not disabled: a
+       greyed box still costs a line of vertical space and still invites the
+       question "why can I not type here". */
+    .mb-na { display: none !important; }
     .form-group { margin-bottom: 1rem; }
     /* inside modals, grid rows stretch cells to equal height — pin the label to
        the top and the input to the bottom so a two-line label next to a
@@ -3695,12 +3716,14 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.06.2151</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.0215</span>
   </footer>
 
   <!-- Add / Edit Modal -->
   <div class="modal-overlay" id="modal">
-    <div class="modal" style="max-width:780px" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <!-- the width lives here, not in the stylesheet, because an inline
+         max-width beats the media query and silently pinned this at 780px -->
+    <div class="modal" style="max-width:min(1080px,95vw)" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal-header">
         <h3 id="modalTitle">Add activity</h3>
         <button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeModal()" aria-label="Close dialog">✕</button>
@@ -3758,11 +3781,11 @@ Or say what you want, in your own words:
             <datalist id="orgList"></datalist>
             <div id="mOwnerRole" style="margin-top:2px"></div>
           </div>
-          <div class="form-group">
+          <div class="form-group" id="mUnitsGroup">
             <span class="fg-head"><label for="mUnits">Units % <span class="help-text" style="text-transform:none;font-weight:400">— of their time</span></label><button type="button" class="info-icon" aria-label="About Units %" data-help="How much of the resource this task consumes while it is open. 100 = full-time. This is also the converter between the two quantities on this form: the O/M/P boxes are an ELAPSED span, and the WORK inside it is that span times this number. Four elapsed days at 20% is 0.8 person-days of work. Two 100% tasks at once for one person = over-allocated.">i</button></span>
             <input id="mUnits" type="number" min="0" step="5" value="100" oninput="refreshAutoActualCost(); ompHintUpd();" />
           </div>
-          <div class="form-group">
+          <div class="form-group" id="mCurveGroup">
             <span class="fg-head"><label for="mCurve">Spend shape</label><button type="button" class="info-icon" aria-label="About spend shape" data-help="WHEN inside this activity's window the money is expected, not how much. The total is identical under every shape — this moves the spend curve's path, and with it what the plan says should have been spent BY TODAY, which is the figure the Budget bar is measured against. Flat is the default and is wrong in the two places money concentrates: mobilisation is front-loaded, integration is back-loaded, and a flat curve is early on one and late on the other. It changes no total, no margin and no variance against the envelope.">i</button></span>
             <select id="mCurve"></select>
           </div>
@@ -3771,16 +3794,16 @@ Or say what you want, in your own words:
             <input id="mFixedCost" type="number" min="0" step="100" value="0" oninput="refreshAutoActualCost()" />
           </div>
         </div>
-        <div class="form-group" style="max-width:26rem">
+        <div class="form-group mb-half" id="mAudienceGroup">
           <span class="fg-head"><label for="mAudience">Activity type</label><button type="button" class="info-icon" aria-label="About activity type" data-help="Client-facing = builds a capability the client accepts and is billed for; it should trace to a user story, so it counts toward coverage. Internal / process = delivery-side work (kickoff, PM, our own test execution) — real, billable effort, but it needs no client story, so traceability never flags it as a gap. Auto infers it from the activity name.">i</button></span>
           <select id="mAudience"><option value="">Auto (from activity name)</option><option value="client">Client-facing (needs a story)</option><option value="internal">Internal / process (no story needed)</option></select>
         </div>
-        <div class="form-group" style="max-width:26rem">
+        <div class="form-group mb-half" id="mTaxonomyGroup">
           <span class="fg-head"><label for="mTaxonomy">Work type</label><button type="button" class="info-icon" aria-label="About work type" data-help="NOT the same as Activity type above — that one decides whether this activity needs a user story. This is WHAT KIND of delivery work it is, from a fixed list of five, and it is the dimension your estimate bank groups by. After a few archived engagements the AI can be told that data migration runs 1.6x your estimate while governance runs 1.0x, which is impossible today because nothing records that two projects both contained data migration. Left on Auto it is read from the activity name EVERY time — nothing is stored, and it re-reads itself if you rename the activity. An inferred work type shows as a dashed ~chip in the activity table; one you set here shows solid and always wins. Only five types exist on purpose: a bucket needs about five measured activities before its number means anything, so a longer list would leave every bucket permanently below that bar.">i</button></span>
           <select id="mTaxonomy"></select>
           <span class="help-text" id="mTaxonomyHint" style="margin-top:0.25rem"></span>
         </div>
-        <div class="form-group" id="attGroup">
+        <div class="form-group mb-half" id="attGroup">
           <label>Additional attendees</label><button type="button" class="info-icon" aria-label="About Additional attendees" data-help="For sessions/workshops with several people at once. Each attendee loads their own calendar, cost and billing (client-type resources bill nothing).">i</button>
           <div class="att-block">
             <div class="att-head"><span>Attendee</span><span>Units %</span><span></span></div>
@@ -3806,7 +3829,7 @@ Or say what you want, in your own words:
               <span class="fg-head"><label for="mPct">% complete</label></span>
               <input id="mPct" type="number" min="0" max="100" step="1" value="0" oninput="paOnPctInput()" onchange="paOnPctCommit()" />
             </div>
-            <div class="form-group">
+            <div class="form-group" id="mActualEffortGroup">
               <span class="fg-head"><label for="mActualEffort">Time spent <span class="help-text" style="text-transform:none;font-weight:400">— hours worked</span></label><button type="button" class="info-icon" aria-label="About time spent" data-help="The REAL effort this took — the number that tells you how good your estimates are. Any resolution: 20m, 90m, 1.5h, 2d, or '1d 4h'. Effort, not elapsed time: open for a week but worked three hours = 3h. Enter it PER PARTICIPANT, not as a team total — each person on the activity is costed for this same duration. Typing here fills in the actual start date if it is blank.">i</button></span>
               <input id="mActualEffort" type="text" inputmode="text" placeholder="20m · 1.5h · 2d" oninput="paOnEffortInput()" onchange="paOnEffortCommit()" />
             </div>
@@ -4718,9 +4741,48 @@ Or say what you want, in your own words:
     }
     // ——— optional REAL file on disk (File System Access API, Chrome/Edge):
     // pick a .json once; every change auto-writes to it, debounced ———
-    let diskFileHandle = null, diskTimer = null, diskWarned = false;
+    let diskFileHandle = null, diskTimer = null, diskWarned = false, diskShared = false;
+    /* WHO IS WRITING THIS FILE. isSameEntry catches the two misconfigurations
+       inside ONE browser — watching your own file, or saving onto theirs — but
+       it is blind to the destructive one, which spans two machines: both people
+       point AUTO-SAVE at the same file in the shared folder.
+
+       Nothing local can see that. Each browser holds a perfectly valid handle
+       to a file it is allowed to write, and they happen to be the same file.
+       The sync client then either leaves a conflicted copy nobody is told
+       about, or resolves it last-writer-wins — and because auto-save writes the
+       WHOLE plan, the loser's work is not merged away, it is erased. No merge
+       runs, because merging happens on the watch side and neither of them is
+       watching.
+
+       So the file carries a writer id, and every save reads back what is
+       actually there before overwriting it. A different id means somebody else
+       is writing this file, and the only safe move is to STOP: continuing would
+       destroy their work, and stopping only costs an outbound copy the person
+       can re-point in two clicks. A file with no id at all is one written by an
+       older build — unknown, not foreign, so it is left alone. */
+    function diskWriterId() {
+      let id = null;
+      try { id = localStorage.getItem('pgt-writer-id'); } catch (e) {}
+      if (!id) {
+        id = 'w' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        try { localStorage.setItem('pgt-writer-id', id); } catch (e) {}
+      }
+      return id;
+    }
+    async function diskForeignWriter() {
+      if (!diskFileHandle) return null;
+      let txt = '';
+      try { txt = await (await diskFileHandle.getFile()).text(); } catch (e) { return null; }
+      if (!txt.trim()) return null;
+      let doc = null;
+      try { doc = JSON.parse(txt); } catch (e) { return null; }
+      const w = doc && doc._writer;
+      if (!w || !w.id) return null;                 // older build: unknown, not foreign
+      return (String(w.id) === diskWriterId()) ? null : w;
+    }
     function diskAutoSave(json) {
-      if (!diskFileHandle) return;
+      if (!diskFileHandle || diskShared) return;
       clearTimeout(diskTimer);
       diskTimer = setTimeout(async () => {
         try {
@@ -4728,8 +4790,31 @@ Or say what you want, in your own words:
             if (!diskWarned) { diskWarned = true; flashSaved('💾 File autosave paused — click "💾 File: on" in the header to re-authorize'); }
             return;
           }
+          const foreign = await diskForeignWriter();
+          if (foreign) {
+            diskShared = true;
+            const when = foreign.at ? (' at ' + String(foreign.at).replace('T', ' ').slice(0, 16)) : '';
+            try { updateDiskBtn(); } catch (e) {}
+            alert('Auto-save STOPPED — you are both writing the same file.\n\n'
+              + diskFileHandle.name + ' was last written by another computer' + when + ', not by this browser. Auto-save '
+              + 'writes the WHOLE plan, so the next save from either of you overwrites the other\'s work '
+              + 'outright — it is not merged, it is gone. Your sync client would either resolve that '
+              + 'last-writer-wins or quietly leave a second copy called "' + diskFileHandle.name.replace(/\.json$/i, '')
+              + ' (1).json".\n\nNothing of yours has been lost: this stopped before writing.\n\n'
+              + 'You each need your OWN file. Use Sync ▸ Auto-save my copy to a file… and save under a '
+              + 'different name in the same folder, then point Watch their file… at theirs.');
+            return;
+          }
+          /* the id rides INSIDE the document, so it survives the round trip
+             through Drive and is readable by the other side's next save */
+          let out = json;
+          try {
+            const doc = JSON.parse(json);
+            doc._writer = { id: diskWriterId(), at: new Date().toISOString() };
+            out = JSON.stringify(doc);
+          } catch (e) { /* unparseable: write it through untouched rather than lose the save */ }
           const w = await diskFileHandle.createWritable();
-          await w.write(json); await w.close();
+          await w.write(out); await w.close();
           diskWarned = false;
         } catch (e) { if (!diskWarned) { diskWarned = true; flashSaved('⚠ File autosave failed: ' + (e.message || e)); } }
       }, 800);
@@ -4764,6 +4849,7 @@ Or say what you want, in your own words:
           }
         }
         diskFileHandle = h;
+        diskShared = false;          // a new file is a new decision; un-stop the writer
         try { await idbSet('disk.handle', h); } catch (e) {}
         diskAutoSave(JSON.stringify(serialize()));
         updateDiskBtn();
@@ -6372,11 +6458,37 @@ Or say what you want, in your own words:
       next.focus();
       if (/^(text|number|search|tel|url|email)$/.test(next.type || '')) { try { next.select(); } catch (err) {} }
     }
+    /* A MILESTONE IS A DATE, AND MOST OF THIS FORM IS ABOUT WORK. Only the
+       estimate block was hidden, so a checkpoint still asked for the share of
+       somebody's week it consumes, the shape of its spend across a window it
+       does not have, who else attends it, and how many hours were spent on it.
+       Every one of those is unanswerable, and each cost a line of the form and
+       a moment deciding whether it mattered.
+
+       What STAYS is deliberate and worth stating, because the tempting move is
+       to hide all the money too: a milestone is exactly where a payment lands.
+       Fixed cost, Invoiced and Received are how a billing checkpoint is
+       recorded, so they remain — as does % complete, which for a date is the
+       binary "reached or not", and the owner, who is whoever the checkpoint is
+       on. Work type goes: the estimate bank groups by it, and there is no
+       estimate here to file. */
+    /* ompHint is a SIBLING of estBlock, not a child, so hiding the block left
+       its running commentary behind: a milestone displayed "3.17d open — and
+       the same again in work, at 100%" directly under the checkbox that had
+       just declared it has no duration. */
+    const MILESTONE_NA = ['mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup',
+                          'mTaxonomyGroup', 'ompHint'];
     function toggleMilestoneFields() {
-      const ms = document.getElementById('mMilestone').checked;
+      const el = document.getElementById('mMilestone');
+      const ms = !!(el && el.checked);
       // hide the caption and the explanation with the boxes, or a milestone
       // shows a heading asking for a duration it does not have
-      document.getElementById('estBlock').style.display = ms ? 'none' : 'block';
+      const est = document.getElementById('estBlock');
+      if (est) est.style.display = ms ? 'none' : 'block';
+      MILESTONE_NA.forEach(id => {
+        const n = document.getElementById(id);
+        if (n) n.classList.toggle('mb-na', ms);
+      });
       refreshProgressPanel();
     }
     /* One spelling per company, or the bank splits the same partner into two

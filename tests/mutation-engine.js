@@ -1695,6 +1695,28 @@ const MUTANTS = [
 
   /* Several measures at once, and an order the drafter chose. */
 
+  /* A form about work, opened on a date. */
+
+  { what: 'editor: a milestone is asked for units, spend shape, attendees and hours spent',
+    find: "    const MILESTONE_NA = ['mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup',\n                          'mTaxonomyGroup', 'ompHint'];",
+    with: '    const MILESTONE_NA = [];' },
+
+  { what: 'editor: the running duration commentary survives the estimate block being hidden',
+    find: "'mTaxonomyGroup', 'ompHint'];",
+    with: "'mTaxonomyGroup'];" },
+
+  { what: 'editor: nothing pairs side by side, so the second column stays empty',
+    find: '      #modal .modal-body > .mb-half { grid-column: auto; }',
+    with: '      #modal .modal-body > .mb-half { grid-column: 1 / -1; }' },
+
+  { what: 'editor: the form is one tall column on any screen',
+    find: '      #modal .modal-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.25rem; align-items: start; }',
+    with: '      #modal .modal-body { display: block; }' },
+
+  { what: 'editor: hiding the work fields takes the payment fields with them',
+    find: "    const MILESTONE_NA = ['mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup',",
+    with: "    const MILESTONE_NA = ['mFixedCost', 'mInvoiced', 'mPaid', 'mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup'," },
+
   /* Two surfaces, one word, different questions. */
 
   { what: 'audience: how a story is verified decides who it is for, so artifact evidence reads as internal',
@@ -1874,6 +1896,9 @@ const orderFor = m => {
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ptr-mut-'));
 
+/* Node's own failure modes, not a check's. A sweep reports findings as text
+   or JSON; it never reports them as a module-resolution error. */
+const CRASH_RE = /\b(ENOENT|MODULE_NOT_FOUND|Cannot find module|SyntaxError|ReferenceError)\b/;
 function runAsync(script, appFile) {
   return new Promise(resolve => {
     const ch = spawn(process.execPath, [path.join(__dirname, script)],
@@ -1914,6 +1939,25 @@ async function judge(m, i) {
        text and it was being thrown away — the journal below turns 28 minutes
        of work that was already happening into a map of what is actually
        proven. */
+    /* A SWEEP THAT CANNOT START IS NOT A SWEEP THAT CAUGHT SOMETHING, and from
+       here the two are identical: both are a non-zero exit. One file in this
+       directory kept a hardcoded path to the product's old name after the repo
+       was reorganised, so it threw ENOENT before its first assertion — and
+       because it sits second-to-last in the running order, every mutant that
+       would have SURVIVED walked the whole list, hit the crash, and was
+       reported CAUGHT by a check that never executed. A two-hour run came back
+       clean and proved nothing.
+
+       A Node stack trace is unambiguous: no sweep reports a finding that way.
+       It aborts the WHOLE run rather than downgrading the one mutant, because a
+       broken check makes every other verdict in the run untrustworthy too. */
+    if (out && CRASH_RE.test(out)) {
+      console.error('\nHARNESS FAILURE - ' + c + ' could not run at all:\n'
+        + String(out).split('\n').slice(0, 6).map(l => '    ' + l).join('\n')
+        + '\n\n  Every mutant reaching this check would be reported CAUGHT by a check that\n'
+        + '  never executed, so the run is stopped. Fix ' + c + ' and start again.');
+      process.exit(3);
+    }
     if (out) return { m, by: c, findings: assertionsIn(out) };
   }
   return { m, survived: true };

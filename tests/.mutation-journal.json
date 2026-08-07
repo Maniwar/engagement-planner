@@ -1,30 +1,15 @@
 {
- "at": "2026-08-06T23:14:38.830Z",
+ "at": "2026-08-07T02:14:17.999Z",
  "full": false,
- "ran": 2,
- "of": 335,
+ "ran": 1,
+ "of": 341,
  "rows": [
   {
-   "what": "audience: how a story is verified decides who it is for, so artifact evidence reads as internal",
-   "by": "client-facing-sweep.js",
-   "survived": false,
+   "what": "PROBE: a semantically identical edit no check can possibly catch",
+   "by": null,
+   "survived": true,
    "skipped": false,
-   "findings": [
-    "Audience :: a story on an explicitly client-facing activity reads as internal once its evidence is an artifact — evidence is not audience",
-    "Audience :: changing only HOW a story is verified (artifact vs uat) moved its AUDIENCE from client to internal — those are different questions and the answer to",
-    "variance end date held — undernea"
-   ]
-  },
-  {
-   "what": "audience: the matrix calls artifact-evidenced work internal again",
-   "by": "client-facing-sweep.js",
-   "survived": false,
-   "skipped": false,
-   "findings": [
-    "Audience :: the matrix still labels a criterion \"internal\" while the coverage tile counts its activity as client-facing — one screen, one word, two meanings",
-    "Audience :: an artifact-evidenced criterion with no test case says nothing about why it has none, so the row reads as a coverage gap",
-    "variance end date held — undernea"
-   ]
+   "findings": []
   }
  ]
 }
