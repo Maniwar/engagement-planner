@@ -1691,15 +1691,130 @@
        the role. A single-line clamp on a two-part string always loses one part.
        So it WRAPS instead — two lines, no ellipsis, nothing cut mid-word — and
        the column is wide enough for the roles this product actually holds. */
-    .role-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      overflow: hidden; max-width: 190px; white-space: normal; overflow-wrap: anywhere;
-      line-height: 1.25; font-size: var(--t-sm); }
+    .role-sub { display: block; max-width: 190px; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; line-height: 1.25; font-size: var(--t-sm); }
     .role-sub .cli { color: #1e40af; font-weight: 700; }
     #taskTable td[data-owner-id] { min-width: 150px; }
     #wbsContainer td:nth-child(3) { min-width: 150px; }
     #taskTable th:nth-child(-n+2), #taskTable td:nth-child(-n+2):not([colspan]) { width: 28px; padding-left: 0.35rem; padding-right: 0.35rem; }
     #taskTable td:nth-child(4) { min-width: 260px; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
+
+    /* ═══ THE SURFACES THE DAY IS SPENT ON ═══════════════════════════════
+       The activity list, the dictionary and the two editors were built as
+       storage: every field the same size, the same weight and the same colour,
+       in whatever order the markup happened to be written. Nothing below
+       changes a number. It changes what a person can find without reading.
+
+       NUMBERS YOU CANNOT COMPARE DOWN A COLUMN ARE DECORATION. Work and Slack
+       sat left-aligned beside a right-aligned TE, so a ragged left edge of
+       digits ran down the middle of the estimate block, and Start disagreed
+       with the Finish beside it. Right, tabular, every one of them. */
+    #taskTable th:nth-child(10), #taskTable td:nth-child(10),
+    #taskTable th:nth-child(12), #taskTable td:nth-child(12),
+    #taskTable th:nth-child(14), #taskTable td:nth-child(14) { text-align: right; }
+
+    /* A GROUP OF COLUMNS IS A THING, so say where it begins. Sixteen columns
+       with identical separators is sixteen columns you count along; a hairline
+       before the estimates, before the dates and before progress turns one
+       long read into four short ones. Lighter than --border on purpose — it
+       has to organise the row without competing with the row below it. */
+    #taskTable th:nth-child(6), #taskTable td:nth-child(6),
+    #taskTable th:nth-child(11), #taskTable td:nth-child(11),
+    #taskTable th:nth-child(15), #taskTable td:nth-child(15) { border-left: 1px solid #eef2f7; }
+
+    /* FIFTEEN NUMBER BOXES DOWN THE % COLUMN, nearly all of them showing 0.
+       The box is chrome around a value that is usually nothing, and it was the
+       loudest thing on a screen whose actual subject is the work. It keeps its
+       full hit area and shows its edges the moment you are anywhere near it,
+       so nothing is lost except the noise. */
+    #taskTable .mini-inp { border-color: transparent; background: transparent;
+      transition: border-color .12s ease, background-color .12s ease; }
+    #taskTable tr:hover .mini-inp, #taskTable .mini-inp:hover,
+    #taskTable .mini-inp:focus { border-color: var(--border); background: #fff; }
+
+    /* A PHASE IS A CONTAINER, NOT A HEAVIER ROW. It had a tint and bold text,
+       which reads as "this line matters more" rather than as "everything under
+       here belongs to this". The rule above it is what makes it a group: the
+       eye lands on the boundary, not on the weight. */
+    tr.is-sum > td { background: #f6f8fb; font-weight: 600; border-top: 1px solid #dbe3ec; }
+    #taskTable tr.is-sum > td { font-weight: 600; }
+    table.wbs-dict tr.is-sum > td { font-weight: 700; }
+
+    /* Hover in the project's own colour rather than in another grey. On a
+       table this wide, "which row am I on" is asked constantly. */
+    #taskTable tbody tr[data-task-id]:hover > td,
+    table.wbs-dict tbody tr:hover > td { background: var(--primary-50); }
+    table.wbs-dict tbody tr { transition: background-color .1s ease; }
+
+    /* ═══ THE DICTIONARY IS THREE ESSAYS AND TWELVE FACTS ═════════════════
+       Deliverable, Description and Acceptance each wrap to five or six lines,
+       which makes a 200px row — and every short cell beside them floated in
+       the middle of that height, a centimetre away from the row it belongs to.
+       Top-align ties each fact back to the line it describes, and the prose
+       gets its own tighter measure so three columns of it stop setting the
+       height of everything else. */
+    table.wbs-dict { table-layout: auto; }
+    table.wbs-dict td { vertical-align: top; }
+    table.wbs-dict thead th { position: sticky; top: 0; z-index: 4; background: #f8fafc;
+      box-shadow: inset 0 -1px 0 var(--border); }
+    .table-wrap:has(table.wbs-dict) { max-height: 74vh; overflow: auto; }
+    /* Clamped, not cut: the cell says how much it is showing by shape, and the
+       whole text is on the cell's own tooltip. A hard truncation with no
+       ellipsis is the defect the geometry probe exists to find; this is the
+       shape that is not one. */
+    .wbs-prose { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+      overflow: hidden; overflow-wrap: anywhere; line-height: 1.45; }
+    table.wbs-dict td.dict-prose { max-width: 30ch; min-width: 16ch; font-size: var(--t-sm); }
+    table.wbs-dict th:nth-child(4), table.wbs-dict td:nth-child(4),
+    table.wbs-dict th:nth-child(6), table.wbs-dict td:nth-child(6) { border-left: 1px solid #eef2f7; }
+    table.wbs-dict td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    table.wbs-dict th.num { text-align: right; }
+
+    /* ═══ A FORM IS SECTIONS, NOT THIRTY FIELDS ═══════════════════════════
+       Only one block on the activity editor had a shape — Progress & actuals,
+       in its blue box — and it is the block everybody finds. The other thirty
+       inputs sat on flat white in source order, so "where do I set who is on
+       this" was a scan rather than a glance.
+
+       So the body becomes the page and each group becomes a card on it. The
+       tinted panel keeps its accent and stays the loudest thing in the form,
+       which is right: it is the only part that records what actually happened.
+       Each card owns its own two-column grid, so a block added later cannot
+       land half-width by accident — the same opt-in the body already used. */
+    #modal .modal-body, #storyModal .modal-body { background: var(--bg); }
+    .ed-sec { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 0.85rem 1rem 1rem; margin-bottom: 1rem; box-shadow: var(--sh-1); }
+    .ed-h { display: flex; align-items: baseline; gap: 0.45rem; margin-bottom: 0.75rem; }
+    .ed-h-t { font-size: var(--t-xs); font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--header); white-space: nowrap; }
+    .ed-h-s { font-size: var(--t-xs); color: var(--muted); font-weight: 400; }
+    .ed-h::after { content: ''; flex: 1 1 auto; height: 1px; min-width: 1rem;
+      background: linear-gradient(90deg, var(--border), transparent); }
+    /* A card with nothing left in it is a heading floating over a gap — which
+       is what a milestone would get, since most of the estimate block does not
+       apply to a date. Hidden as a whole rather than field by field. */
+    .ed-sec:not(:has(> :not(.ed-h):not(.mb-na))) { display: none; }
+    @media (min-width: 1000px) {
+      .ed-sec { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.25rem; align-items: start; }
+      .ed-sec > * { grid-column: 1 / -1; min-width: 0; }
+      .ed-sec > .mb-half { grid-column: auto; }
+      .ed-sec > .ed-h { grid-column: 1 / -1; }
+    }
+
+    /* THE TITLE AND THE SAVE BUTTON SCROLL AWAY on a form a page and a half
+       long, so the two things you need at the end are at the other end. Both
+       pinned; the modal is its own scroll container, so this costs nothing. */
+    #modal .modal-header, #storyModal .modal-header { position: sticky; top: 0; z-index: 6; background: var(--card); }
+    #modal .modal-footer, #storyModal .modal-footer { position: sticky; bottom: 0; z-index: 6; background: var(--card);
+      box-shadow: 0 -8px 20px -14px rgb(15 23 42 / .45); }
+
+    /* An input on a card should look like somewhere to type. Resting state is
+       a shade off the card so the field reads as a well rather than as an
+       outline, and it goes white under the cursor and while you are in it. */
+    .ed-sec input:not([type=checkbox]), .ed-sec select, .ed-sec textarea { background: #fbfcfe; }
+    .ed-sec input:not([type=checkbox]):hover, .ed-sec select:hover, .ed-sec textarea:hover { border-color: #cbd5e1; }
+    .ed-sec input:focus, .ed-sec select:focus, .ed-sec textarea:focus { background: #fff; }
     /* W4b: segmented control groups */
     .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .seg button { border-radius: 0; border: none; background: #fff; color: #334155; box-shadow: none; }
@@ -2160,7 +2275,7 @@
       #taskTable th:nth-child(2), #taskTable td:nth-child(2):not([colspan]) { display: none; }
       #taskTable th:nth-child(4), #taskTable td:nth-child(4) { position: sticky; left: 0; z-index: 3; background: #fff; min-width: 148px; max-width: 190px; box-shadow: 4px 0 8px -4px rgb(15 23 42/.18); }
       #taskTable thead th:nth-child(4) { background: #f8fafc; z-index: 6; }
-      #taskTable tr[style*="#f8fafc"] td:nth-child(4) { background: #f8fafc; }
+      #taskTable tr.is-sum td:nth-child(4) { background: #f6f8fb; }
       #taskTable tr[style*="#eff6ff"] td:nth-child(4) { background: #eff6ff; }
       #taskTable tr:hover td:nth-child(4) { background: #f1f5f9; }
       #taskTable td { padding: 0.45rem 0.5rem; }
@@ -3203,6 +3318,14 @@
       <div class="modal" style="max-width:940px" role="dialog" aria-modal="true" aria-labelledby="storyModalTitle">
         <div class="modal-header"><h3 id="storyModalTitle">Edit user story</h3><button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeStoryModal()" aria-label="Close dialog">✕</button></div>
         <div class="modal-body">
+        <!-- ═══ FOUR QUESTIONS, NOT TWENTY FIELDS ═══════════════════════════
+             What this story IS and what it hangs off; the sentence itself; how
+             it will be proven; and the two lists nobody reads until the SOW is
+             being priced. They were one flat column, which is why the story
+             preview — the only part a client ever sees — had no more weight
+             than the Jira box. -->
+        <div class="ed-sec">
+        <div class="ed-h"><span class="ed-h-t">Identity &amp; tracing</span><span class="ed-h-s">what it is, what it builds, and how it will be proven</span></div>
           <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:0.75rem">
             <div class="form-group" style="margin-bottom:0"><label for="stId">ID</label><input id="stId" type="text" placeholder="US-1" /></div>
             <div class="form-group" style="margin-bottom:0"><label for="stEpic"><span class="ek ek--solo ek--xs ek-ep" title="Epic — a group of user stories that together deliver one business outcome."><span class="ek-g" aria-hidden="true">E</span><span class="ek-sr">Epic: </span></span>Epic</label><select id="stEpic"></select></div>
@@ -3224,23 +3347,33 @@
             </select></div>
             <div class="form-group" style="margin-bottom:0"><label for="stJira">Jira ticket</label><button type="button" class="info-icon" aria-label="About Jira ticket" data-help="Paste the Jira URL (or key) once the build team creates the ticket. It shows as a 🔗 chip on the story card and traceability matrix, survives the editable-workbook round trip, and makes the ⬆ Jira export UPDATE this ticket instead of duplicating it.">i</button><input id="stJira" type="text" placeholder="https://team.atlassian.net/browse/HLX-42" /></div>
           </div>
-          <div class="form-group" style="margin-top:0.7rem;margin-bottom:0"><label for="stPersona">As a… (persona)</label><button type="button" class="info-icon" aria-label="About As a… (persona)" data-help="WHO accepts the value — a client-side user, manager or stakeholder. Delivery-team roles are flagged by the lint on product stories.">i</button><input id="stPersona" type="text" placeholder="billing administrator" oninput="updateStoryPreview()" /></div>
+        </div>
+        <div class="ed-sec">
+        <div class="ed-h"><span class="ed-h-t">The story</span><span class="ed-h-s">the sentence the client reads</span></div>
+          <div class="form-group" style="margin-top:0;margin-bottom:0"><label for="stPersona">As a… (persona)</label><button type="button" class="info-icon" aria-label="About As a… (persona)" data-help="WHO accepts the value — a client-side user, manager or stakeholder. Delivery-team roles are flagged by the lint on product stories.">i</button><input id="stPersona" type="text" placeholder="billing administrator" oninput="updateStoryPreview()" /></div>
           <div class="form-group" style="margin-top:0.7rem;margin-bottom:0"><label for="stWant">I want to…</label><textarea id="stWant" rows="2" placeholder="export monthly metrics to CSV" oninput="autoGrowTA(this);updateStoryPreview()"></textarea></div>
           <div class="form-group" style="margin-top:0.7rem;margin-bottom:0"><label for="stSoThat">So that…</label><textarea id="stSoThat" rows="2" placeholder="I can report in our BI tool" oninput="autoGrowTA(this);updateStoryPreview()"></textarea></div>
-          <div id="stPreview" class="help-text" style="margin-top:0.55rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.5rem 0.7rem;font-size:0.82rem;line-height:1.5"></div>
-          <div class="form-group" style="margin-top:0.7rem;margin-bottom:0"><label>Acceptance criteria</label><button type="button" class="info-icon" aria-label="About Acceptance criteria" data-help="Cover all three: happy = it works; error = something invalid fails gracefully; edge = boundaries, empty states, timeouts, capacity. perf = measurable thresholds. Write each as Given / When / Then.">i</button>
+          <div id="stPreview" class="help-text" style="margin-top:0.7rem;background:var(--primary-50);border:1px solid var(--primary-200);border-left:3px solid var(--primary);border-radius:10px;padding:0.6rem 0.8rem;font-size:0.85rem;line-height:1.55;color:var(--text)"></div>
+        </div>
+        <div class="ed-sec">
+        <div class="ed-h"><span class="ed-h-t">Acceptance</span><span class="ed-h-s">what has to be true before this can be signed off</span></div>
+          <div class="form-group" style="margin-top:0;margin-bottom:0"><label>Acceptance criteria</label><button type="button" class="info-icon" aria-label="About Acceptance criteria" data-help="Cover all three: happy = it works; error = something invalid fails gracefully; edge = boundaries, empty states, timeouts, capacity. perf = measurable thresholds. Write each as Given / When / Then.">i</button>
             <div id="stAcRows"></div>
             <button class="btn-sm btn-secondary no-print" type="button" onclick="stAddAcRow()">＋ Add criterion</button></div>
           <div class="form-group" id="stTcGroup" style="margin-top:0.7rem;margin-bottom:0;display:none">
             <span class="fg-head"><label>Test cases verifying this story</label><button type="button" class="info-icon" aria-label="About the test cases" data-help="The scheduled WBS test cases that verify this story's criteria (named “TC &lt;AC-id&gt; — …”). Click one to open it — steps, pass-when, owner and schedule. Artifact-verified stories are proven by their deliverable and carry none.">i</button></span>
             <div id="stTcList"></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.7rem">
+        </div>
+        <div class="ed-sec">
+        <div class="ed-h"><span class="ed-h-t">Constraints &amp; dependencies</span><span class="ed-h-s">the two lists that decide what this really costs</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0">
             <div class="form-group" style="align-self:start"><label for="stNfr">NFRs (one per line)</label><button type="button" class="info-icon" aria-label="About NFRs (one per line)" data-help="Non-functional requirements: performance, availability, security, accessibility, audit… The most under-scoped and most expensive category in an SOW.">i</button><textarea id="stNfr" rows="4" oninput="autoGrowTA(this)" placeholder="p95 export ≤ 5 s at 100k rows&#10;WCAG 2.2 AA on the export control"></textarea></div>
             <div class="form-group"><label>Assumptions &amp; client dependencies</label><button type="button" class="info-icon" aria-label="About Assumptions &amp; client dependencies" data-help="Each assumption states the impact if false; each client dependency the consequence of a slip — that's what makes the estimate defensible and re-priceable.">i</button>
               <div id="stAssumeRows"></div>
               <button class="btn-sm btn-secondary no-print" type="button" onclick="stAddAssumeRow()">＋ Add</button></div>
           </div>
+        </div>
           <div id="storyModalError" class="error" style="display:none;margin-top:0.6rem"></div>
         </div>
         <div class="modal-footer">
@@ -3739,7 +3872,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2009</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2046</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -3752,6 +3885,15 @@ Or say what you want, in your own words:
         <button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeModal()" aria-label="Close dialog">✕</button>
       </div>
       <div class="modal-body">
+        <!-- ═══ WHAT THIS IS ═══════════════════════════════════════════════
+             Identity first, then size, then who, then what happened. That is
+             the order somebody describes a piece of work out loud, and it is
+             not the order these fields were declared in: the two type
+             selectors — the ones that decide whether this activity needs a
+             story and which bucket it banks into — sat below the estimate and
+             the roster, three scroll-lengths from the name they describe. -->
+        <div class="ed-sec" id="edSecWhat">
+        <div class="ed-h"><span class="ed-h-t">The activity</span><span class="ed-h-s">what it is, and what kind of work it counts as</span></div>
         <div class="form-group">
           <label for="mName">Activity name *</label>
           <input id="mName" type="text" placeholder="e.g. Requirements Workshop" />
@@ -3765,6 +3907,23 @@ Or say what you want, in your own words:
              label spent three lines saying the same thing and still left the
              question unanswered, so the meaning is stated once, in words, and
              the boxes are just named. -->
+        <div class="form-group mb-half" id="mAudienceGroup">
+          <span class="fg-head"><label for="mAudience">Activity type</label><button type="button" class="info-icon" aria-label="About activity type" data-help="Client-facing = builds a capability the client accepts and is billed for; it should trace to a user story, so it counts toward coverage. Internal / process = delivery-side work (kickoff, PM, our own test execution) — real, billable effort, but it needs no client story, so traceability never flags it as a gap. Auto infers it from the activity name.">i</button></span>
+          <select id="mAudience"><option value="">Auto (from activity name)</option><option value="client">Client-facing (needs a story)</option><option value="internal">Internal / process (no story needed)</option></select>
+        </div>
+        <div class="form-group mb-half" id="mTaxonomyGroup">
+          <span class="fg-head"><label for="mTaxonomy">Work type</label><button type="button" class="info-icon" aria-label="About work type" data-help="NOT the same as Activity type above — that one decides whether this activity needs a user story. This is WHAT KIND of delivery work it is, from a fixed list of five, and it is the dimension your estimate bank groups by. After a few archived engagements the AI can be told that data migration runs 1.6x your estimate while governance runs 1.0x, which is impossible today because nothing records that two projects both contained data migration. Left on Auto it is read from the activity name EVERY time — nothing is stored, and it re-reads itself if you rename the activity. An inferred work type shows as a dashed ~chip in the activity table; one you set here shows solid and always wins. Only five types exist on purpose: a bucket needs about five measured activities before its number means anything, so a longer list would leave every bucket permanently below that bar.">i</button></span>
+          <select id="mTaxonomy"></select>
+          <span class="help-text" id="mTaxonomyHint" style="margin-top:0.25rem"></span>
+        </div>
+        </div>
+
+        <!-- ═══ HOW BIG IT IS AND WHOSE TIME IT TAKES ══════════════════════
+             The span, the allocation that turns it into work, and everyone it
+             is charged to. These four belong in one place because they are one
+             calculation. -->
+        <div class="ed-sec" id="edSecSize">
+        <div class="ed-h"><span class="ed-h-t">Estimate &amp; resourcing</span><span class="ed-h-s">how long it stays open, and whose time it takes</span></div>
         <div id="estBlock">
         <div class="fg-head" style="margin-bottom:0.2rem"><label for="mO" style="margin:0">How long it stays open * <span class="m-unit-hint help-text" style="text-transform:none;font-weight:400"></span></label><button type="button" class="info-icon" aria-label="About the duration estimate" data-help="Calendar span from the day the activity starts to the day it finishes — the length of the bar on the Gantt. It is NOT the hours of work inside it. Give a three-point range and the plan uses (O + 4M + P) / 6. Set Units % below to say how much of the owner&#39;s time it takes while it is open; that is what turns this span into work.">i</button></div>
         <div class="help-text" style="text-transform:none;margin:0 0 0.55rem">Calendar time from start to finish, <b>not</b> hours of work. Four days open at 20% of someone&#39;s time is 0.8 days of work — <i>Units %</i> below converts between the two.</div>
@@ -3794,7 +3953,7 @@ Or say what you want, in your own words:
         </div>
         </div>
         <div id="ompHint" class="help-text" style="display:none;margin:-0.4rem 0 0.8rem"></div>
-        <div class="metric-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.75rem">
+        <div class="metric-row" style="display:grid;grid-template-columns:1.7fr 0.8fr 1.3fr 0.9fr;gap:0.75rem">
           <div class="form-group">
             <span class="fg-head"><label for="mOwner">Owner / resource</label></span>
             <input id="mOwner" type="text" placeholder="e.g. A. Rivera" autocomplete="off" oninput="updateOwnerRoleHint();refreshAutoActualCost()" onchange="updateOwnerRoleHint();refreshAutoActualCost()" />
@@ -3817,15 +3976,6 @@ Or say what you want, in your own words:
             <input id="mFixedCost" type="number" min="0" step="100" value="0" oninput="refreshAutoActualCost()" />
           </div>
         </div>
-        <div class="form-group mb-half" id="mAudienceGroup">
-          <span class="fg-head"><label for="mAudience">Activity type</label><button type="button" class="info-icon" aria-label="About activity type" data-help="Client-facing = builds a capability the client accepts and is billed for; it should trace to a user story, so it counts toward coverage. Internal / process = delivery-side work (kickoff, PM, our own test execution) — real, billable effort, but it needs no client story, so traceability never flags it as a gap. Auto infers it from the activity name.">i</button></span>
-          <select id="mAudience"><option value="">Auto (from activity name)</option><option value="client">Client-facing (needs a story)</option><option value="internal">Internal / process (no story needed)</option></select>
-        </div>
-        <div class="form-group mb-half" id="mTaxonomyGroup">
-          <span class="fg-head"><label for="mTaxonomy">Work type</label><button type="button" class="info-icon" aria-label="About work type" data-help="NOT the same as Activity type above — that one decides whether this activity needs a user story. This is WHAT KIND of delivery work it is, from a fixed list of five, and it is the dimension your estimate bank groups by. After a few archived engagements the AI can be told that data migration runs 1.6x your estimate while governance runs 1.0x, which is impossible today because nothing records that two projects both contained data migration. Left on Auto it is read from the activity name EVERY time — nothing is stored, and it re-reads itself if you rename the activity. An inferred work type shows as a dashed ~chip in the activity table; one you set here shows solid and always wins. Only five types exist on purpose: a bucket needs about five measured activities before its number means anything, so a longer list would leave every bucket permanently below that bar.">i</button></span>
-          <select id="mTaxonomy"></select>
-          <span class="help-text" id="mTaxonomyHint" style="margin-top:0.25rem"></span>
-        </div>
         <div class="form-group mb-half" id="attGroup">
           <label>Additional attendees</label><button type="button" class="info-icon" aria-label="About Additional attendees" data-help="For sessions/workshops with several people at once. Each attendee loads their own calendar, cost and billing (client-type resources bill nothing).">i</button>
           <div class="att-block">
@@ -3833,6 +3983,7 @@ Or say what you want, in your own words:
             <div id="attRows"></div>
           </div>
           <button class="btn-sm btn-secondary" type="button" onclick="addAttRow()">+ Add attendee</button>
+        </div>
         </div>
         <!-- ===== Progress & actuals ==========================================
              Status and time entry in ONE always-visible block, sitting directly
@@ -3918,6 +4069,11 @@ Or say what you want, in your own words:
           </div>
           <div class="help-text pa-note" id="mActualCostHint"></div>
         </section>
+        <!-- ═══ WHERE IT SITS IN THE PLAN ══════════════════════════════════
+             What has to happen first and what it hangs under: two questions
+             about the same thing, asked at opposite ends of the form. -->
+        <div class="ed-sec" id="edSecPlace">
+        <div class="ed-h"><span class="ed-h-t">Sequence &amp; placement</span><span class="ed-h-s">what must finish first, and where it hangs in the WBS</span></div>
         <div class="form-group">
           <label>Dependencies (predecessors)</label>
           <div class="dep-block">
@@ -3932,6 +4088,7 @@ Or say what you want, in your own words:
           <input id="mParent" placeholder="Type to search… (empty = top level)" autocomplete="off" />
           <datalist id="parentDatalist"></datalist>
           <p class="help-text">Type-ahead: start typing a phase name or WBS code (e.g. “2” or “Design”). Parents become summary rows that roll up their children.</p>
+        </div>
         </div>
         <datalist id="predDatalist"></datalist>
         <div id="mStoriesPanel"></div>
@@ -8154,7 +8311,7 @@ Or say what you want, in your own words:
             : `<span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" ${t.percentComplete >= 100 ? 'checked' : ''} onclick="event.stopPropagation()" onchange="updatePct(${t.id}, this.checked ? 100 : 0)" title="Check off = 100% done (uncheck = 0%). Phase and project %s recompute instantly, TE-weighted." style="width:15px;height:15px;cursor:pointer;accent-color:var(--success)" /><input class="mini-inp" type="number" min="0" max="100" value="${t.percentComplete}" onchange="updatePct(${t.id}, this.value)" onclick="event.stopPropagation()" title="Or type a partial %" />${needsEffort(t)
                 ? `<span class="eff-missing" onclick="event.stopPropagation();beginEffortEdit(${t.id}, this.closest('td'))" title="${escapeHtml(effortRequiredMsg(t.percentComplete || 0))} Click to log it here.">⏱</span>`
                 : (t.actualEffort != null ? `<span class="eff-ok" onclick="event.stopPropagation();beginEffortEdit(${t.id}, this.closest('td'))" title="Time spent: ${escapeHtml(fmtDurCell(t.actualEffort))} — click to change">${escapeHtml(fmtDurCell(t.actualEffort))}</span>` : '')}</span>`;
-        return `<tr draggable="true" data-task-id="${t.id}" class="${t.isCritical && !t.milestone && !summary && (t.percentComplete || 0) < 100 ? 'critical' : ''} ${isLate(t) ? 'late' : ''} ${calculated && sumDone ? 'sum-done' : ''}" style="${summary ? 'font-weight:600;background:#f8fafc' : ''}${selectedTaskIds.has(t.id) ? ';outline:2px solid #93c5fd;outline-offset:-2px' : ''}">
+        return `<tr draggable="true" data-task-id="${t.id}" class="${summary ? 'is-sum ' : ''}${t.isCritical && !t.milestone && !summary && (t.percentComplete || 0) < 100 ? 'critical' : ''} ${isLate(t) ? 'late' : ''} ${calculated && sumDone ? 'sum-done' : ''}" style="${selectedTaskIds.has(t.id) ? 'outline:2px solid #93c5fd;outline-offset:-2px' : ''}">
           <td class="no-print"><input type="checkbox" data-selid="${t.id}" ${selectedTaskIds.has(t.id) ? 'checked' : ''} onclick="taskRowCheckClick(event, ${t.id}, this)" title="Select for bulk edit${summary ? ' — includes every sub-task' : ''}. Shift-click selects the whole range from the last box you clicked." style="width:14px;height:14px;cursor:pointer" /></td>
           <td title="Drag to reorder / re-nest"><button type="button" class="drag-handle" aria-label="Reorder ${escapeHtml(t.name)} — Alt+ArrowUp/ArrowDown moves it" data-drag-id="${t.id}">⠿</button></td>
           <td style="white-space:nowrap">${ekTask(t, { onclick: `event.stopPropagation();openEditModal(${t.id}, true)` })}</td>
@@ -16534,12 +16691,12 @@ Or say what you want, in your own words:
         const twisty = t.isSummary
           ? `<button class="wbs-twisty" onclick="event.stopPropagation();toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
           : '<span class="wbs-twisty-spacer"></span>';
-        return `<tr class="row-edit" data-wbsrow="${t.id}" style="cursor:pointer;${t.isSummary ? 'font-weight:700;background:#f8fafc' : ''}" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
+        return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
           <td style="white-space:nowrap">${ekTask(t)}</td>
           <td style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span></td>
           <td style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : escapeHtml(t.owner || '—') + roleSub(t.owner)}</td>
-          <td>${dur}</td>
-          <td title="${escapeHtml(workCellTip(t))}">${(() => {
+          <td class="num">${dur}</td>
+          <td class="num" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.isSummary) { const e = leafDescendants(t.id).reduce((a, x) => a + plannedEffortDays(x), 0);
               return e > 0 ? '<span class="help-text">' + escapeHtml(fmtDurCell(workingDaysToUnit(e))) + '</span>' : '—'; }
             if (t.milestone) return '◆';
@@ -16547,8 +16704,8 @@ Or say what you want, in your own words:
             return e > 0 ? escapeHtml(fmtDurCell(workingDaysToUnit(e))) : '—'; })()}</td>
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.startDate) : '—'}</td>
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.finishDate) : '—'}</td>
-          <td>${calculated ? (t.percentComplete || 0) + '%' : '—'}</td>
-          ${anyCost ? `<td style="text-align:right;font-size:0.8rem">${fmtMoney(taskCost(t))}</td>` : ''}
+          <td class="num">${calculated ? (t.percentComplete || 0) + '%' : '—'}</td>
+          ${anyCost ? `<td class="num" style="font-size:0.8rem">${fmtMoney(taskCost(t))}</td>` : ''}
           <td style="font-size:0.78rem;max-width:260px;min-width:170px">${(() => {
             const ins = t.isSummary ? [] : taskInputs(t);
             if (!ins.length) return t.isSummary || t.milestone ? '<span class="help-text">—</span>'
@@ -16588,8 +16745,8 @@ Or say what you want, in your own words:
             if (fit.level === 'ok' || fit.level === 'na') return d || '<span class="help-text">—</span>';
             return `<span class="io-flag" title="${escapeHtml(fit.why)}">${d || 'not named'}</span>`;
           })()}</td>
-          <td style="font-size:0.8rem;max-width:280px">${escapeHtml(t.description || '')}</td>
-          <td style="font-size:0.8rem">${escapeHtml(t.acceptance || '')}</td>
+          <td class="dict-prose"${t.description ? ` title="${escapeHtml(t.description)}"` : ''}><div class="wbs-prose">${escapeHtml(t.description || '')}</div></td>
+          <td class="dict-prose"${t.acceptance ? ` title="${escapeHtml(t.acceptance)}"` : ''}><div class="wbs-prose">${escapeHtml(t.acceptance || '')}</div></td>
           <td style="font-size:0.72rem;color:var(--muted)">${linksCell}</td>
           <td style="font-size:0.75rem;white-space:nowrap">${(() => { const st = storiesForTask(t.id); return st.length
             ? st.map(s => `<span class="badge badge-info" style="cursor:pointer" onclick="event.stopPropagation();openReqStory('${ekJs(s.id)}')" title="${escapeHtml(storySentence(s) + ' — ' + (s.ac || []).length + ' acceptance criteria. Click to jump to this story.')}">${escapeHtml(s.id)}</span>`).join(' ')
@@ -16608,7 +16765,7 @@ Or say what you want, in your own words:
           const byKind = {};
           ioFind.forEach(f => { (byKind[f.kind] = byKind[f.kind] || []).push(f); });
           const order = ['no-deliverable', 'vague-deliverable', 'input-unnamed', 'no-inputs', 'orphan-output'];
-          return `<details class="io-findings" open>
+          return `<details class="io-findings">
             <summary><b>${ioFind.length} gap${ioFind.length === 1 ? '' : 's'} in the input/output chain</b>
               <span class="help-text" style="font-weight:400"> — an activity whose output nobody can identify cannot be accepted, invoiced, or fed into the next one</span></summary>
             <!-- The lint has been able to NAME these for a while and could do
@@ -16625,8 +16782,8 @@ Or say what you want, in your own words:
               </ul></div>`).join('')}
           </details>`;
         })()}
-        <div class="table-wrap"><table>
-          <thead><tr><th>WBS</th><th>Element</th><th>Owner</th><th title="How long the activity is OPEN — elapsed working days">Dur (${u})</th><th title="The WORK inside that span: duration x allocation. Equal to duration only when the allocation is 100%.">Work</th><th>Start</th><th>Finish</th><th>%</th>${anyCost ? '<th style="text-align:right">Cost</th>' : ''}<th title="What this activity consumes: ↤ the deliverable of an activity it waits for, ◇ a client dependency from a story, · an input stated on the activity itself">Inputs</th><th>Deliverable</th><th>Description / scope</th><th>Acceptance</th><th title="Schedule relationships: ↤ predecessors this element waits for, ↦ successors it feeds — hover for the full name and link type. Full detail in the CSV export (Predecessors + Successors columns).">Links</th><th title="User stories traced to this element — hover a chip for the story, click for the Requirements tab">Stories</th></tr></thead>
+        <div class="table-wrap"><table class="wbs-dict">
+          <thead><tr><th>WBS</th><th>Element</th><th>Owner</th><th class="num" title="How long the activity is OPEN — elapsed working days">Dur (${u})</th><th class="num" title="The WORK inside that span: duration x allocation. Equal to duration only when the allocation is 100%.">Work</th><th>Start</th><th>Finish</th><th class="num">%</th>${anyCost ? '<th class="num">Cost</th>' : ''}<th title="What this activity consumes: ↤ the deliverable of an activity it waits for, ◇ a client dependency from a story, · an input stated on the activity itself">Inputs</th><th>Deliverable</th><th>Description / scope</th><th>Acceptance</th><th title="Schedule relationships: ↤ predecessors this element waits for, ↦ successors it feeds — hover for the full name and link type. Full detail in the CSV export (Predecessors + Successors columns).">Links</th><th title="User stories traced to this element — hover a chip for the story, click for the Requirements tab">Stories</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
         <p class="help-text" style="margin-top:0.75rem"><b>Inputs → Deliverable</b> is the artefact chain, and it is a different question from the ↤/↦ Links column: those say B <i>starts after</i> A, this says B <i>consumes what</i> A produces. A plan can be perfectly linked and still have an activity waiting on something nobody makes. Bold rows are summary/phase elements (they roll up children). Use ▸/▾ to drill in, the ⑂ button on the Tasks tab to have AI decompose a task further, and Edit to fill deliverable / scope / acceptance for the dictionary.</p>`;

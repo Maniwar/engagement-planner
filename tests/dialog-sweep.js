@@ -336,12 +336,21 @@ const QA = JSON.parse(fs.readFileSync(
            was switched off entirely and on one where every half-width item was
            told to span both columns. What matters is the rendered geometry: two
            tracks on the body, and a paired field noticeably narrower than it. */
-        const halves = [...body.children].filter(k => k.classList.contains('mb-half'));
+        /* ANYWHERE UNDER THE BODY, and the grid measured on whatever owns it.
+           The form became sections — each card is a full-width child holding
+           its own two-column grid — and this read body.children only, so it
+           reported "no field is marked to pair" on a build laying out in two
+           columns exactly as intended. The check was right about WHAT to
+           measure and wrong about WHERE, which is the failure mode its own
+           comment above warns about, one level up. */
+        const halves = [...body.querySelectorAll('.mb-half')];
         g.half = halves.length;
         if (!halves.length) say('Activity editor', 'no field is marked to pair, so the second column is empty');
-        const tracks = String(getComputedStyle(body).gridTemplateColumns || '').trim().split(/\s+/).filter(Boolean);
+        const gridOwner = (halves.find(k => getComputedStyle(k).display !== 'none') || {}).parentElement || body;
+        const tracks = String(getComputedStyle(gridOwner).gridTemplateColumns || '').trim().split(/\s+/).filter(Boolean);
         g.tracks = tracks.length;
-        g.bodyW = Math.round(body.getBoundingClientRect().width);
+        g.gridOwner = gridOwner === body ? 'modal-body' : (gridOwner.className || gridOwner.tagName);
+        g.bodyW = Math.round(gridOwner.getBoundingClientRect().width);
         if (window.innerWidth >= 1000) {
           if (tracks.length !== 2) say('Activity editor', 'on a ' + window.innerWidth + 'px screen the editor '
             + 'lays out in ' + tracks.length + ' column(s) — the form is the single tall column it always was, '
