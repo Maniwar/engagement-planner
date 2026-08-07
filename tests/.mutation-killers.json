@@ -142,5 +142,16 @@
  "revenue: finished work that was never invoiced is not reported at all": "revenue-sweep.js",
  "revenue: the cash-positive date is the FIRST crossing, not the last dip": "revenue-sweep.js",
  "effort: the worklist total sums only the rows on screen, not the whole group": "navigation-sweep.js",
- "bank: days-to-pay is a mean, so one chased invoice moves the headline": "bank-sweep.js"
+ "bank: days-to-pay is a mean, so one chased invoice moves the headline": "bank-sweep.js",
+ "bank: an outstanding invoice counts as paid in zero days": "bank-sweep.js",
+ "bank: what is still owed is reported as collected": "bank-sweep.js",
+ "bank: the slowest payer is listed last, where nobody reads it": "bank-sweep.js",
+ "bank: the payment history is computed and never drawn": "bank-sweep.js",
+ "bank: an empty book is laid out as measured zeros": "bank-sweep.js",
+ "bank: the billing-discipline cut is presented as payment behaviour": "bank-sweep.js",
+ "client: a lint finding carries money into the request body in screen-share mode": "run-test-plan.js",
+ "client: the receivables export drops every activity nobody has invoiced": "client-facing-sweep.js",
+ "client: unbilled work is folded into the outstanding total, overstating the book": "client-facing-sweep.js",
+ "client: the receivables export loses how long a receipt has been outstanding": "client-facing-sweep.js",
+ "client: the status report never says what has been invoiced": "client-facing-sweep.js"
 }

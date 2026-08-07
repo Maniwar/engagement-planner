@@ -1664,7 +1664,7 @@
     /* W2a: numeric typography — right-aligned tabular figures */
     #taskTable th:nth-child(n+6):nth-child(-n+9), #taskTable td:nth-child(n+6):nth-child(-n+9),
     #taskTable th:nth-child(13), #taskTable td:nth-child(13) { text-align: right; }
-    #taskTable th:nth-child(15), #taskTable td:nth-child(15) { min-width: 110px; }
+    #taskTable th:nth-child(15), #taskTable td:nth-child(15) { min-width: 104px; }
     #wbsContainer th:nth-child(4), #wbsContainer td:nth-child(4),
     #wbsContainer th:nth-child(7), #wbsContainer td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; }
     .roster-table th:nth-child(n+9):nth-child(-n+11), .roster-table td:nth-child(n+9):nth-child(-n+11),
@@ -1691,14 +1691,147 @@
        the role. A single-line clamp on a two-part string always loses one part.
        So it WRAPS instead — two lines, no ellipsis, nothing cut mid-word — and
        the column is wide enough for the roles this product actually holds. */
-    .role-sub { display: block; max-width: 190px; white-space: nowrap; overflow: hidden;
+    /* 150, not 190: this is the SUBTITLE under an owner's name, and every px
+       it claims comes off a table already 59px too wide to fit a 1920 screen
+       without scrolling. The full role is on the cell's tooltip and on the
+       Resources tab. */
+    .role-sub { display: block; max-width: 150px; white-space: nowrap; overflow: hidden;
       text-overflow: ellipsis; line-height: 1.25; font-size: var(--t-sm); }
     .role-sub .cli { color: #1e40af; font-weight: 700; }
     #taskTable td[data-owner-id] { min-width: 150px; }
     #wbsContainer td:nth-child(3) { min-width: 150px; }
     #taskTable th:nth-child(-n+2), #taskTable td:nth-child(-n+2):not([colspan]) { width: 28px; padding-left: 0.35rem; padding-right: 0.35rem; }
-    #taskTable td:nth-child(4) { min-width: 260px; }
+    /* 220, not 260. Names wrap to two lines either way on this fixture, and
+       the width bought here is most of what a 1728 laptop was short. The last
+       few pixels come off the WBS code column, which carried prose padding
+       around a chip that reads "A 1.1". */
+    #taskTable td:nth-child(4) { min-width: 220px; }
+    #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
+
+    /* ═══ THE BUILDER IS A DOOR, NOT A ROOM ══════════════════════════════
+       On an empty project the AI panel IS the page — there is nothing else to
+       look at, and it should be open. Once a plan exists it is a 400px
+       standing reservation above the thing you actually came to read, for a
+       control you touch a few times a day.
+
+       So it folds to one line: the same textarea at one row, with a
+       placeholder that says what it is now for. Clicking it opens the whole
+       panel and puts the cursor where it already was, because it is the same
+       field — no second input, nothing to copy across, nothing to lose. */
+    #aiCard.ai-folded .ai-full { display: none !important; }
+    #aiCard.ai-folded #aiNotes { height: 40px; min-height: 40px; resize: none;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #aiCard.ai-folded .card-body { padding-top: 0.7rem; padding-bottom: 0.7rem; }
+    #aiCard.ai-folded .card-header { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    #aiCard #aiNotes { transition: height .18s var(--easeo); }
+    .ai-fold { min-width: 2rem; }
+    #aiCard.ai-folded .ai-fold { transform: rotate(180deg); }
+
+    /* ═══ THE ROW ACTIONS WERE NEVER REACHABLE ═══════════════════════════
+       Reported as "the decompose button is gone". It was not gone: it was
+       opacity 0 until the row is hovered, in the LAST of seventeen columns, on
+       a table 1901px wide inside a 1430px scroller — 396px past the right edge
+       at 1512px, and still 108px past it at 1920px. So the fastest way to
+       split an activity into sub-tasks was behind a sideways scroll on every
+       display anybody owns.
+
+       The geometry probe could not see this and was right not to: the wrapper
+       CAN scroll to reach the cell, so it is neither overhang nor trapped.
+       Reachable-but-buried is a category it does not flag, which is now a
+       known gap rather than a surprise.
+
+       Pinned to the right edge, the mirror of the Activity column pinning left
+       on a narrow screen. And visible at rest rather than invisible: a control
+       nobody can see is a control nobody uses, and hover-to-discover only ever
+       worked for people who already knew it was there. */
+    /* RESERVE ONE BUTTON, NOT FIVE. Pinning the whole cluster fixed the
+       reachability but took 157px of a table already short of width — a
+       permanent quarter of the visible area for the column you look at last.
+
+       So the cell is one button wide and the cluster floats inside it,
+       anchored to the right edge and free to paint outside the cell. At rest
+       only ⑂ is on the rail: it is the one action here with no other route
+       (edit is two other clicks on the same row, indent and outdent are what
+       the ⠿ handle does, delete should never be a hair-trigger). Put the
+       cursor on a row and the rest expand leftwards over it on a raised card,
+       which is the only moment you want them and costs nothing the rest of
+       the time. Expanding INWARD matters: the cluster never crosses the
+       scroller's edge, so it cannot be clipped the way a dropdown would be. */
+    #taskTable td.acts, #taskTable thead th:last-child { position: sticky; right: 0; z-index: 3;
+      background: var(--card); width: 42px; min-width: 42px; padding: 0;
+      border-left: 1px solid var(--border); overflow: visible; }
+    #taskTable thead th:last-child { z-index: 7; background: #f8fafc; }
+    #taskTable tbody tr.is-sum > td.acts { background: #f6f8fb; }
+    #taskTable tbody tr[data-task-id]:hover > td.acts { background: var(--primary-50); }
+    .row-acts { position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+      display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px;
+      border: 1px solid transparent; transition: box-shadow .12s ease, background-color .12s ease; }
+    .row-acts .btn-sm { padding: 0.2rem 0.4rem; margin: 0; }
+    #taskTable tr:hover .row-acts, #taskTable tr:focus-within .row-acts {
+      background: var(--card); border-color: var(--border); box-shadow: var(--sh-2); }
+    /* Room for the PAIR. A critical row in progress carries both chips, and at
+       the column's natural width they wrapped to two lines — so the one row
+       that is both on the critical path and actually moving was also the one
+       row 10px taller than everything around it. The rail is pinned now, so
+       width here costs nothing that matters. */
+    #taskTable th:nth-child(16), #taskTable td:nth-child(16) { min-width: 196px; }
+    #taskTable thead th:last-child { z-index: 7; background: #f8fafc; }
+    #taskTable tbody tr.is-sum > td:last-child { background: #f6f8fb; }
+    #taskTable tbody tr[data-task-id]:hover > td:last-child { background: var(--primary-50); }
+
+    /* ═══ A STATE IS FILLED, A PROPERTY IS OUTLINED ══════════════════════
+       Critical is a POSITION — any delay here moves the finish date — and the
+       progress chip is a STATE. They sat side by side as two solid pills of
+       identical shape, so two different kinds of fact competed as equals and
+       a row read as two alarms rather than as one fact about the plan and one
+       about the work.
+
+       Both are chips with a leading mark now, and the mark is what separates
+       them: a filled dot is a state, a hollow ring is a property of the row.
+       The colour concentrates in the mark, so the label stays dark and
+       readable instead of being reversed out of a saturated fill. */
+    .badge-st { display: inline-flex; align-items: center; gap: 0.34rem;
+      padding: 0.14rem 0.5rem 0.14rem 0.42rem; border-radius: 7px;
+      border: 1px solid transparent; line-height: 1.4; }
+    .badge-st::before { content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex: none; }
+    .badge-st.badge-prop::before { background: transparent; border: 1.5px solid currentColor;
+      width: 7px; height: 7px; box-sizing: border-box; }
+    .badge-st.badge-done       { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .badge-st.badge-prog       { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .badge-st.badge-notstarted { background: #f8fafc; color: #64748b; border-color: var(--border); }
+    .badge-st.badge-slack      { background: #f8fafc; color: #64748b; border-color: var(--border); }
+    .badge-st.badge-blocked    { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .badge-st.badge-warn       { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .badge-st.badge-critical   { background: #fff;    color: #dc2626; border-color: #fca5a5; }
+    /* The one row on the screen where something is actually happening is the
+       one thing that moves. Killed with everything else under reduced motion. */
+    .badge-st.badge-prog::before { animation: dotPulse 2.2s ease-in-out infinite; }
+    @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(37 99 235 / .5) }
+                          50%      { box-shadow: 0 0 0 4px rgb(37 99 235 / 0) } }
+
+    /* ═══ MOTION ════════════════════════════════════════════════════════
+       The Plan vs actual tiles replaced .stat-card and quietly lost the
+       entrance and the hover lift that class carried, so that tab became the
+       one summary in the app that just appeared. Same behaviour, same easing. */
+    .pa-tile { transition: transform .16s var(--easeo), box-shadow .16s var(--easeo); }
+    .pa-tile:hover { transform: translateY(-2px); }
+    .tiles-in .pa-tile { animation: tileIn .34s var(--easeo) backwards; }
+    .tiles-in .pa-tile:nth-child(2) { animation-delay: .05s } .tiles-in .pa-tile:nth-child(3) { animation-delay: .1s }
+    .tiles-in .pa-tile:nth-child(4) { animation-delay: .15s } .tiles-in .pa-tile:nth-child(5) { animation-delay: .2s }
+
+    /* A form that assembles reads as sections; a form that appears reads as a
+       wall. Runs once per open — the cards are not rebuilt while it is up. */
+    .modal-overlay.open .ed-sec { animation: tileIn .3s var(--easeo) backwards; }
+    .modal-overlay.open .ed-sec:nth-of-type(2) { animation-delay: .04s }
+    .modal-overlay.open .ed-sec:nth-of-type(3) { animation-delay: .08s }
+    .modal-overlay.open .ed-sec:nth-of-type(4) { animation-delay: .12s }
+
+    /* The focus ring snapped on. Growing it is the difference between a form
+       that answers you and one that redraws. */
+    input, select, textarea { transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease; }
+    #taskTable tbody tr { transition: background-color .1s ease; }
 
     /* ═══ THE SURFACES THE DAY IS SPENT ON ═══════════════════════════════
        The activity list, the dictionary and the two editors were built as
@@ -1722,6 +1855,13 @@
     #taskTable th:nth-child(6), #taskTable td:nth-child(6),
     #taskTable th:nth-child(11), #taskTable td:nth-child(11),
     #taskTable th:nth-child(15), #taskTable td:nth-child(15) { border-left: 1px solid #eef2f7; }
+    /* The estimate block is five short numbers wearing prose padding. Tabular
+       digits need far less breathing room than words do, and 0.3rem off each
+       side of five columns is 30px back on a table fighting for width. */
+    #taskTable th:nth-child(n+6):nth-child(-n+10),
+    #taskTable td:nth-child(n+6):nth-child(-n+10),
+    #taskTable th:nth-child(n+12):nth-child(-n+14),
+    #taskTable td:nth-child(n+12):nth-child(-n+14) { padding-left: 0.4rem; padding-right: 0.4rem; }
 
     /* FIFTEEN NUMBER BOXES DOWN THE % COLUMN, nearly all of them showing 0.
        The box is chrome around a value that is usually nothing, and it was the
@@ -2251,10 +2391,14 @@
     #taskTable td[onclick]:hover { outline: 1.5px solid #93c5fd; outline-offset: -1.5px; border-radius: 4px; }
     #taskTable td[data-name-id] span[onclick]:hover { outline: 1.5px solid #93c5fd; outline-offset: 2px; border-radius: 4px; }
     #taskTable td[data-pred-id] .help-text { color: var(--primary); }
+    /* Was opacity 0 — see the pinning note above. Present but quiet at rest,
+       full strength on the row you are on: the affordance is discoverable
+       without five buttons shouting from every one of forty rows. */
     @media (hover: hover) {
-      #taskTable tbody tr[data-task-id] td:last-child .btn-sm { opacity: 0; transition: opacity .12s ease; }
-      #taskTable tbody tr[data-task-id]:hover td:last-child .btn-sm,
-      #taskTable tbody tr[data-task-id]:focus-within td:last-child .btn-sm { opacity: 1; }
+      #taskTable tbody tr[data-task-id]:not(:hover):not(:focus-within) .row-acts > .btn-sm:not(.ra-key) { display: none; }
+      #taskTable tbody tr[data-task-id] .row-acts .btn-sm { opacity: .55; transition: opacity .12s ease; }
+      #taskTable tbody tr[data-task-id]:hover .row-acts .btn-sm,
+      #taskTable tbody tr[data-task-id]:focus-within .row-acts .btn-sm { opacity: 1; }
     }
     /* W22: keyboard-reorder handle */
     .drag-handle { background: transparent; border: none; color: var(--muted); cursor: grab; box-shadow: none; padding: 2px 6px; }
@@ -2887,10 +3031,11 @@
       <!-- AI ASSISTANT -->
       <div class="card" id="aiCard" style="border-color:#bfdbfe">
         <div class="card-header" style="background:linear-gradient(135deg,#eff6ff,#f1f5f9)">
-          <h2><span class="ico" aria-hidden="true">🤖</span> AI Plan Builder <span class="help-text" style="font-weight:400">Paste notes → get a costed plan. No manual entry.</span></h2>
+          <h2><span class="ico" aria-hidden="true">🤖</span> AI Plan Builder <span class="help-text ai-full" style="font-weight:400">Paste notes → get a costed plan. No manual entry.</span></h2>
           <button class="btn-sm btn-secondary no-print" onclick="toggleAiSettings()" id="aiSettingsToggle">⚙ API Key</button>
+          <button class="btn-sm btn-secondary no-print ai-fold" id="aiFoldBtn" onclick="aiToggleFold()" aria-expanded="true" aria-controls="aiCardBody" title="Collapse the builder to a single line — it is still one click away, and the plan gets the screen">▴</button>
         </div>
-        <div class="card-body">
+        <div class="card-body" id="aiCardBody">
           <!-- settings (collapsed) -->
           <div id="aiSettings" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem">
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.7rem 0.9rem;margin-bottom:0.85rem;font-size:0.83rem">
@@ -2924,7 +3069,7 @@
           </div>
 
           <!-- historical data knowledge base -->
-          <details id="histPanel" style="margin-bottom:0.9rem">
+          <details id="histPanel" class="ai-full" style="margin-bottom:0.9rem">
             <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--primary)"><span class="ico" aria-hidden="true">📚</span> Historical estimation data <span id="histBadge" class="help-text" style="font-weight:400"></span></summary>
             <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:0.9rem;margin-top:0.5rem">
               <p class="help-text" style="margin:0 0 0.6rem">Give the AI your past-project numbers so estimates are calibrated to <em>your</em> delivery history — e.g. “CRM rollout, 2 integrations: build took 14d”, “Type-B migration: UAT typically 1.5× the estimate”. Paste notes below or load a file (.md, .txt, .csv, .json). Used in every Generate / Update / Decompose call.</p>
@@ -2955,11 +3100,11 @@
 
           <div style="display:grid;grid-template-columns:1fr;gap:0.75rem">
             <div>
-              <label for="aiNotes">Describe the work</label>
-              <div class="help-text" style="margin:0 0 0.35rem">Meeting notes, a SOW, an email — anything.</div>
-              <textarea id="aiNotes" rows="5" placeholder="e.g. Kicking off the CRM migration for Acme. Discovery workshop first (~1 week), then Ana leads stakeholder interviews and requirements in parallel. Solution design depends on both. Dev team builds/configures — that's the big one, maybe 2-3 weeks. Then QA integration testing, UAT with training, and a go-live milestone. Data mapping can start once interviews are done."></textarea>
+              <label for="aiNotes" class="ai-full">Describe the work</label>
+              <div class="help-text ai-full" style="margin:0 0 0.35rem">Meeting notes, a SOW, an email — anything.</div>
+              <textarea id="aiNotes" rows="5" onfocus="aiUnfold()" placeholder="e.g. Kicking off the CRM migration for Acme. Discovery workshop first (~1 week), then Ana leads stakeholder interviews and requirements in parallel. Solution design depends on both. Dev team builds/configures — that's the big one, maybe 2-3 weeks. Then QA integration testing, UAT with training, and a go-live milestone. Data mapping can start once interviews are done."></textarea>
             </div>
-            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+            <div class="ai-full" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
               <select id="aiMode" style="width:auto">
                 <option value="replace">Create / replace all tasks</option>
                 <option value="merge">Update existing (describe the changes)</option>
@@ -2981,7 +3126,7 @@
               <div id="aiStreamHead" style="color:#f8fafc;font-weight:700;margin-bottom:0.3rem"></div><span id="aiStreamText"></span><span style="animation:blink 1s infinite">▋</span>
             </div>
           </div>
-          <p class="help-text">Tip for updates: switch to “Update existing”, then type things like “add a security review after integration testing, 2–4 days, owned by Sam” or “split Build into Config and Data Load”. The AI edits the plan and you can still fine-tune every row by hand.</p>
+          <p class="help-text ai-full">Tip for updates: switch to “Update existing”, then type things like “add a security review after integration testing, 2–4 days, owned by Sam” or “split Build into Config and Data Load”. The AI edits the plan and you can still fine-tune every row by hand.</p>
         </div>
       </div>
 
@@ -3872,7 +4017,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2046</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2117</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -4289,6 +4434,34 @@ Or say what you want, in your own words:
       if (unit === 'hours') return n < 1 ? Math.round(n * 60) + 'm' : (+n.toFixed(2)) + 'h';
       if (unit === 'weeks') return n < 1 ? (+(n * workingDaysPerWeek()).toFixed(2)) + 'd' : (+n.toFixed(2)) + 'w';
       return String(+n.toFixed(2));
+    }
+    /* Open on an empty project, folded once there is a plan to look at — and
+       the choice is remembered, because somebody who keeps it open is using it
+       and should not have to reopen it on every load. Never folds itself while
+       there is unsent text or a call in flight: taking the panel away mid-
+       thought is worse than the space it was costing. */
+    function aiFolded() { return !!(document.getElementById('aiCard') || {}).classList
+      && document.getElementById('aiCard').classList.contains('ai-folded'); }
+    function aiSetFold(on, remember) {
+      const c = document.getElementById('aiCard'); if (!c) return;
+      const btn = document.getElementById('aiFoldBtn');
+      c.classList.toggle('ai-folded', !!on);
+      if (btn) { btn.setAttribute('aria-expanded', on ? 'false' : 'true');
+        btn.title = on ? 'Open the AI plan builder' : 'Collapse the builder to a single line'; }
+      const ta = document.getElementById('aiNotes');
+      if (ta) ta.placeholder = on
+        ? 'Describe a change, or paste notes for a new plan…'
+        : AI_NOTES_PLACEHOLDER;
+      if (remember) { try { localStorage.setItem('pertGantt.aiFolded', on ? '1' : '0'); } catch (e) {} }
+    }
+    function aiToggleFold() { aiSetFold(!aiFolded(), true); if (!aiFolded()) { const t = document.getElementById('aiNotes'); if (t) t.focus(); } }
+    function aiUnfold() { if (aiFolded()) aiSetFold(false, false); }
+    let AI_NOTES_PLACEHOLDER = '';
+    function aiInitFold() {
+      const ta = document.getElementById('aiNotes'); if (!ta) return;
+      AI_NOTES_PLACEHOLDER = ta.placeholder;
+      let pref = null; try { pref = localStorage.getItem('pertGantt.aiFolded'); } catch (e) {}
+      aiSetFold(pref == null ? (tasks && tasks.length > 0) : pref === '1', false);
     }
     function ompHintUpd() {
       const el = document.getElementById('ompHint'); if (!el) return;
@@ -8283,7 +8456,7 @@ Or say what you want, in your own words:
           '✓ Complete': 'Phase complete — every sub-task in this roll-up is at 100%.',
           Pending: 'Press Calculate schedule (top of the page).'
         };
-        const mkBadge = (cls, label) => `<span class="badge ${cls}" title="${escapeHtml(badgeTips[label] || '')}" style="cursor:help">${label}</span>`;
+        const mkBadge = (cls, label, extra) => `<span class="badge badge-st ${extra || ''} ${cls}" title="${escapeHtml(badgeTips[label] || '')}" style="cursor:help">${label}</span>`;
         const sumDone = summary && (t.percentComplete || 0) >= 100;
         /* CRITICAL IS A POSITION, NOT A STATE. It says any delay here moves the
            finish date; the progress badge says whether the work has started.
@@ -8298,7 +8471,7 @@ Or say what you want, in your own words:
           : summary ? (sumDone ? mkBadge('badge-done', '✓ Complete') : mkBadge('badge-slack', 'Rolls up'))
           : (t.percentComplete >= 100) ? mkBadge('badge-done', 'Complete')
           : critical
-            ? `<span style="display:inline-flex;flex-wrap:wrap;gap:3px;align-items:center">${mkBadge('badge-critical', 'Critical')}${mkBadge(st.cls, st.label)}</span>`
+            ? `<span style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center">${mkBadge('badge-critical', 'Critical', 'badge-prop')}${mkBadge(st.cls, st.label)}</span>`
             : mkBadge(st.cls, st.label);
         const twisty = summary
           ? `<button class="wbs-twisty" onclick="toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
@@ -8341,13 +8514,13 @@ Or say what you want, in your own words:
           <td>${slackStr}</td>
           <td data-effort-id="${t.id}">${pctCell}</td>
           <td>${statusBadge}</td>
-          <td style="white-space:nowrap">
-            <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)">⇤</button>
-            <button class="btn-sm btn-secondary" onclick="indentTask(${t.id})" title="Indent (nest under the row above)">⇥</button>
-            <button class="btn-sm btn-secondary" onclick="aiDecompose(${t.id})" title="AI: decompose into sub-tasks — optionally paste a list (e.g. your intents) to get one trackable sub-task per item">⑂</button>
+          <td class="acts"><div class="row-acts">
+            <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)" aria-label="Outdent ${escapeHtml(t.name)}">⇤</button>
+            <button class="btn-sm btn-secondary" onclick="indentTask(${t.id})" title="Indent (nest under the row above)" aria-label="Indent ${escapeHtml(t.name)}">⇥</button>
+            <button class="btn-sm btn-secondary ra-key" onclick="aiDecompose(${t.id})" title="AI: decompose into sub-tasks — optionally paste a list (e.g. your intents) to get one trackable sub-task per item" aria-label="AI decompose ${escapeHtml(t.name)}">⑂</button>
             <button class="btn-sm btn-secondary" onclick="openEditModal(${t.id})" title="Edit" aria-label="Edit ${escapeHtml(t.name)}">✎</button>
             <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>
-          </td>
+          </div></td>
         </tr>`;
       }).join('');
       bindRowDragHandlers();
@@ -17189,6 +17362,20 @@ Or say what you want, in your own words:
           means the overrun ran out of room to draw. The schedule scale is relative to THIS plan — it says which
           row moved most, never how many days is a lot.
           ${hb ? 'Baseline set ' + escapeHtml(baselineDate) + '. ' : ''}“Now” uses actual dates where entered, otherwise the live forecast. Positive variance = later, dearer or longer than planned. Effort compares the logged time spent against the estimate — the same figure the estimate bank calibrates future projects from.</p>`;
+
+      /* THE ENTRANCE RUNS ONCE PER VISIT, NOT PER RENDER. renderBaseline is
+         called on every recalculation, and a summary that re-animates while
+         somebody is typing is worse than one that never animates at all. So it
+         fires only when the tab is actually on screen and has not already
+         played, and the class comes straight back off — the next innerHTML
+         rebuild would otherwise re-match it. Same shape as animateTiles(). */
+      const blGrid = cont.querySelector('.summary-grid.bl-cards');
+      const blView = document.getElementById('view-baseline');
+      if (blGrid && blView && blView.classList.contains('active') && !blView.dataset.tilesEntered) {
+        blView.dataset.tilesEntered = '1';
+        blGrid.classList.add('tiles-in');
+        setTimeout(() => blGrid.classList.remove('tiles-in'), 650);
+      }
     }
     function setActual(id, field, val) {
       const t = tasks.find(x => x.id === id); if (!t) return;
@@ -35159,6 +35346,9 @@ Return ONLY JSON: {"narrative":"the three paragraphs separated by \\n\\n"}`;
          #gantt that lands before hydrate paints the empty state and stays there.
          An unknown or absent fragment leaves the default tab alone. */
       applyTabHash();
+      /* After hydrate, so "is there a plan yet" is a real answer rather than
+         the empty state every load starts in. */
+      aiInitFold();
     })();
   </script>
   <div id="helpPop" role="tooltip" tabindex="-1" hidden></div>
