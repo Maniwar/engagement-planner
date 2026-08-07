@@ -1709,6 +1709,32 @@
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
 
+    /* ═══ 513px BEFORE THE FIRST ACTIVITY ═══════════════════════════════
+       Measured on a 1080 screen: header, project strip and tabs took 198,
+       the FOLDED builder took another 135, the list card's own header 78, two
+       lines of standing help 63, the table head 39. Nearly half the viewport
+       spent before a single row of the thing the page is for.
+
+       None of it is removed — it is stacked less wastefully. The folded
+       builder is a command bar, and a command bar is ONE row: its title, its
+       input and its two buttons sit on a line together instead of a header
+       band above a body band. The tip that lived permanently above the table
+       moves inside the disclosure directly above it, which is titled "how
+       inline editing works" and is exactly where somebody looking for it
+       would open. And the gutters come down a step: 1.25rem between stacked
+       cards is a magazine measure, not a working screen. */
+    #aiCard.ai-folded { display: flex; align-items: center; gap: 0.55rem; padding: 0.3rem 0.7rem 0.3rem 0.9rem; }
+    #aiCard.ai-folded .card-header { background: none; border-bottom: 0; padding: 0; flex: 0 0 auto; gap: 0.5rem; }
+    #aiCard.ai-folded .card-header h2 { font-size: var(--t-base); white-space: nowrap; }
+    #aiCard.ai-folded .card-body { flex: 1 1 auto; min-width: 0; padding: 0; }
+    #aiCard.ai-folded .card-body > div { gap: 0 !important; }
+    #aiCard.ai-folded #aiNotes { height: 34px; min-height: 34px; }
+    /* the two buttons trail the input rather than leading it */
+    #aiCard.ai-folded #aiSettingsToggle, #aiCard.ai-folded .ai-fold { order: 3; flex: none; }
+    #view-tasks > .card { margin-bottom: 0.85rem; }
+    #view-tasks .tabs, .tabs { margin-bottom: 0.85rem; }
+    #view-tasks > .card > .card-header { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+
     /* ═══ THE BUILDER IS A DOOR, NOT A ROOM ══════════════════════════════
        On an empty project the AI panel IS the page — there is nothing else to
        look at, and it should be open. Once a plan exists it is a 400px
@@ -3165,6 +3191,7 @@
         <div class="card-body">
           <details class="help-details" id="taskTableHelp">
             <summary>How estimates, status and inline editing work</summary>
+            <p class="help-text" id="taskTableHint" style="margin:0.5rem 0 0"><b>Shift-click</b> selects a range · click a <b>Start</b> cell to pin a date.</p>
             <p class="help-text" style="margin:0.5rem 0 0">
               Enter Optimistic (best case), Most Likely, and Pessimistic (worst case) durations.
               <strong>TE = (O + 4M + P) / 6</strong> &nbsp;•&nbsp; <strong>Variance = ((P − O) / 6)²</strong>.
@@ -3173,7 +3200,7 @@
               <br/>Edit in place: click a task's <b>name</b>, <b>Owner</b> (comma-separate for several people — first = owner, rest attendees, @N for allocation %), <b>O/M/P</b>, <b>Predecessors</b>, <b>Start</b> (📌 pin a start-no-earlier-than date) or <b>Finish</b> (⚑ set a deadline — red when the forecast breaches it) and type. Enter saves, Esc cancels.
             </p>
           </details>
-          <p class="help-text" id="taskTableHint" style="margin:0 0 0.75rem">Shift-click selects a range · click a Start cell to pin a date.</p>
+
           <div id="bulkBar" class="no-print" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.6rem 0.9rem;margin-bottom:0.6rem">
             <div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:center;font-size:0.8rem">
               <strong id="bulkCount" style="white-space:nowrap"></strong>
@@ -4031,7 +4058,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2137</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2150</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -15683,12 +15710,29 @@ Or say what you want, in your own words:
       });
       if (rv.totalDate > maxFinish) maxFinish = rv.totalDate;
       const totalDays = Math.max(1, calDaysBetween(start, maxFinish) + 3);
-      const autoW = Math.min(24, Math.max(3, Math.floor(1150 / totalDays)));
-      renderGantt._lastAutoDayW = autoW;
-      const dayW = ganttDayW || autoW;
 
       const _gcw = (document.getElementById('ganttContainer') || {}).clientWidth || 1150;
       const PAD = 12, LABELW = Math.max(280, Math.min(640, ganttLabelW || Math.min(340, Math.round(_gcw * 0.38)))), TITLE_H = 62, MON_H = 20, DAY_H = 24, ROWH = 30, BAR_H = 16, LEGEND_H = 34; // TITLE_H reserves a strip for the TODAY pill above the month header
+
+      /* ═══ A SHORT PROJECT SHOULD FILL THE CHART, NOT HUDDLE IN A CORNER ═══
+         Two bugs in one line. The divisor was a hardcoded 1150 — not the
+         container, and not net of the title column — so the fit was computed
+         against a canvas that has not existed since the column became
+         resizable. And the ceiling was 24px per day, which is fine for a
+         six-month rollout and absurd for a five-day diagnostic: eight calendar
+         days rendered 192px wide inside an 1100px chart, with everything else
+         empty. Reported as "this looks smashed".
+
+         It matters most on exactly the plans that look worst, because the unit
+         there is HOURS: four two-hour activities inside one day all land on the
+         same x when a day is 24px, so the sequence the chart exists to show is
+         the thing it cannot draw. The ceiling is now the same 120 the +/- zoom
+         has always been able to reach by hand — the auto fit was simply never
+         allowed to go where the manual control already went. */
+      const chartAvail = Math.max(360, _gcw - LABELW - PAD * 2 - 16);
+      const autoW = Math.min(120, Math.max(3, Math.floor(chartAvail / totalDays)));
+      renderGantt._lastAutoDayW = autoW;
+      const dayW = ganttDayW || autoW;
       const HEADER_H = MON_H + DAY_H;
       const chartW = totalDays * dayW;
       const hasReserve = rv.contingencyUnits > 0 || rv.managementUnits > 0;
