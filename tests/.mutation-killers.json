@@ -27,5 +27,10 @@
  "baseline: the reference dates are never written to the file": "baseline-sweep.js",
  "ledger: several measures draw one header row, so no column says which number it is": "resourcing-sweep.js",
  "ledger: the second grouping level is chosen and its rows are never drawn": "resourcing-sweep.js",
- "ledger: the last measure can be switched off, leaving a pivot of nothing": "resourcing-sweep.js"
+ "ledger: the last measure can be switched off, leaving a pivot of nothing": "resourcing-sweep.js",
+ "chart: the bars ship with no key, so the geometry is a guess": "drawn-surfaces-sweep.js",
+ "effort: a roster role is cut off by its own box with the full text nowhere": "resourcing-sweep.js",
+ "card: the Budget pair and its delta go back to different references": "run-test-plan.js",
+ "card: the Budget card paints the project red while the verdict does not": "run-test-plan.js",
+ "plan vs actual: the Effort spent card totals spans": "run-test-plan.js"
 }

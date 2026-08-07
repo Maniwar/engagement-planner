@@ -132,6 +132,13 @@
     /* baseline roll-up cards hold a "plan → actual" pair; two-up on a phone
        leaves a 121px content box and clips the actual half, which is the number
        that matters. Scoped so the short Analytics tiles keep their 2-up grid. */
+    /* A 150px minimum lets all five squeeze onto one row down to about 900px,
+       where each is 151px wide and the content answers by growing 45% TALLER —
+       a "slim" tile that is slimmer only on the axis nobody was complaining
+       about. These carry a date pair and a sentence, so they need real width:
+       230px means they wrap to three-then-two, which reads far better than five
+       crushed columns. */
+    .summary-grid.bl-cards { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
     @media (max-width: 520px) { .summary-grid.bl-cards { grid-template-columns: 1fr; } }
     .stat-card { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 1rem; text-align: center; }
     .stat-card .value { font-size: var(--t-3xl); font-weight: 700; color: var(--header, #0f172a); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
@@ -139,6 +146,22 @@
     .stat-card.critical .value { color: var(--critical); }
     .stat-card.success .value { color: var(--success); }
     .stat-card.warn .value { color: var(--warn); }
+    /* Plan vs actual summary tiles — see the note at their builder */
+    .pa-tile { background: #fff; border: 1px solid var(--border); border-left: 3px solid var(--muted);
+      border-radius: 10px; padding: 0.6rem 0.75rem; display: flex; flex-direction: column;
+      gap: 0.22rem; min-width: 0; }
+    .pa-tile-lbl { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--muted); }
+    .pa-tile-val { font-size: 0.95rem; font-weight: 700; line-height: 1.25; color: var(--header, #0f172a);
+      overflow-wrap: anywhere; }
+    .pa-tile-val .pa-was { font-weight: 400; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+    .pa-tile-val .pa-ar { color: var(--slack); margin: 0 0.3rem; font-weight: 400; }
+    .pa-pill { align-self: flex-start; font-size: 0.72rem; font-weight: 700; line-height: 1.4;
+      border: 1px solid; border-radius: 999px; padding: 0.05rem 0.45rem; max-width: 100%;
+      overflow-wrap: anywhere; }
+    .pa-tile-sub { font-size: var(--t-xs); color: var(--muted); line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .pa-tile:hover { box-shadow: var(--sh-2); }
     /* progress bar */
     .progress-track { background: #e2e8f0; border-radius: 999px; height: 8px; overflow: hidden; min-width: 60px; }
     .progress-fill { background: var(--success); height: 100%; border-radius: 999px;  }
@@ -3716,7 +3739,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.0215</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2009</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -16833,18 +16856,36 @@ Or say what you want, in your own words:
       const teRef = hb ? baseTeAll : planTeAll;
       const noEffort = tasksNeedingEffort().length;
 
-      const card = (label, estTxt, actTxt, deltaTxt, deltaVal, sub) => `
-        <div class="stat-card" style="text-align:left">
-          <div class="label" style="margin-bottom:0.2rem">${label}</div>
-          <!-- no nowrap: "Aug 20, 2026 → Aug 20, 2026" is 110px wider than a phone
-               card, and clipping the actual half loses the number that matters -->
-          <div style="font-size:0.95rem;font-weight:700;line-height:1.3">
-            <span style="font-weight:400;color:var(--muted);font-size:0.85rem;white-space:nowrap">${estTxt}</span>
-            <span style="color:var(--slack);margin:0 0.25rem">→</span><span style="white-space:nowrap">${actTxt}</span>
-          </div>
-          ${deltaTxt ? `<div style="font-size:0.78rem;font-weight:700;color:${dColor(deltaVal)};margin-top:0.15rem">${deltaTxt}</div>` : ''}
-          ${sub ? `<div class="help-text" style="font-size:var(--t-xs);margin-top:0.15rem">${sub}</div>` : ''}
+      /* ═══ FIVE READINGS YOU CAN TAKE IN AT A GLANCE ════════════════════════
+         Four stacked lines of equal weight — label, pair, delta, footnote — made
+         every card a small paragraph, and five paragraphs is something you read
+         rather than scan. The information was right and the ranking was missing:
+         on any of these the ANSWER is the delta ("end date held", "+26%"), the
+         pair is the evidence for it, and the footnote is the caveat.
+
+         So the delta becomes a tinted pill, which is the only thing on the card
+         with a background and therefore the first thing the eye lands on; the
+         committed figure drops to a muted "was"; and a coloured edge repeats the
+         verdict down the left so the row can be read as a strip of five without
+         reading any of the words. The footnote stays — it is often the sentence
+         that stops the number being misread — but at caption weight, clamped to
+         two lines, with the full text on hover. */
+      const TONE = v => v > 0
+        ? { fg: 'var(--critical)', bg: '#fef2f2', bd: '#fecaca' }
+        : v < 0 ? { fg: 'var(--success)', bg: '#f0fdf4', bd: '#bbf7d0' }
+        : { fg: 'var(--muted)', bg: '#f1f5f9', bd: 'var(--border)' };
+      const card = (label, estTxt, actTxt, deltaTxt, deltaVal, sub) => {
+        const t = TONE(deltaVal);
+        const plain = String(sub || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        return `<div class="pa-tile" style="border-left-color:${t.fg}"${plain ? ` title="${escapeHtml(plain)}"` : ''}>
+          <div class="pa-tile-lbl">${label}</div>
+          <!-- no nowrap on the pair: "Aug 20, 2026 → Aug 20, 2026" is wider than a
+               phone card, and clipping the actual half loses the number that matters -->
+          <div class="pa-tile-val"><span class="pa-was">${estTxt}</span><span class="pa-ar">→</span>${actTxt}</div>
+          ${deltaTxt ? `<span class="pa-pill" style="color:${t.fg};background:${t.bg};border-color:${t.bd}">${deltaTxt}</span>` : ''}
+          ${sub ? `<div class="pa-tile-sub">${sub}</div>` : ''}
         </div>`;
+      };
 
       const banner = hb ? '' : `
         <div class="pa-lock" style="margin-bottom:1rem">
@@ -16879,7 +16920,24 @@ Or say what you want, in your own words:
       const usedTxt = (used, plan, noun) => (plan > 0 && used > 0)
         ? Math.round(used / plan * 100) + '% of ' + noun + ' used at ' + Math.round(donePct) + '% complete' : '';
 
-      cont.innerHTML = `${banner}${undatedCompletionsHtml()}${completionReviewHtml()}${ptReadingHtml('base')}
+      /* ═══ THE ANSWER FIRST, THEN WHAT TO DO ABOUT IT ══════════════════════
+         The order was: three blocks of warnings, then the summary, then the
+         table. So the tab opened on everything that is wrong and pushed "how
+         are we doing" below the fold — and on a plan with a couple of missing
+         actual dates, roughly three hundred pixels of amber stood between the
+         reader and a single number.
+
+         None of those warnings is noise: an activity completed with no actual
+         dates really does report zero variance against its own baseline, and
+         that is worth interrupting for. But it is a FOLLOW-UP to the reading,
+         not a preface to it. Summary, then what needs attention, then the
+         detail — which is also the order somebody says it out loud in: we are
+         on the date and over on cost, two rows need dates, here is every row.
+
+         The `banner` stays on top: it is the "no baseline saved" lock, and it
+         explains why the variance columns are empty before you wonder. */
+      const attention = undatedCompletionsHtml() + completionReviewHtml() + ptReadingHtml('base');
+      cont.innerHTML = `${banner}
         <div class="summary-grid bl-cards" style="margin-bottom:1rem">
           ${(() => {
             /* A HELD END DATE IS NOT A STILL PLAN. Both ends of this comparison
@@ -16948,6 +17006,7 @@ Or say what you want, in your own words:
               noEffort ? `<span class="eff-link" onclick="openFirstMissingTimeSpent()" title="Open the first activity that has progress but no time logged">⏱ ${noEffort} activit${noEffort === 1 ? 'y' : 'ies'} missing time spent</span>` : 'TE-weighted across every leaf');
           })()}
         </div>
+        ${attention}
         <div class="table-wrap"><table>
           <thead><tr><th>WBS</th><th>Task</th>
             <th title="${hb ? 'Baseline finish → current or actual finish' : 'No baseline saved — this is the live forecast finish'}">Schedule ${hb ? '(base → now)' : '(forecast)'}</th>

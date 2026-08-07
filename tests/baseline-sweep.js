@@ -496,7 +496,18 @@ const QA = JSON.parse(fs.readFileSync(
         if (/\b4d\b/.test(cell))
           say('Effort', 'the Effort cell shows the 4-day span — "' + cell + '"');
       }
-      const cards = [...document.querySelectorAll('#view-baseline .stat-card')]
+      /* BOTH CLASS NAMES. This read '.stat-card' and went red the moment the
+         summary tiles were restyled to '.pa-tile' — the panel still said
+         everything it had said before, in the same words, and the check failed
+         on the wrapper's name. That is root cause 2 in this directory: an
+         assertion anchored to the packaging rather than to the property.
+
+         Kept as a union rather than swapped, because the shared .stat-card is
+         still what several other panels use, and a check that only knows the
+         newest name breaks the next time either one is touched. What is being
+         asserted is the SENTENCE below; the selector only has to find the box
+         the sentence is in. */
+      const cards = [...document.querySelectorAll('#view-baseline .stat-card, #view-baseline .pa-tile')]
         .map(c => c.textContent.replace(/\s+/g, ' ').trim());
       const ec = cards.find(c => /^Effort spent/.test(c));
       out.effCard = ec || null;

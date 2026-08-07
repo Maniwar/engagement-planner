@@ -1,18 +1,55 @@
 {
- "at": "2026-08-07T16:49:05.019Z",
+ "at": "2026-08-07T20:08:23.508Z",
  "full": true,
- "ran": 1,
+ "ran": 5,
  "of": 340,
  "rows": [
   {
-   "what": "ledger: the last measure can be switched off, leaving a pivot of nothing",
+   "what": "chart: the bars ship with no key, so the geometry is a guess",
+   "by": "drawn-surfaces-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Plan vs actual :: the bars carry no VISIBLE key, so a reader has to infer that the track is the plan and that the schedule bar is a different geo",
+    "Real export · Plan vs actual :: the bars carry no VISIBLE key, so a reader has to infer that the track is the plan and that the schedule bar is a different geom",
+    "3d open × 200% = 6d of work — Alice 100% + Bob 100%. More th",
+    "3.17d open × 200% = 6.33d of work — PMO 100% + A. Rivera 100"
+   ]
+  },
+  {
+   "what": "card: the Budget pair and its delta go back to different references",
+   "by": "run-test-plan.js",
+   "survived": false,
+   "skipped": false,
+   "findings": []
+  },
+  {
+   "what": "card: the Budget card paints the project red while the verdict does not",
+   "by": "run-test-plan.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "The card and the Plan-truth bar colour one project one way"
+   ]
+  },
+  {
+   "what": "effort: a roster role is cut off by its own box with the full text nowhere",
    "by": "resourcing-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Ledger :: clicking the only selected measure off changed the selection to \"planH\" — the last one has to stay put rather than silently moving you to another numb",
+    "Roster :: 6 role(s) are cut off by their own input and the full text is nowhere — not in the title, not anywhere on the row. A truncation is only honest when th",
     "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
     " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
+   ]
+  },
+  {
+   "what": "plan vs actual: the Effort spent card totals spans",
+   "by": "run-test-plan.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "The Effort spent card compares work against work"
    ]
   }
  ]

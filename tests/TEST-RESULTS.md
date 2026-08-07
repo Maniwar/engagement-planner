@@ -15,7 +15,7 @@ every derived number is a whole number checkable on paper. `crm-rollout.json` is
 real export, carrying the shape the sample never had: a baseline taken after the work
 started, so activities finish before their own baseline windows open.
 
-**Last run:** build 2026.08.07.0215 — **45 of 45 passing**.
+**Last run:** build 2026.08.07.2009 — **47 of 47 passing**.
 
 ---
 
@@ -452,6 +452,35 @@ happened" on a plan where four activities sat 81 activity-days off their own bas
 **Derived from.** Load the real export, where the end date holds and four activities have moved.
 
 **Actual.** `cardNamesTheDisplacement` = true · `agreesWithTheBar` = true
+
+### B10b — The card and the Plan-truth bar colour one project one way  ✅ PASS
+
+**Design intent.** The Budget card and the Budget bar are two readings of one fact, out of one function,
+and they sit on the same screen. A tile painted red above a bar that is not red is a
+project told it is over budget and under budget at once, and the reader cannot tell
+which to believe. The rule is narrow on purpose: only an explicit good earns green and
+only an explicit bad earns red, because being ahead of the spend line BECAUSE you are
+ahead of the work is a thing worth noticing, not a thing worth alarming about.
+
+**Expected.** `cardPaintMatchesBar` = true · `ambiguousToneStaysNeutral` = true
+
+**Derived from.** Load the real export, where spend leads the curve because the work does, and compare the colour on the tile against the tone the bar grades itself with.
+
+**Actual.** `cardPaintMatchesBar` = true · `ambiguousToneStaysNeutral` = true
+
+### B10c — The Effort spent card compares work against work  ✅ PASS
+
+**Design intent.** te is a calendar SPAN — how long an activity is open — and logged effort is somebody's
+hours. Adding spans up and calling the total "planned effort" puts a span on one side of
+the arrow and work on the other, and the percentage underneath ("38% of plan used") is
+then a ratio between two different quantities. Two people at 150% total makes the work
+half again the span; the fixture has activities at 50%, 150%, 200% and 300%.
+
+**Expected.** `plannedSideIsWork` = true · `fixtureCanTellThemApart` = true
+
+**Derived from.** Recompute the identity from #84 independently — span × allocation, summed over the leaves — and check the figure printed on the card is that, and not the spans added up.
+
+**Actual.** `plannedSideIsWork` = true · `fixtureCanTellThemApart` = true
 
 ## Client-safe mode
 

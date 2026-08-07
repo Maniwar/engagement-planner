@@ -253,9 +253,22 @@ module.exports = [
     expect: { pairAndDeltaReconcile: true },
     from: 'Parse the card and check the delta is recoverable from the pair above it.',
     fn: `() => {
+      /* ON A PLAN WHERE THE TWO REFERENCES DIFFER. This case hydrated nothing
+         and ran against whatever the previous one left loaded — a plan where
+         the baselined envelope and the spend due by today happened to be close
+         enough that the delta reconciled against EITHER of them. So it passed
+         with the Budget pair pointed at the envelope, which is precisely the
+         defect it was written to catch, and the scoped mutation run is what
+         surfaced it. The real export has an envelope of $54,293 against
+         $21,709 due by today: no arithmetic reconciles both. */
+      hydrate(JSON.parse(JSON.stringify(window.__crm))); calculate();
       switchTab('baseline'); renderBaseline();
-      const el = [...document.querySelectorAll('.bl-cards .stat-card')]
-        .find(x => /Budget/.test((x.querySelector('.label') || {}).textContent || ''));
+      /* BOTH SHAPES. The summary tiles were restyled from .stat-card/.label to
+         .pa-tile/.pa-tile-lbl and this case went red — on a panel still saying
+         the same words in the same order. What it is testing is that the delta
+         is recoverable from the pair; the selector only has to find the box. */
+      const el = [...document.querySelectorAll('.bl-cards .stat-card, .bl-cards .pa-tile')]
+        .find(x => /Budget/.test((x.querySelector('.label, .pa-tile-lbl') || {}).textContent || ''));
       if (!el) return { pairAndDeltaReconcile: null };
       const txt = el.textContent.replace(/\\s+/g, ' ');
       const pair = txt.match(/([\\d,]+(?:\\.\\d+)?)[^\\d]*?\\u2192\\s*\\$?\\s*([\\d,]+(?:\\.\\d+)?)/);
@@ -276,8 +289,8 @@ module.exports = [
     fn: `() => {
       hydrate(JSON.parse(JSON.stringify(window.__crm))); calculate();
       switchTab('baseline'); renderBaseline();
-      const el = [...document.querySelectorAll('.bl-cards .stat-card')]
-        .find(x => /Schedule/.test((x.querySelector('.label') || {}).textContent || ''));
+      const el = [...document.querySelectorAll('.bl-cards .stat-card, .bl-cards .pa-tile')]
+        .find(x => /Schedule/.test((x.querySelector('.label, .pa-tile-lbl') || {}).textContent || ''));
       const txt = el ? el.textContent.replace(/\\s+/g, ' ') : '';
       const bar = planTruthData().rows.find(r => r.key === 'sched');
       const cardN = (txt.match(/(\\d+)\\s+activit/) || [])[1];
@@ -289,6 +302,82 @@ module.exports = [
       const readout = [bar.delta, bar.deltaWhy].filter(Boolean).join(' ');
       const barN = (readout.match(/(\\d+)\\s+activit/) || readout.match(/(\\d+)\\s+off/) || [])[1];
       return { cardNamesTheDisplacement: !!cardN, agreesWithTheBar: !!barN && cardN === barN };
+    }` },
+
+  { id: 'B10b', area: 'Plan vs actual',
+    title: 'The card and the Plan-truth bar colour one project one way',
+    intent: 'The Budget card and the Budget bar are two readings of one fact, out of one function, '
+          + 'and they sit on the same screen. A tile painted red above a bar that is not red is a '
+          + 'project told it is over budget and under budget at once, and the reader cannot tell '
+          + 'which to believe. The rule is narrow on purpose: only an explicit good earns green and '
+          + 'only an explicit bad earns red, because being ahead of the spend line BECAUSE you are '
+          + 'ahead of the work is a thing worth noticing, not a thing worth alarming about.',
+    expect: { cardPaintMatchesBar: true, ambiguousToneStaysNeutral: true },
+    from: 'Load the real export, where spend leads the curve because the work does, and compare the '
+        + 'colour on the tile against the tone the bar grades itself with.',
+    fn: `() => {
+      hydrate(JSON.parse(JSON.stringify(window.__crm))); calculate();
+      switchTab('baseline'); renderBaseline();
+      const el = [...document.querySelectorAll('.bl-cards .stat-card, .bl-cards .pa-tile')]
+        .find(x => /Budget/.test((x.querySelector('.label, .pa-tile-lbl') || {}).textContent || ''));
+      if (!el) return { cardPaintMatchesBar: null, ambiguousToneStaysNeutral: null };
+      /* The tone IS a colour here — nothing else on the tile carries it — so the
+         colour is what has to be read. Left edge and verdict pill are painted
+         from one token, so either one is the same claim; gathering both means a
+         restyle that moves the token between them does not silently stop this
+         case from testing anything. */
+      const paint = (el.getAttribute('style') || '') + ' '
+        + [...el.querySelectorAll('[style]')].map(n => n.getAttribute('style') || '').join(' ');
+      const painted = /--critical/.test(paint) ? 'bad' : /--success/.test(paint) ? 'good' : 'neutral';
+      const bar = planTruthData().rows.find(r => r.key === 'budget');
+      if (!bar) return { cardPaintMatchesBar: null, ambiguousToneStaysNeutral: null };
+      const barTone = bar.tone === 'bad' ? 'bad' : bar.tone === 'good' ? 'good' : 'neutral';
+      return {
+        cardPaintMatchesBar: painted === barTone,
+        /* Names the fall-through directly: 'early' and 'chg' are neither good
+           nor bad, and a card that treats "not bad" as good paints a project
+           green for the one condition it exists to notice. */
+        ambiguousToneStaysNeutral: (bar.tone === 'bad' || bar.tone === 'good') || painted === 'neutral'
+      };
+    }` },
+
+  { id: 'B10c', area: 'Plan vs actual',
+    title: 'The Effort spent card compares work against work',
+    intent: 'te is a calendar SPAN — how long an activity is open — and logged effort is somebody\'s '
+          + 'hours. Adding spans up and calling the total "planned effort" puts a span on one side of '
+          + 'the arrow and work on the other, and the percentage underneath ("38% of plan used") is '
+          + 'then a ratio between two different quantities. Two people at 150% total makes the work '
+          + 'half again the span; the fixture has activities at 50%, 150%, 200% and 300%.',
+    expect: { plannedSideIsWork: true, fixtureCanTellThemApart: true },
+    from: 'Recompute the identity from #84 independently — span \u00d7 allocation, summed over the '
+        + 'leaves — and check the figure printed on the card is that, and not the spans added up.',
+    fn: `() => {
+      hydrate(JSON.parse(JSON.stringify(window.__crm))); calculate();
+      switchTab('baseline'); renderBaseline();
+      const el = [...document.querySelectorAll('.bl-cards .stat-card, .bl-cards .pa-tile')]
+        .find(x => /Effort spent/.test((x.querySelector('.label, .pa-tile-lbl') || {}).textContent || ''));
+      if (!el) return { plannedSideIsWork: null, fixtureCanTellThemApart: null };
+      const wasEl = el.querySelector('.pa-was, .value');
+      const shown = +String((wasEl || el).textContent).replace(/[^\\d.]/g, '');
+      if (!(shown > 0)) return { plannedSideIsWork: null, fixtureCanTellThemApart: null };
+      const leaves = leafTasks().filter(t => !t.isSummary && !t.milestone);
+      /* Restated here rather than called out of the product: a check that asks
+         plannedEffortUnit() whether plannedEffortUnit() is right proves nothing.
+         Allocation falls back to 100 for an activity with nobody on it, which is
+         what the plan means by an unstaffed estimate. */
+      const work = leaves.reduce((s, t) => {
+        const u = taskUnitsTotal(t);
+        return s + unitToWorkingDays(t.te || 0) * ((u > 0 ? u : 100) / 100);
+      }, 0);
+      const span = leaves.reduce((s, t) => s + unitToWorkingDays(t.te || 0), 0);
+      const w = workingDaysToUnit(work), sp = workingDaysToUnit(span);
+      return {
+        plannedSideIsWork: Math.abs(shown - w) <= Math.max(0.05, w * 0.001),
+        /* Guards the guard. If every allocation in the fixture ever settles at
+           100%, work and span coincide and the assertion above passes on a build
+           that sums spans. This says so out loud instead of going quietly green. */
+        fixtureCanTellThemApart: Math.abs(w - sp) > 0.5
+      };
     }` },
 
   // ══ What leaves the building ════════════════════════════════════════════
