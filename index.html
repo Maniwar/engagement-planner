@@ -1709,6 +1709,23 @@
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
 
+    /* The project identity, in the header, on the same line as the app name.
+       Quiet enough not to compete with the product mark, loud enough to be the
+       first thing you read after it — and it is a button, because the only
+       thing you ever want from it is to change one of the four facts it
+       states. */
+    .proj-chip { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0;
+      background: rgb(255 255 255 / .08); border: 1px solid rgb(255 255 255 / .14);
+      color: #e2e8f0; font-size: var(--t-md); font-weight: 500; padding: 0.28rem 0.6rem;
+      border-radius: 8px; margin-left: 0.6rem; max-width: min(46vw, 620px);
+      white-space: nowrap; overflow: hidden; box-shadow: none; }
+    .proj-chip:hover:not(:disabled) { background: rgb(255 255 255 / .16); border-color: rgb(255 255 255 / .26); color: #fff; }
+    .proj-chip b { font-weight: 700; color: #fff; }
+    .proj-chip .pc-meta { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .proj-chip .pc-edit { opacity: .55; margin-left: 0.15rem; }
+    .proj-chip:hover .pc-edit { opacity: 1; }
+    @media (max-width: 900px) { .proj-chip .pc-meta { display: none; } .proj-chip { margin-left: 0; } }
+
     .pers { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
     .pers-av { width: 24px; height: 24px; border-radius: 50%; flex: none; position: relative;
       display: inline-flex; align-items: center; justify-content: center;
@@ -2957,6 +2974,21 @@
     <div>
       <div style="display:flex;align-items:center;gap:.6rem"><span aria-hidden="true" style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:800;font-size:14px;display:inline-flex;align-items:center;justify-content:center;letter-spacing:-.02em;flex:none">EP</span><h1>Engagement PERT &amp; Gantt Tracker</h1></div>
     </div>
+    <!-- ═══ ONE PLACE THAT ANSWERS "WHICH PROJECT AM I IN" ═══════════════
+         The strip below the header asked and answered exactly the question the
+         header exists to answer, one row lower, inside a card with a card's
+         margins — about 55px of every screen spent saying the title twice.
+
+         The identity moves up beside the app name where it belongs, and the
+         SETTINGS become a dialog. That is the honest half of this change: they
+         were an inline disclosure that pushed the whole page down whenever it
+         opened, and they are a form — the same kind of thing as the activity
+         editor and the story editor, which are both dialogs. Making it a
+         fourth inline accordion in the header would have moved the problem
+         rather than fixed it. Every input keeps its id, so nothing that reads
+         or writes the plan had to change. -->
+    <button id="projChip" class="proj-chip" onclick="openProjSettings()"
+      title="Project name, start date, duration unit and working calendar — click to edit">⚙</button>
     <div class="header-actions">
       <span id="savedIndicator" class="saved-dot"></span>
       <button id="undoBtn" class="btn-ghost btn-sm" onclick="doUndo()" disabled aria-label="Undo" title="Undo the last change (Ctrl/Cmd+Z outside a text box). Covers every plan edit: tasks, estimates, %s, resources, stories, reserves…">↶</button>
@@ -3036,54 +3068,6 @@
   </header>
 
   <main>
-    <!-- Project settings -->
-    <div class="card" style="margin-bottom:1rem">
-      <div class="card-body" style="padding:0.5rem 1.25rem">
-        <details id="configDetails" class="config-details">
-        <summary class="config-summary" id="configSummary" title="Project name, start date, duration unit and working calendar — click to edit">⚙ Settings</summary>
-        <div style="margin-top:0.85rem">
-        <div class="config-grid">
-          <div>
-            <label for="projectName">Engagement name</label>
-            <input id="projectName" type="text" value="Client Engagement – Q3 Delivery" oninput="renderConfigSummary()" />
-          </div>
-          <div>
-            <label for="projectStart">Project start date</label>
-            <input id="projectStart" type="date" onchange="markDirty(); renderConfigSummary(); refreshAll()" />
-          </div>
-          <div>
-            <label for="durationUnit">Duration unit</label>
-            <select id="durationUnit" onchange="markDirty(); renderConfigSummary(); refreshAll()">
-              <option value="days">Working days</option>
-              <option value="weeks">Weeks</option>
-              <option value="hours">Hours</option>
-            </select>
-          </div>
-          <div>
-            <label for="holFrom">Non-working days</label><button type="button" class="info-icon" aria-label="About non-working days" data-help="Company holidays and shutdown days — scheduling skips them exactly like weekends. Pick a date (or a from→to range for a shutdown week) and Add; ✕ on a chip removes it.">i</button>
-            <input id="holidays" type="hidden" onchange="markDirty(); refreshAll()" />
-            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-              <input id="holFrom" type="date" class="mini-inp" style="width:100px" title="Holiday — or the first day of a shutdown range" />
-              <span class="help-text" style="margin:0">→</span>
-              <input id="holTo" type="date" class="mini-inp" style="width:100px" aria-label="Holiday end date" title="Last day of the range — leave empty for a single day" />
-              <button class="btn-sm btn-secondary" onclick="addHolidayRange()" title="Add to the non-working calendar">+ Add</button>
-            </div>
-            <div id="holidayChips" style="margin:4px 0 0;line-height:1.5;display:inline"></div>
-          </div>
-        </div>
-        <div style="margin-top:0.75rem">
-          <label>Working week</label><button type="button" class="info-icon" aria-label="About the working week" data-help="Which weekdays count as working days. Scheduling skips the greyed-out (non-working) days exactly like weekends. Default is Mon–Fri; toggle any day for odd patterns — a 6-day week, or a Fri/Sat weekend. Company holidays are the separate Non-working days field above.">i</button>
-          <input id="weekendDays" type="hidden" value="0,6" />
-          <div id="workweekToggles" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"></div>
-          <div id="workweekHint" class="help-text" style="margin-top:3px"></div>
-        </div>
-        <div class="config-actions" style="display:flex;justify-content:flex-end;margin-top:0.75rem">
-          <button id="calcBtn" class="btn-primary" onclick="calculate()">Calculate schedule</button>
-        </div>
-        </div>
-        </details>
-      </div>
-    </div>
 
     <!-- Tabs -->
     <div class="tabs" role="tablist">
@@ -3537,6 +3521,57 @@
         <div class="modal-body" id="coModalBody"></div>
       </div>
     </div>
+    <div class="modal-overlay" id="projSettingsModal" style="z-index:128">
+      <div class="modal" style="max-width:min(960px,95vw)" role="dialog" aria-modal="true" aria-labelledby="projSettingsTitle">
+        <div class="modal-header"><h3 id="projSettingsTitle">Project settings</h3><button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeProjSettings()" aria-label="Close dialog">✕</button></div>
+        <div class="modal-body">
+          <div class="ed-sec">
+            <div class="ed-h"><span class="ed-h-t">The engagement</span><span class="ed-h-s">what it is called, when it starts, and the calendar it runs on</span></div>
+        <div class="config-grid">
+          <div>
+            <label for="projectName">Engagement name</label>
+            <input id="projectName" type="text" value="Client Engagement – Q3 Delivery" oninput="renderConfigSummary()" />
+          </div>
+          <div>
+            <label for="projectStart">Project start date</label>
+            <input id="projectStart" type="date" onchange="markDirty(); renderConfigSummary(); refreshAll()" />
+          </div>
+          <div>
+            <label for="durationUnit">Duration unit</label>
+            <select id="durationUnit" onchange="markDirty(); renderConfigSummary(); refreshAll()">
+              <option value="days">Working days</option>
+              <option value="weeks">Weeks</option>
+              <option value="hours">Hours</option>
+            </select>
+          </div>
+          <div>
+            <label for="holFrom">Non-working days</label><button type="button" class="info-icon" aria-label="About non-working days" data-help="Company holidays and shutdown days — scheduling skips them exactly like weekends. Pick a date (or a from→to range for a shutdown week) and Add; ✕ on a chip removes it.">i</button>
+            <input id="holidays" type="hidden" onchange="markDirty(); refreshAll()" />
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+              <input id="holFrom" type="date" class="mini-inp" style="width:100px" title="Holiday — or the first day of a shutdown range" />
+              <span class="help-text" style="margin:0">→</span>
+              <input id="holTo" type="date" class="mini-inp" style="width:100px" aria-label="Holiday end date" title="Last day of the range — leave empty for a single day" />
+              <button class="btn-sm btn-secondary" onclick="addHolidayRange()" title="Add to the non-working calendar">+ Add</button>
+            </div>
+            <div id="holidayChips" style="margin:4px 0 0;line-height:1.5;display:inline"></div>
+          </div>
+        </div>
+        <div style="margin-top:0.75rem">
+          <label>Working week</label><button type="button" class="info-icon" aria-label="About the working week" data-help="Which weekdays count as working days. Scheduling skips the greyed-out (non-working) days exactly like weekends. Default is Mon–Fri; toggle any day for odd patterns — a 6-day week, or a Fri/Sat weekend. Company holidays are the separate Non-working days field above.">i</button>
+          <input id="weekendDays" type="hidden" value="0,6" />
+          <div id="workweekToggles" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"></div>
+          <div id="workweekHint" class="help-text" style="margin-top:3px"></div>
+        </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeProjSettings()">Close</button>
+          <button id="calcBtn" class="btn-primary" onclick="calculate()">Calculate schedule</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="storyModal" style="z-index:130">
       <div class="modal" style="max-width:940px" role="dialog" aria-modal="true" aria-labelledby="storyModalTitle">
         <div class="modal-header"><h3 id="storyModalTitle">Edit user story</h3><button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeStoryModal()" aria-label="Close dialog">✕</button></div>
@@ -4095,7 +4130,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2314</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2357</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5806,7 +5841,7 @@ Or say what you want, in your own words:
     // one-line summary shown when the settings panel is collapsed, so the header
     // stays compact but still tells you the plan's name, start and calendar.
     function renderConfigSummary() {
-      const el = document.getElementById('configSummary'); if (!el) return;
+      const el = document.getElementById('projChip'); if (!el) return;
       const nm = (document.getElementById('projectName').value || 'Untitled').trim();
       const startV = document.getElementById('projectStart').value;
       const start = startV ? fmtNice(new Date(startV + 'T00:00:00')) : '—';
@@ -5818,8 +5853,16 @@ Or say what you want, in your own words:
       const wk = isMonFri ? 'Mon–Fri' : work.map(i => names[i]).join(',');
       const holCount = [...new Set((document.getElementById('holidays').value || '').split(',').map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s)))].length;
       const sep = ' <span style="color:#cbd5e1">·</span> ';
-      el.innerHTML = `<span style="font-weight:400;color:var(--muted)">⚙</span> <b>${escapeHtml(nm)}</b>${sep}starts ${escapeHtml(start)}${sep}${escapeHtml(unitTxt)}${sep}${escapeHtml(wk)}${holCount ? sep + holCount + ' holiday' + (holCount > 1 ? 's' : '') : ''} <span class="config-sum-edit">edit ▾</span>`;
+      el.innerHTML = `<b>${escapeHtml(nm)}</b><span class="pc-meta">${sep}${escapeHtml(start)}${sep}${escapeHtml(unitTxt)}${sep}${escapeHtml(wk)}${holCount ? sep + holCount + ' holiday' + (holCount > 1 ? 's' : '') : ''}</span><span class="pc-edit">⚙</span>`;
+      el.title = nm + ' — starts ' + start + ' · ' + unitTxt + ' · ' + wk
+        + (holCount ? ' · ' + holCount + ' holiday' + (holCount > 1 ? 's' : '') : '') + '. Click to edit.';
     }
+    function openProjSettings() {
+      const el = document.getElementById('projSettingsModal'); if (!el) return;
+      openOverlay(el);
+      const n = document.getElementById('projectName'); if (n) { n.focus(); n.select(); }
+    }
+    function closeProjSettings() { closeOverlay('projSettingsModal'); renderConfigSummary(); }
     function isWorkingDay(d, holidays) {
       if (weekendDays.has(d.getDay())) return false;
       if (holidays.has(fmtISO(d))) return false;
@@ -17052,7 +17095,7 @@ Or say what you want, in your own words:
         return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
           <td style="white-space:nowrap">${ekTask(t)}</td>
           <td style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span></td>
-          <td style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : escapeHtml(t.owner || '—') + roleSub(t.owner)}</td>
+          <td style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : personCell(t.owner)}</td>
           <td class="num">${dur}</td>
           <td class="num" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.isSummary) { const e = leafDescendants(t.id).reduce((a, x) => a + plannedEffortDays(x), 0);
