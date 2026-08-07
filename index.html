@@ -1709,6 +1709,33 @@
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
 
+    .pers { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+    .pers-av { width: 24px; height: 24px; border-radius: 50%; flex: none; position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em; }
+    /* A ring, not a "CLIENT ·" prefix eating a third of the line. */
+    .pers-av.is-client { box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--primary-300); }
+    /* And a dot, not a warning glyph shunted in front of somebody's name. */
+    .pers-av.is-over::after { content: ''; position: absolute; right: -2px; bottom: -2px;
+      width: 9px; height: 9px; border-radius: 50%; background: var(--critical); border: 1.5px solid var(--card); }
+    .pers-t { min-width: 0; }
+    .pers-n { display: block; font-size: var(--t-md); line-height: 1.25;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pers-r { display: block; font-size: var(--t-xs); color: var(--muted); line-height: 1.25;
+      max-width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pers-alloc { font-size: var(--t-xs); color: var(--muted); font-weight: 600; }
+    .pers-more { font-size: var(--t-xs); font-weight: 700; color: var(--primary-700);
+      background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: 5px; padding: 0 3px; }
+
+    /* The settings strip answers the same question the header does — which
+       project am I in — on a second row, in its own card, with a card's
+       margins. Flush under the header as one continuous band: it keeps its
+       disclosure, it just stops being a floating panel about it. */
+    #configDetails { }
+    .card:has(#configDetails) { margin-bottom: 0.6rem; border-radius: 0; border-left: 0;
+      border-right: 0; border-top: 0; box-shadow: none; background: var(--card); }
+    .card:has(#configDetails) > .card-body { padding-top: 0.15rem !important; padding-bottom: 0.15rem !important; }
+
     /* ═══ 513px BEFORE THE FIRST ACTIVITY ═══════════════════════════════
        Measured on a 1080 screen: header, project strip and tabs took 198,
        the FOLDED builder took another 135, the list card's own header 78, two
@@ -1828,9 +1855,19 @@
     .badge-st::before { content: ''; width: 9px; height: 9px; border-radius: 50%; flex: none;
       box-sizing: border-box; border: 1.5px solid currentColor;
       background: conic-gradient(currentColor calc(var(--p, 0) * 1%), transparent 0); }
-    /* Bare = the default state, shown as the mark alone. It keeps the chip's
-       exact height so the column does not go ragged where words drop out. */
-    .badge-st.is-bare { padding-left: 0.34rem; padding-right: 0.34rem; gap: 0; background: transparent; border-color: transparent; }
+    /* DE-EMPHASISE THE DEFAULT, DO NOT DELETE IT. The first version of this
+       dropped the words entirely on an ordinary not-started row, on the
+       argument that "Not started" said nothing the 0% beside it did not. True,
+       and still wrong: the reader's question stopped being "what is this row
+       doing" and became "why is THIS one just a circle" — a design that has to
+       be explained has already failed at the point of contact. Reported as
+       exactly that question.
+
+       The word comes back, stripped of its chip: no fill, no border, muted ink.
+       It reads as "nothing to report" instead of as a puzzle, and it is still
+       far quieter than the filled pill it replaced. */
+    .badge-st.is-quiet { background: transparent; border-color: transparent;
+      color: var(--slack); font-weight: 500; padding-left: 0.34rem; }
 
     .badge-st.badge-done       { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
     .badge-st.badge-prog       { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
@@ -4058,7 +4095,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2150</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2314</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8359,6 +8396,33 @@ Or say what you want, in your own words:
     // roleSub → a small second line for HTML tables ("Integration Specialist ·
     // CLIENT"); roleText → "Tom (Director of Operations, client)" for
     // tooltips, the Gantt, the SOW, status reports and email round trips.
+    /* A NAME, A ROLE AND A COMPANY ARE ONE FACT ABOUT ONE PERSON, and they
+       were three ragged text fragments: the name, a "CLIENT ·" prefix wedged
+       in front of the role, a warning glyph shoved in front of the name, and
+       the company nowhere at all. Two lines of grey text, and whether somebody
+       was over-allocated read as punctuation.
+
+       The avatar carries the identity now — the SAME hash-to-hue circle the
+       Gantt already draws, so a person is one colour everywhere in the app and
+       the colour becomes something you learn rather than decoration. It also
+       carries the two flags, which is why the text stopped having to: a ring
+       for client-side, a dot for over-allocated. The words are then free to be
+       just the words — name on top, role and company beneath it. */
+    function personCell(name, opts) {
+      const o = opts || {};
+      const n = String(name || '').trim();
+      if (!n) return '<span class="help-text">—</span>';
+      const r = (resources[n] || {}).role || '';
+      let org = ''; try { org = orgOf(n) || ''; } catch (e) {}
+      const cli = isClientResource(n);
+      const sub = [r, org].filter(Boolean).join(' · ');
+      const tip = [n, r, org, cli ? 'Client-side resource — bills nothing' : '',
+        o.over ? 'OVER-ALLOCATED during this activity' : ''].filter(Boolean).join(' — ');
+      return `<span class="pers" title="${escapeHtml(tip)}">`
+        + `<span class="pers-av${cli ? ' is-client' : ''}${o.over ? ' is-over' : ''}" style="background:${ownerColor(n)}" aria-hidden="true">${escapeHtml(ownerInitials(n))}</span>`
+        + `<span class="pers-t"><span class="pers-n">${escapeHtml(n)}${o.extra || ''}</span>`
+        + (sub ? `<span class="pers-r">${escapeHtml(sub)}</span>` : '') + `</span></span>`;
+    }
     function roleSub(name) {
       const n = String(name || '').trim();
       if (!n) return '';
@@ -8520,9 +8584,9 @@ Or say what you want, in your own words:
           const opt = o || {};
           const pct = Math.max(0, Math.min(100, Number(opt.pct) || 0));
           const tip = (opt.crit ? badgeTips.Critical + '\n\n' : '') + (badgeTips[label] || '');
-          return `<span class="badge badge-st ${cls}${opt.crit ? ' is-crit' : ''}${opt.bare ? ' is-bare' : ''}"`
+          return `<span class="badge badge-st ${cls}${opt.crit ? ' is-crit' : ''}${opt.quiet ? ' is-quiet' : ''}"`
             + ` style="cursor:help;--p:${pct}" title="${escapeHtml(tip)}"`
-            + ` aria-label="${escapeHtml((opt.crit ? 'Critical path. ' : '') + label)}">${opt.bare ? '' : label}</span>`;
+            + ` aria-label="${escapeHtml((opt.crit ? 'Critical path. ' : '') + label)}">${label}</span>`;
         };
         const sumDone = summary && (t.percentComplete || 0) >= 100;
         /* CRITICAL IS A POSITION, NOT A STATE. It says any delay here moves the
@@ -8542,7 +8606,7 @@ Or say what you want, in your own words:
              default, and a default printed in words is noise. The ring still
              says it, and so does the DONE column beside it. */
           : mkBadge(st.cls, st.label, { pct: pctNow, crit: critical,
-              bare: !critical && st.label === 'Not started' });
+              quiet: !critical && st.label === 'Not started' });
         const twisty = summary
           ? `<button class="wbs-twisty" onclick="toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
           : '<span class="wbs-twisty-spacer"></span>';
@@ -8559,7 +8623,9 @@ Or say what you want, in your own words:
           <td title="Drag to reorder / re-nest"><button type="button" class="drag-handle" aria-label="Reorder ${escapeHtml(t.name)} — Alt+ArrowUp/ArrowDown moves it" data-drag-id="${t.id}">⠿</button></td>
           <td style="white-space:nowrap">${ekTask(t, { onclick: `event.stopPropagation();openEditModal(${t.id}, true)` })}</td>
           <td data-name-id="${t.id}">${nameCell}</td>
-          <td data-owner-id="${t.id}" style="font-size:var(--t-md)${summary ? '' : ';cursor:text'}" title="${(resources[(t.owner || '').trim()] || {}).role ? escapeHtml((t.owner || '').trim() + ' — ' + resources[(t.owner || '').trim()].role) + '. ' : ''}${t.overallocated ? escapeHtml((t.owner||'')+' is over-allocated during this task. ') : ''}${summary ? '' : 'Click to reassign right here (type-ahead from the roster). Comma-separate for several people — first = owner, the rest join as attendees; @N sets allocation % (e.g. QA Tester@50).'}"${summary ? '' : ` onclick="beginOwnerEdit(${t.id}, this)"`}>${t.overallocated ? '<span style="color:var(--critical)" title="over-allocated">⚠ </span>' : ''}${summary ? summaryOwnerCell(t) : escapeHtml(t.owner || '—') + ((!t.milestone && t.units !== 100) ? ` <span class="help-text" style="font-size:var(--t-xs)">@${t.units}%</span>` : '') + ((t.attendees && t.attendees.length) ? ` <span class="badge badge-info" title="${escapeHtml(t.attendees.map(a => a.name + ' @' + a.units + '%').join(', '))}">+${t.attendees.length}</span>` : '') + roleSub(t.owner)}</td>
+          <td data-owner-id="${t.id}" style="font-size:var(--t-md)${summary ? '' : ';cursor:text'}" title="${(resources[(t.owner || '').trim()] || {}).role ? escapeHtml((t.owner || '').trim() + ' — ' + resources[(t.owner || '').trim()].role) + '. ' : ''}${t.overallocated ? escapeHtml((t.owner||'')+' is over-allocated during this task. ') : ''}${summary ? '' : 'Click to reassign right here (type-ahead from the roster). Comma-separate for several people — first = owner, the rest join as attendees; @N sets allocation % (e.g. QA Tester@50).'}"${summary ? '' : ` onclick="beginOwnerEdit(${t.id}, this)"`}>${summary ? summaryOwnerCell(t) : personCell(t.owner, { over: t.overallocated,
+              extra: ((!t.milestone && t.units !== 100) ? ` <span class="pers-alloc">@${t.units}%</span>` : '')
+                   + ((t.attendees && t.attendees.length) ? ` <span class="pers-more" title="${escapeHtml(t.attendees.map(a => a.name + ' @' + a.units + '%').join(', '))}">+${t.attendees.length}</span>` : '') })}</td>
           ${(() => { const noEst = !summary && !t.milestone && !(t.p > 0);
             const a = noEst ? ' style="background:#fee2e2;color:#b91c1c;font-weight:700" title="NO ESTIMATE — this work package contributes nothing to the schedule, the critical path or the price. Click the cell and type the estimate right here."' : '';
             const ed = f => (!summary && !t.milestone) ? ` data-omp="${f}" onclick="beginOmpEdit(this, ${t.id}, '${f}')"${noEst ? '' : ' style="cursor:text"'}` : '';
@@ -8584,12 +8650,23 @@ Or say what you want, in your own words:
           <td>${slackStr}</td>
           <td data-effort-id="${t.id}">${pctCell}</td>
           <td>${statusBadge}</td>
+          ${/* ORDER IS A SAFETY PROPERTY HERE. At rest the cluster shows only ⑂,
+                anchored to the right edge. It used to sit third of five, so the
+                moment the row expanded, everything shifted right of it and the
+                thing that landed under the waiting cursor was ✕ DELETE — you
+                could not reach decompose at all without passing through it.
+
+                So the resting button is now LAST in the row, which makes it the
+                one item whose position is identical in both states: the cluster
+                grows away to the left and ⑂ never moves a pixel. Delete goes to
+                the far end, four buttons from where the pointer is. DOM order is
+                the visual order so the keyboard walks it the same way. */ ''}
           <td class="acts"><div class="row-acts">
+            <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>
             <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)" aria-label="Outdent ${escapeHtml(t.name)}">⇤</button>
             <button class="btn-sm btn-secondary" onclick="indentTask(${t.id})" title="Indent (nest under the row above)" aria-label="Indent ${escapeHtml(t.name)}">⇥</button>
-            <button class="btn-sm btn-secondary ra-key" onclick="aiDecompose(${t.id})" title="AI: decompose into sub-tasks — optionally paste a list (e.g. your intents) to get one trackable sub-task per item" aria-label="AI decompose ${escapeHtml(t.name)}">⑂</button>
             <button class="btn-sm btn-secondary" onclick="openEditModal(${t.id})" title="Edit" aria-label="Edit ${escapeHtml(t.name)}">✎</button>
-            <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>
+            <button class="btn-sm btn-secondary ra-key" onclick="aiDecompose(${t.id})" title="AI: decompose into sub-tasks — optionally paste a list (e.g. your intents) to get one trackable sub-task per item" aria-label="AI decompose ${escapeHtml(t.name)}">⑂</button>
           </div></td>
         </tr>`;
       }).join('');
