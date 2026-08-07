@@ -1775,7 +1775,7 @@
        that is both on the critical path and actually moving was also the one
        row 10px taller than everything around it. The rail is pinned now, so
        width here costs nothing that matters. */
-    #taskTable th:nth-child(16), #taskTable td:nth-child(16) { min-width: 196px; }
+    #taskTable th:nth-child(16), #taskTable td:nth-child(16) { min-width: 124px; }
     #taskTable thead th:last-child { z-index: 7; background: #f8fafc; }
     #taskTable tbody tr.is-sum > td:last-child { background: #f6f8fb; }
     #taskTable tbody tr[data-task-id]:hover > td:last-child { background: var(--primary-50); }
@@ -1791,13 +1791,21 @@
        them: a filled dot is a state, a hollow ring is a property of the row.
        The colour concentrates in the mark, so the label stays dark and
        readable instead of being reversed out of a saturated fill. */
-    .badge-st { display: inline-flex; align-items: center; gap: 0.34rem;
-      padding: 0.14rem 0.5rem 0.14rem 0.42rem; border-radius: 7px;
+    .badge-st { display: inline-flex; align-items: center; gap: 0.36rem;
+      padding: 0.14rem 0.5rem 0.14rem 0.4rem; border-radius: 7px;
       border: 1px solid transparent; line-height: 1.4; }
-    .badge-st::before { content: ''; width: 6px; height: 6px; border-radius: 50%;
-      background: currentColor; flex: none; }
-    .badge-st.badge-prop::before { background: transparent; border: 1.5px solid currentColor;
-      width: 7px; height: 7px; box-sizing: border-box; }
+    /* THE MARK IS THE PROGRESS. A disc filled by conic-gradient to --p percent:
+       an empty ring at 0, a part-filled pie in between, solid at 100. It is the
+       same 9px either way, so the column stays a single rhythm, and it says
+       more than the dot it replaced — you can see a row that is a third done
+       without reading a number. */
+    .badge-st::before { content: ''; width: 9px; height: 9px; border-radius: 50%; flex: none;
+      box-sizing: border-box; border: 1.5px solid currentColor;
+      background: conic-gradient(currentColor calc(var(--p, 0) * 1%), transparent 0); }
+    /* Bare = the default state, shown as the mark alone. It keeps the chip's
+       exact height so the column does not go ragged where words drop out. */
+    .badge-st.is-bare { padding-left: 0.34rem; padding-right: 0.34rem; gap: 0; background: transparent; border-color: transparent; }
+
     .badge-st.badge-done       { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
     .badge-st.badge-prog       { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
     .badge-st.badge-notstarted { background: #f8fafc; color: #64748b; border-color: var(--border); }
@@ -1805,6 +1813,12 @@
     .badge-st.badge-blocked    { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
     .badge-st.badge-warn       { background: #fffbeb; color: #b45309; border-color: #fde68a; }
     .badge-st.badge-critical   { background: #fff;    color: #dc2626; border-color: #fca5a5; }
+    /* CRITICAL IS AN EDGE ON THE ONE CHIP, never a chip of its own — and it is
+       declared HERE, after the per-state colours, because those set border-color
+       on all four sides and were quietly overwriting it. A rule that cannot win
+       is not a rule; the first version of this looked right in the stylesheet
+       and rendered nothing at all. */
+    .badge-st.is-crit { border-left: 3px solid var(--critical); padding-left: 0.3rem; font-weight: 700; }
     /* The one row on the screen where something is actually happening is the
        one thing that moves. Killed with everything else under reduced motion. */
     .badge-st.badge-prog::before { animation: dotPulse 2.2s ease-in-out infinite; }
@@ -4017,7 +4031,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2117</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2137</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8456,7 +8470,33 @@ Or say what you want, in your own words:
           '✓ Complete': 'Phase complete — every sub-task in this roll-up is at 100%.',
           Pending: 'Press Calculate schedule (top of the page).'
         };
-        const mkBadge = (cls, label, extra) => `<span class="badge badge-st ${extra || ''} ${cls}" title="${escapeHtml(badgeTips[label] || '')}" style="cursor:help">${label}</span>`;
+        /* ═══ ONE MARK, ONE WORD, AND THE WORD ONLY WHEN IT EARNS ITS PLACE ═══
+           Twelve rows down this column read "Not started", beside a DONE column
+           reading 0% and an unticked checkbox — the same fact three times, in
+           the widest of the three forms, and the one form that says nothing
+           because it is the default. Meanwhile the rows that ARE exceptional
+           had to compete with all that noise for attention.
+
+           So: the mark is not a dot, it is the progress itself — a 9px disc
+           filled by conic-gradient to this row's actual percent, hollow at 0,
+           solid at 100. It carries more than the word it replaced. The word is
+           printed only when it is not the default, which turns the column into
+           mostly quiet rings with occasional colour, and the exceptions are
+           what the eye lands on.
+
+           And Critical stops being a second pill. It is a POSITION, not a
+           state — an adjective on the row, not a peer of its progress — so it
+           is a red edge on the one chip. Two chips of identical shape were 196px
+           wide and read as two alarms; this is ~120 and reads as one fact with
+           a qualifier, which is what it is. */
+        const mkBadge = (cls, label, o) => {
+          const opt = o || {};
+          const pct = Math.max(0, Math.min(100, Number(opt.pct) || 0));
+          const tip = (opt.crit ? badgeTips.Critical + '\n\n' : '') + (badgeTips[label] || '');
+          return `<span class="badge badge-st ${cls}${opt.crit ? ' is-crit' : ''}${opt.bare ? ' is-bare' : ''}"`
+            + ` style="cursor:help;--p:${pct}" title="${escapeHtml(tip)}"`
+            + ` aria-label="${escapeHtml((opt.crit ? 'Critical path. ' : '') + label)}">${opt.bare ? '' : label}</span>`;
+        };
         const sumDone = summary && (t.percentComplete || 0) >= 100;
         /* CRITICAL IS A POSITION, NOT A STATE. It says any delay here moves the
            finish date; the progress badge says whether the work has started.
@@ -8467,12 +8507,15 @@ Or say what you want, in your own words:
            Complete still wins outright: once a row is done its position on the
            critical path decides nothing, and the badge would be noise. */
         const critical = t.isCritical && !t.milestone;
+        const pctNow = t.percentComplete || 0;
         const statusBadge = !calculated ? mkBadge('badge-slack', 'Pending')
-          : summary ? (sumDone ? mkBadge('badge-done', '✓ Complete') : mkBadge('badge-slack', 'Rolls up'))
-          : (t.percentComplete >= 100) ? mkBadge('badge-done', 'Complete')
-          : critical
-            ? `<span style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center">${mkBadge('badge-critical', 'Critical', 'badge-prop')}${mkBadge(st.cls, st.label)}</span>`
-            : mkBadge(st.cls, st.label);
+          : summary ? (sumDone ? mkBadge('badge-done', 'Complete', { pct: 100 }) : mkBadge('badge-slack', 'Rolls up', { pct: pctNow }))
+          : (pctNow >= 100) ? mkBadge('badge-done', 'Complete', { pct: 100 })
+          /* "Not started" on a row that is neither critical nor late is the
+             default, and a default printed in words is noise. The ring still
+             says it, and so does the DONE column beside it. */
+          : mkBadge(st.cls, st.label, { pct: pctNow, crit: critical,
+              bare: !critical && st.label === 'Not started' });
         const twisty = summary
           ? `<button class="wbs-twisty" onclick="toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
           : '<span class="wbs-twisty-spacer"></span>';
@@ -15645,7 +15688,7 @@ Or say what you want, in your own words:
       const dayW = ganttDayW || autoW;
 
       const _gcw = (document.getElementById('ganttContainer') || {}).clientWidth || 1150;
-      const PAD = 12, LABELW = Math.max(240, Math.min(640, ganttLabelW || Math.min(300, Math.round(_gcw * 0.38)))), TITLE_H = 62, MON_H = 20, DAY_H = 24, ROWH = 30, BAR_H = 16, LEGEND_H = 34; // TITLE_H reserves a strip for the TODAY pill above the month header
+      const PAD = 12, LABELW = Math.max(280, Math.min(640, ganttLabelW || Math.min(340, Math.round(_gcw * 0.38)))), TITLE_H = 62, MON_H = 20, DAY_H = 24, ROWH = 30, BAR_H = 16, LEGEND_H = 34; // TITLE_H reserves a strip for the TODAY pill above the month header
       const HEADER_H = MON_H + DAY_H;
       const chartW = totalDays * dayW;
       const hasReserve = rv.contingencyUnits > 0 || rv.managementUnits > 0;
@@ -15729,7 +15772,7 @@ Or say what you want, in your own words:
               : `<polygon points="${cx + 1},${cy - 5} ${cx + 9},${cy} ${cx + 1},${cy + 5}" fill="#475569"/>`) + `</g>`;
         }
         // truncate to whatever actually fits the (resizable) title column
-        const availPx = (PAD + LABELW - 122) - tx;
+        const availPx = (PAD + LABELW - 160) - tx;
         const doneMark = (t.percentComplete >= 100) ? '✓ ' : '';
         /* the budget has to cover the prefixes the renderer adds too (the ✓ and
            the ◆), or a finished activity spills two characters into the avatar */
@@ -15739,7 +15782,7 @@ Or say what you want, in your own words:
         const nm = nmBase.length > maxCh ? nmBase.slice(0, Math.max(6, maxCh - 1)) + '…' : nmBase;
         svg += `<g data-gopen="${t.id}" style="cursor:pointer"><text x="${tx}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="${isSum ? 12 : 11.5}" font-weight="${isSum ? 700 : 400}" fill="${t.percentComplete >= 100 ? '#16a34a' : '#1e293b'}">${escapeXml(doneMark)}${t.milestone ? '◆ ' : ''}${escapeXml(nm)}${isSum && collapsedIds.has(t.id) ? ' (+' + leafDescendants(t.id).length + ')' : ''}</text><title>${escapeXml(t.name)} — click to edit</title></g>`;
         // owner chip + pct at right edge of label column
-        const chipX = PAD + LABELW - 110;
+        const chipX = PAD + LABELW - 148;
         if (t.owner && !isSum) {
           svg += `<circle cx="${chipX}" cy="${y + ROWH / 2}" r="8.5" fill="${ownerColor(t.owner)}"/><text x="${chipX}" y="${y + ROWH / 2 + 3}" font-family="${FF}" font-size="7.5" font-weight="700" fill="white" text-anchor="middle">${escapeXml(ownerInitials(t.owner))}</text>`;
         }
@@ -15749,6 +15792,14 @@ Or say what you want, in your own words:
           // captions once, in the header band, so the two columns are named
           svg += `<text x="${PAD + LABELW - 12}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">DONE</text>`;
           svg += `<text x="${PAD + LABELW - 46}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">WORK</text>`;
+          svg += `<text x="${PAD + LABELW - 84}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">OPEN</text>`;
+        }
+        /* OPEN, the calendar span this is available for — the number that used
+           to sit unlabelled on the bar. Beside WORK on purpose: equal at 100%
+           and different at every other allocation, which is the single fact
+           this application most often has to make legible. */
+        if (!t.isSummary && !t.milestone && (t.te || 0) > 0) {
+          svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#64748b" text-anchor="end">${escapeXml(fmtDurCell(t.te))}</text>`;
         }
         /* EFFORT, in its own column. The bar says how long the activity is open;
            this says how much work is inside it, which is a different number
@@ -16129,9 +16180,21 @@ Or say what you want, in your own words:
             svg += `<rect x="${bx}" y="${y + 7}" width="${bw}" height="${BAR_H}" rx="4" fill="${crit ? '#fca5a5' : '#93c5fd'}"/>`;
             if (pctw > 0) svg += `<rect x="${bx}" y="${y + 7}" width="${pctw}" height="${BAR_H}" rx="4" fill="${crit ? '#dc2626' : '#2563eb'}"/>`;
           }
-          // sub-day durations label as minutes/hours — "0.0" on a 20-minute
-          // test case reads as no work at all
-          const teLbl = (() => { const n = t.te || 0; if (document.getElementById('durationUnit').value !== 'days' || n <= 0 || n >= 1) return n.toFixed(1); const h2 = n * 8; return h2 < 1 ? Math.round(h2 * 60) + 'm' : (Math.round(h2 * 10) / 10) + 'h'; })();
+          /* ═══ THE BAR'S LENGTH IS THE CLAIM ═══════════════════════════════
+             A number printed inside a bar reads as a measurement OF that bar,
+             and on a day-scaled axis it cannot be: a 2.1-hour activity is drawn
+             a full day wide because that is the smallest a day column gets, so
+             the geometry said "one day" while the label said "2.1" and neither
+             carried a unit. Worse, at 100% allocation the duration and the work
+             are the same number, so it also duplicated the WORK column three
+             centimetres to its left — reported as "it's hours inside the bar
+             for some reason, already in the side-bar".
+
+             So the bar goes back to doing the one thing only a bar can do:
+             say WHEN, and for how long, against the axis. The duration moves
+             into a named column beside the work, where the two can finally be
+             read as the pair they are — open x allocation = work — instead of
+             one of them floating unlabelled on a rectangle. */
           /* THE NUMBER IS A DURATION. Where the owner is part-time it is not the
              work either — a 4-day activity at 20% is 0.8 person-days — and the
              roster prints the second while this printed the first, with no unit
@@ -16151,8 +16214,9 @@ Or say what you want, in your own words:
              row header beside the other per-row facts, in a column of its own
              where the eye can skip it or scan it. The bar goes back to one
              number: how long this is open. */
-          const lbl = `${teLbl}${done ? ' ✓' : (t.percentComplete > 0 ? ' · ' + t.percentComplete + '%' : '')}`;
-          if (bw >= 56) {
+          const lbl = done ? '✓' : (t.percentComplete > 0 ? t.percentComplete + '%' : '');
+          if (!lbl) { /* nothing to say on the bar itself */ }
+          else if (bw >= 56) {
             const lw = lbl.length * 5.8 + 10;
             const ink = crit ? '#7f1d1d' : '#1e3a8a';
             if (done || pctw >= lw) {
