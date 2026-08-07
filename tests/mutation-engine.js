@@ -1838,9 +1838,81 @@ const MUTANTS = [
    the "N of M" arithmetic below both speak about the run that actually
    happened. A filtered run says so in its own summary rather than reading as a
    clean full pass. */
-const SELECTED = ONLY.length
-  ? MUTANTS.filter(m => ONLY.some(o => m.what.toLowerCase().indexOf(o.toLowerCase()) >= 0))
-  : MUTANTS;
+/* ═══ ONLY THE MUTANTS THIS COMMIT COULD POSSIBLY HAVE BROKEN ═══════════════
+   The full set is the right thing to run when there is a machine that can hold
+   it. At the moment somebody is about to push, it is the wrong shape: a mutant
+   whose anchor sits four thousand lines from anything the commit touched cannot
+   have changed verdict, and paying for it is why the gate stopped being run at
+   all — which is worse than any coverage it buys.
+
+   --changed [ref] keeps the mutants whose anchor text falls inside a line range
+   the diff touched, plus a margin either side, since an edit just above a guard
+   can change what that guard sees. Everything else is reported as DEFERRED by
+   name and count, never silently dropped: a run that quietly narrowed itself
+   reads exactly like a run that passed.
+
+   This is a PRE-PUSH tool and it says so in its own output. It cannot see a
+   change that breaks a distant identity — moving a shared helper, renaming
+   something with far-away callers — so it narrows what is checked, and the full
+   sweep is still what proves the suite. */
+const CHANGED_AT = process.argv.indexOf('--changed');
+const CHANGED = CHANGED_AT >= 0;
+const CHANGED_REF = CHANGED ? (process.argv[CHANGED_AT + 1] && !process.argv[CHANGED_AT + 1].startsWith('-')
+  ? process.argv[CHANGED_AT + 1] : 'HEAD') : null;
+const CHANGED_MARGIN = 40;   // lines either side of a hunk
+
+function changedLineRanges(ref) {
+  const { execSync } = require('child_process');
+  let diff = '';
+  try {
+    diff = execSync('git diff -U0 ' + ref + ' -- ' + PRODUCT,
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch (e) { return null; }          // not a repo, or the ref is unknown
+  const ranges = [];
+  const re = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm;
+  let m;
+  while ((m = re.exec(diff))) {
+    const start = +m[1], len = (m[2] == null ? 1 : +m[2]);
+    if (len === 0) ranges.push([start - CHANGED_MARGIN, start + CHANGED_MARGIN]);
+    else ranges.push([start - CHANGED_MARGIN, start + len + CHANGED_MARGIN]);
+  }
+  return ranges;
+}
+/* The anchor's line in the CURRENT file. Anchors are required to match exactly
+   once, which is what makes this a lookup rather than a guess. */
+function anchorLine(src, find) {
+  const at = src.indexOf(find);
+  if (at < 0) return -1;
+  return src.slice(0, at).split('\n').length;
+}
+
+let DEFERRED = [];
+const SELECTED = (() => {
+  let set = ONLY.length
+    ? MUTANTS.filter(m => ONLY.some(o => m.what.toLowerCase().indexOf(o.toLowerCase()) >= 0))
+    : MUTANTS;
+  if (!CHANGED) return set;
+  const ranges = changedLineRanges(CHANGED_REF);
+  if (ranges == null) {
+    console.log('--changed: could not read a diff against ' + CHANGED_REF + ', so NOTHING was narrowed '
+      + 'and the full set runs.');
+    return set;
+  }
+  if (!ranges.length) {
+    console.log('--changed: ' + PRODUCT + ' is identical to ' + CHANGED_REF + ' — no mutant can have '
+      + 'changed verdict, so none were run.');
+    return [];
+  }
+  const inScope = m => [].concat(m.find).some(f => {
+    const ln = anchorLine(SRC, f);
+    return ln > 0 && ranges.some(([a, b]) => ln >= a && ln <= b);
+  });
+  const keep = set.filter(inScope);
+  DEFERRED = set.filter(m => !inScope(m));
+  console.log('--changed ' + CHANGED_REF + ': ' + ranges.length + ' hunk(s) in ' + PRODUCT
+    + ' → ' + keep.length + ' mutant(s) in scope, ' + DEFERRED.length + ' DEFERRED (not run, not passed).');
+  return keep;
+})();
 
 /* harness-meta.js is deliberately NOT in this list. It reads the CHECK files and
    resolves the names they call against the loaded app, so a mutant that changes
@@ -2057,6 +2129,38 @@ function assertionsIn(out) {
     console.log('no mutant matches ' + JSON.stringify(ONLY) + ' — nothing was run, and nothing is proven');
     process.exitCode = 2; return;
   }
+  /* ═══ IS THE PRODUCT GREEN BEFORE WE START? ═══════════════════════════════
+     A mutant is judged CAUGHT when a check goes red against it. That inference
+     only holds if the check was GREEN against the unmutated product — otherwise
+     every mutant is "caught" by a failure that was already there, and the run
+     reports a clean sheet on a broken build. Planting one real defect and
+     watching two unrelated mutants both come back CAUGHT is what showed this.
+
+     The full gate runs every sweep before reaching this file, so it has already
+     established the baseline. A --changed run used on its own — the pre-push
+     case, the whole reason that flag exists — has no such guarantee, so it
+     establishes it here: the distinct checks the in-scope mutants will actually
+     use, run once against the pristine source. Usually one sweep, a few seconds.
+     Cheap enough to always do, and without it the fast path is not trustworthy
+     enough to be worth having. */
+  if (CHANGED && SELECTED.length) {
+    const need = [...new Set(SELECTED.map(m => orderFor(m)[0]))];
+    const base = path.join(tmp, 'baseline.html');
+    fs.writeFileSync(base, SRC);
+    for (const c of need) {
+      const out = await runAsync(c, base);
+      if (!out) continue;
+      console.error('\nTHE PRODUCT IS ALREADY FAILING ' + c + ' — before any mutant was applied:\n'
+        + String(out).split('\n').filter(Boolean).slice(0, 8).map(l => '    ' + l).join('\n')
+        + '\n\n  Every mutant judged against this build would be reported CAUGHT by a failure\n'
+        + '  that is already there, so the run would show a clean sheet on a broken product.\n'
+        + '  Fix the finding above, then run again.');
+      fs.rmSync(tmp, { recursive: true, force: true });
+      process.exit(4);
+    }
+    console.log('  baseline: ' + need.length + ' check(s) green on the unmutated product');
+  }
+
   const results = new Array(SELECTED.length);
   let next = 0, done = 0;
   const lane = async () => {
@@ -2112,9 +2216,19 @@ function assertionsIn(out) {
     + ' mutants SURVIVED — those regions of the product are unguarded');
   if (skipped) parts.push(skipped + ' mutant(s) could not be applied — this FILE is stale, not the suite: '
     + 'the anchor was edited out of the product. Repair the anchor; it is proving nothing until you do');
-  const scope = ONLY.length ? SELECTED.length + ' of ' + MUTANTS.length + ' mutants (filtered by '
+  /* A NARROWED RUN MUST NEVER READ AS A FULL ONE. "all 340 mutants" under a
+     --changed run would be the single most misleading line this file could
+     print, so the deferred count rides in the summary and in the exit banner,
+     not only in the header nobody scrolls back to. */
+  if (CHANGED && DEFERRED.length) parts.push(DEFERRED.length + ' mutant(s) DEFERRED by --changed — they sit '
+    + 'outside the lines this commit touched and were NOT run. They are not passing; they are unexamined. '
+    + 'Run without --changed before trusting the suite');
+  const scope = CHANGED
+    ? SELECTED.length + ' of ' + MUTANTS.length + ' mutants (scoped to what changed against '
+      + CHANGED_REF + ' — this is NOT a full run)'
+    : ONLY.length ? SELECTED.length + ' of ' + MUTANTS.length + ' mutants (filtered by '
     + JSON.stringify(ONLY) + ' — this is NOT a full run)' : 'all ' + MUTANTS.length + ' mutants';
-  console.log(parts.length ? '\n' + parts.join('.\n') + '.' + (ONLY.length ? '\nRan ' + scope + '.' : '')
+  console.log(parts.length ? '\n' + parts.join('.\n') + '.' + ((ONLY.length || CHANGED) ? '\nRan ' + scope + '.' : '')
     : '\n' + scope + ' were caught.');
   process.exitCode = (survived || skipped) ? 1 : 0;
 })();

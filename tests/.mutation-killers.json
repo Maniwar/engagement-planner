@@ -24,5 +24,8 @@
  "baseline: the feature set is committed at a different moment than the dates": "baseline-sweep.js",
  "baseline: the reference tracks the plan instead of holding still": "baseline-sweep.js",
  "baseline: clearing keeps the committed feature set": "baseline-sweep.js",
- "baseline: the reference dates are never written to the file": "baseline-sweep.js"
+ "baseline: the reference dates are never written to the file": "baseline-sweep.js",
+ "ledger: several measures draw one header row, so no column says which number it is": "resourcing-sweep.js",
+ "ledger: the second grouping level is chosen and its rows are never drawn": "resourcing-sweep.js",
+ "ledger: the last measure can be switched off, leaving a pivot of nothing": "resourcing-sweep.js"
 }
