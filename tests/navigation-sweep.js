@@ -323,7 +323,15 @@ const { chromium } = requirePlaywright();
      feature can have and is invisible to anybody testing with one project.
 
      So it is checked at one project and at eleven. Only the part that GROWS is
-     allowed to scroll; anything below it has to stay put. */
+     allowed to scroll; anything below it has to stay put.
+
+     The team controls have since moved into their own menu, which fixes this by
+     construction — a list in one menu cannot push anything in another. The
+     check stays because the PROPERTY is what matters, not the layout that
+     happened to violate it: reachability must not depend on how much data you
+     have. Written to find the menu that CONTAINS the control rather than
+     assuming which one it is, so it keeps asking the same question after the
+     next reorganisation instead of quietly passing on the wrong panel. */
   const menu = await page.evaluate(() => {
     const bad = [], out = {};
     const prev = localStorage.getItem('pertGantt.projIndex');
@@ -334,12 +342,13 @@ const { chromium } = requirePlaywright();
       for (let i = 1; i <= count; i++) idx['zz' + i] = { name: 'Copy ' + i, updatedAt: '2026-08-01T00:00:00Z' };
       localStorage.setItem('pertGantt.projIndex', JSON.stringify(idx));
       renderProjectMenu(); if (typeof updateTrunkBtn === 'function') updateTrunkBtn();
-      const m = document.querySelector('.export-menu');
-      if (!m) return null;
-      m.setAttribute('open', '');
       const t = document.getElementById('trunkBtn'), w = document.getElementById('whoBtn');
-      const p = document.querySelector('.export-panel');
-      if (!t || !w || !p) return null;
+      if (!t || !w) return null;
+      const m = t.closest('.export-menu');
+      if (!m || w.closest('.export-menu') !== m) return null;
+      m.setAttribute('open', '');
+      const p = m.querySelector('.export-panel');
+      if (!p) return null;
       const pr = p.getBoundingClientRect();
       const inView = el => { const r = el.getBoundingClientRect();
         return r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1 && r.height > 0; };

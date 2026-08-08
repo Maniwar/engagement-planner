@@ -346,7 +346,7 @@
     details.export-menu > summary::-webkit-details-marker { display: none; }
     .export-panel {
       position: absolute; right: 0; top: 110%; background: white; border: 1px solid var(--border);
-      border-radius: 10px; box-shadow: 0 10px 25px -5px rgb(0 0 0 /.2); padding: 0.5rem; z-index: 50; min-width: 230px;
+      border-radius: 10px; box-shadow: 0 10px 25px -5px rgb(0 0 0 /.2); padding: 0.5rem; z-index: 50; min-width: 258px;
       max-height: min(72vh, 540px); overflow-y: auto; overscroll-behavior: contain;
     }
     /* phones: the header buttons sit near the LEFT edge, so a right-anchored
@@ -377,12 +377,35 @@
     .tt-how > summary::before { content: '▸ '; }
     .tt-how[open] > summary::before { content: '▾ '; }
     .tt-how > summary:hover { text-decoration: underline; }
+    /* THE EXPLAINER MUST NOT EAT THE CONTROLS IT EXPLAINS. Opened, the five
+       steps are taller than the whole menu, so every button they name — Signing
+       as, Start a team trunk, Join — was pushed below the fold at the exact
+       moment somebody was reading about them. Capped, with its own scroll: you
+       read step 2 and the button from step 2 is still on screen. */
     .tt-how ol { margin: 0.2rem 0 0.3rem; padding-left: 1.15rem; font-size: var(--t-xs);
-      color: var(--text); line-height: 1.5; }
+      color: var(--text); line-height: 1.5; max-height: 42vh; overflow-y: auto;
+      overscroll-behavior: contain; }
     .tt-how li { margin-bottom: 0.28rem; }
     .tt-how p { font-size: var(--t-xs); color: var(--muted); margin: 0 0 0.2rem; line-height: 1.45; }
-    .export-panel button { width: 100%; justify-content: flex-start; background: transparent; color: var(--text); font-weight: 500; }
-    .export-panel button:hover { background: #f1f5f9; }
+    /* A MENU ROW IS A MENU ROW whether the markup underneath it is a button or
+       a <label> wrapping a hidden file input. Import and Merge a copy are the
+       second kind — they used to be top-level controls with their own styling,
+       and dropped into a menu they were the only two rows that did not line up
+       with the rest. text-align matters for the ones that wrap: without it a
+       two-line row centres itself and stops sharing a left edge with anything.
+       Both rules are one selector list so the two kinds cannot drift. */
+    .export-panel button, .export-panel > label.menu-row, .export-panel .tt-how > label.menu-row {
+      width: 100%; justify-content: flex-start; text-align: left; background: transparent;
+      color: var(--text); font-weight: 500;
+    }
+    .export-panel > label.menu-row, .export-panel .tt-how > label.menu-row {
+      display: flex; align-items: center; gap: 0.45rem; margin: 0; border: none; cursor: pointer;
+      padding: 0.5rem 0.6rem; font-size: var(--t-sm);
+    }
+    .export-panel button:hover, .export-panel label.menu-row:hover { background: #f1f5f9; }
+    .menu-foot { font-size: var(--t-xs); color: var(--muted); line-height: 1.45;
+      padding: 0.4rem 0.6rem 0.15rem; margin-top: 0.3rem; border-top: 1px solid var(--border); }
+    .menu-foot:empty { display: none; }
     .export-panel .grp { font-size: var(--t-sm); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0.4rem 0.6rem 0.15rem; font-weight: 600; }
     .risk-tag { display:inline-block; padding: 0.1rem 0.45rem; border-radius: 6px; font-size: var(--t-sm); font-weight:600; }
     .raid-dash { color: var(--muted); cursor: help; }
@@ -3262,21 +3285,107 @@
       <span id="savedIndicator" class="saved-dot"></span>
       <button id="undoBtn" class="btn-ghost btn-sm" onclick="doUndo()" disabled aria-label="Undo" title="Undo the last change (Ctrl/Cmd+Z outside a text box). Covers every plan edit: tasks, estimates, %s, resources, stories, reserves…">↶</button>
       <button id="redoBtn" class="btn-ghost btn-sm" onclick="doRedo()" disabled aria-label="Redo" title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)">↷</button>
+      <!-- ═══ TWO MENUS, ONE QUESTION EACH ══════════════════════════════
+           "We have a sync button, a trunk button, it's getting messy ok?" — and
+           it was. The strip had grown to Projects, Export, Import, Merge a copy,
+           Sync and a second New project: nine top-level controls answering four
+           questions, with three of them answering the SAME question in three
+           different places.
+
+             · working with somebody else lived in Projects ▸ Team (the trunk),
+               in Sync ▾ (watch their file) and in a loose Merge a copy label.
+               Three routes to one job, none of them next to another, so there
+               was nowhere to stand and see that they ARE alternatives.
+             · Auto-save to file appeared in both Projects and Sync, calling one
+               function. Two entries for one thing reads as two features until
+               you try them.
+             · New project appeared at top level AND inside the menu, calling
+               DIFFERENT functions — the menu one left the previous project's
+               summary and analytics on screen under the new project's name.
+               That is the shape this kind of mess actually costs you: a real
+               defect hiding inside a duplicate.
+
+           So: Project is everything about a plan (this one and the others), Team
+           is everything about more than one person, Export is everything that
+           leaves. Import moves into Project because it is how a plan comes IN;
+           Merge a copy moves into Team because what you are merging with is a
+           person, not a file format. Nothing is removed — the two-file route is
+           still here, one fold down, finally standing next to the trunk it is an
+           alternative to. -->
       <details class="export-menu">
-        <summary class="btn-ghost btn-sm" style="list-style:none"><span class="ico" aria-hidden="true">📂</span> Projects ▾</summary>
+        <summary class="btn-ghost btn-sm" style="list-style:none"><span class="ico" aria-hidden="true">📂</span> Project ▾</summary>
         <div class="export-panel">
+          <div class="grp">This project</div>
+          <button onclick="openProjSettings()" title="Rename it, and set its start date, duration unit and working calendar."><span class="ico" aria-hidden="true">✎</span> Rename &amp; settings…</button>
+          <button class="btn-ghost btn-sm" id="diskAutoBtn" onclick="setupDiskAutosave()" title="Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true"></span> Auto-save to file</button>
+          <label class="btn-ghost btn-sm menu-row" title="A .json backup opens as its own project; an editable-workbook .csv merges into the open project by ID. To combine a teammate's copy of THIS plan, use Team &#9656; Merge a copy — Import replaces, Merge combines.">
+            <span class="ico" aria-hidden="true">📥</span> Import a file…
+            <input type="file" accept=".json,.csv" onchange="importJSON(event)" style="display:none" title="A .json backup opens as its own project; an ✏️ editable-workbook .csv merges into the open project by ID" />
+          </label>
+          <button onclick="loadSample()"><span class="ico" aria-hidden="true">🧪</span> Load sample engagement</button>
           <div class="grp">Saved projects</div>
           <div id="projMenuList"></div>
+          <!-- OUTSIDE the scroller and NOT a .grp. It was appended into the
+               list, so a footnote about storage scrolled around inside the
+               saved projects as though it were one of them, wearing the
+               uppercase letter-spaced style that every real group heading
+               here uses. It is a sentence, and Recover data is the one thing
+               in it somebody actually clicks. -->
           <button class="btn-ghost btn-sm" onclick="openPortfolio()" style="border:none;color:var(--text)" title="Every project in this browser on one screen — and the one reading no single plan can produce: who is committed past their capacity once all of them are added together."><span class="ico" aria-hidden="true">📊</span> Portfolio…</button>
-          <div class="grp">Actions</div>
-          <button onclick="loadSample()">Load sample engagement</button>
-          <button class="btn-ghost btn-sm" id="diskAutoBtn" onclick="setupDiskAutosave()" title="Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true"></span> Auto-save to file</button>
-          <div class="grp">Team</div>
-          <!-- The workflow, where somebody is standing when they need it. Every
-               control here had a good tooltip and nothing said how the three of
-               them fit together, so a person had to infer the protocol from
-               three hover texts. Closed by default: it is instructions, and
-               instructions that are always open become furniture. -->
+          <div id="projMenuFoot" class="menu-foot"></div>
+          <div class="grp">Start another</div>
+          <!-- resetProject IS newProject(false) plus clearing the panels the old
+               project left on screen. The menu called the bare one, so a new
+               project opened under the previous one's summary, plan-truth and
+               analytics. One entry point, and it is the one that cleans up. -->
+          <button onclick="resetProject()"><span class="ico" aria-hidden="true">➕</span> New project</button>
+          <button onclick="newProject(true)"><span class="ico" aria-hidden="true">⧉</span> Duplicate current</button>
+          <button onclick="deleteProject()" style="color:#b91c1c"><span class="ico" aria-hidden="true">🗑</span> Delete current</button>
+        </div>
+      </details>
+      <details class="export-menu">
+        <summary class="btn-ghost btn-sm" style="list-style:none"><span class="ico" aria-hidden="true">👥</span> Team ▾</summary>
+        <div class="export-panel">
+          <button class="btn-ghost btn-sm" id="whoBtn" onclick="editIdentity()" style="border:none;color:var(--text)" title="The name stamped on every version you create. Self-declared — there is no login here and nothing verifies it."><span class="ico" aria-hidden="true">👤</span> Signing as…</button>
+          <div class="grp">One shared file</div>
+          <button class="btn-ghost btn-sm" id="trunkNewBtn" onclick="trunkConnect('new')" style="border:none;color:var(--text)" title="Creates a NEW .json file — type a name and pick a folder everybody syncs. That file becomes the shared history; you are the first one in it."><span class="ico" aria-hidden="true">🌳</span> Start a team trunk…</button>
+          <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect('join')" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🔗</span> Join a team trunk…</button>
+          <div id="trunkOps" style="display:none">
+            <button class="btn-ghost btn-sm" onclick="trunkPull()" style="border:none;color:var(--text)" title="Read the shared file and take anything newer. If you have changed nothing since you last shared, it applies straight through — nothing of yours can be lost."><span class="ico" aria-hidden="true">⬇</span> Pull latest</button>
+            <button class="btn-ghost btn-sm" onclick="trunkPush()" style="border:none;color:var(--text)" title="Append your versions to the shared file. Refuses if the trunk has moved since you last pulled, because appending onto a history missing somebody else's work is what creates a gap."><span class="ico" aria-hidden="true">⬆</span> Push mine</button>
+          </div>
+          <div class="grp">No shared file?</div>
+          <!-- Both of these predate the trunk and both still work. They are one
+               fold down rather than gone, because the trunk needs Chrome or Edge
+               and a folder everybody syncs, and somebody without either still
+               has to be able to work with a colleague. Standing next to the
+               trunk is the point: they are alternatives, and until now you could
+               not see them in the same place to choose between them. -->
+          <label class="btn-ghost btn-sm menu-row" title="Combine a teammate's copy of THIS plan with yours. It finds the last version you both share, applies everything only they changed, and asks you about the fields you both changed. Nothing changes until you press Merge.">
+            <span class="ico" aria-hidden="true">🔀</span> Merge a copy they sent you…
+            <input type="file" accept=".json" onchange="mergeOpenFile(event)" style="display:none" />
+          </label>
+          <details class="tt-how">
+            <summary>Two files in one folder (the older route)</summary>
+            <p>You each keep your OWN file and watch each other’s. Nothing merges by itself — it opens the same review panel, with every conflict defaulting to keeping yours. The trunk above does the same job with one file instead of two, which is why it came later.</p>
+              <button onclick="setupDiskAutosave()" title="Your copy, rewritten to a real file after every change. Put that file in a folder they can see — Drive Desktop, Dropbox, OneDrive, a network share — and their sync client does the transport.">💾 Auto-save my copy to a file…</button>
+              <button onclick="fsLinkTheirs()" title="Watch their file and say when it changes. It never merges by itself: it opens the same review panel, and every conflict still defaults to keeping yours.">👀 Watch their file…</button>
+              <button onclick="fsUnlink()">✕ Stop watching</button>
+              <!-- Everything above was explained only in tooltips, so the one thing a
+                   reader has to know BEFORE clicking — that this watches a file on
+                   your own disk, which means the sync client has to be installed and
+                   putting the file on drive.google.com does nothing — was invisible
+                   until it had already failed. -->
+              <button onclick="openSyncGuide()" title="What this actually does, what your browser can do, and how to set the shared folder up on Mac or Windows">❓ How to set this up…</button>
+              <div class="grp" style="font-weight:400;text-transform:none;white-space:normal;max-width:19rem;line-height:1.35">You each write your own file. One file both of you write is what makes a sync client leave a second copy called "plan (1).json".</div>
+          </details>
+          <!-- AT THE BOTTOM, and it used to be at the top. Opened, the five
+               steps are taller than the whole menu, so every button they name —
+               Signing as, Start a team trunk, Join — was pushed below the fold at
+               the exact moment somebody was reading about them. Down here it can
+               be as long as it needs to be and it hides nothing. The controls
+               above are in the order the steps describe, which is the version of
+               this that never has to be read at all. -->
           <details class="tt-how">
             <summary>How working as a team works</summary>
             <ol>
@@ -3298,16 +3407,6 @@
             <p>No server and no account — the file is the whole mechanism, so whatever can reach the file
                can reach the plan. Chrome or Edge only, and not from a page opened with file://.</p>
           </details>
-          <button class="btn-ghost btn-sm" id="whoBtn" onclick="editIdentity()" style="border:none;color:var(--text)" title="The name stamped on every version you create. Self-declared — there is no login here and nothing verifies it."><span class="ico" aria-hidden="true">👤</span> Signing as…</button>
-          <button class="btn-ghost btn-sm" id="trunkNewBtn" onclick="trunkConnect('new')" style="border:none;color:var(--text)" title="Creates a NEW .json file — type a name and pick a folder everybody syncs. That file becomes the shared history; you are the first one in it."><span class="ico" aria-hidden="true">🌳</span> Start a team trunk…</button>
-          <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect('join')" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🔗</span> Join a team trunk…</button>
-          <div id="trunkOps" style="display:none">
-            <button class="btn-ghost btn-sm" onclick="trunkPull()" style="border:none;color:var(--text)" title="Read the shared file and take anything newer. If you have changed nothing since you last shared, it applies straight through — nothing of yours can be lost."><span class="ico" aria-hidden="true">⬇</span> Pull latest</button>
-            <button class="btn-ghost btn-sm" onclick="trunkPush()" style="border:none;color:var(--text)" title="Append your versions to the shared file. Refuses if the trunk has moved since you last pulled, because appending onto a history missing somebody else's work is what creates a gap."><span class="ico" aria-hidden="true">⬆</span> Push mine</button>
-          </div>
-          <button onclick="newProject(false)"><span class="ico" aria-hidden="true">➕</span> New project</button>
-          <button onclick="newProject(true)"><span class="ico" aria-hidden="true">⧉</span> Duplicate current</button>
-          <button onclick="deleteProject()" style="color:#b91c1c"><span class="ico" aria-hidden="true">🗑</span> Delete current</button>
         </div>
       </details>
       <details class="export-menu">
@@ -3340,34 +3439,7 @@
           <button onclick="window.print()"><span class="ico" aria-hidden="true"></span> Print / Save PDF</button>
         </div>
       </details>
-      <label class="btn-ghost btn-sm" style="cursor:pointer;margin:0">
-        Import
-        <input type="file" accept=".json,.csv" onchange="importJSON(event)" style="display:none" title="A .json backup opens as its own project; an ✏️ editable-workbook .csv merges into the open project by ID" />
-      </label>
-      <!-- Beside Import, because it is the other answer to "I have a file from
-           somebody". Import REPLACES; this one combines. -->
-      <label class="btn-ghost btn-sm" style="cursor:pointer;margin:0" title="Combine a teammate's copy of THIS plan with yours. It finds the last version you both share, applies everything only they changed, and asks you about the fields you both changed. Nothing changes until you press Merge.">
-        Merge a copy
-        <input type="file" accept=".json" onchange="mergeOpenFile(event)" style="display:none" />
-      </label>
-      <details class="export-menu">
-        <summary class="btn-ghost btn-sm" style="list-style:none">Sync ▾</summary>
-        <div class="export-panel">
-          <div class="grp">Two files in one shared folder</div>
-          <button onclick="setupDiskAutosave()" title="Your copy, rewritten to a real file after every change. Put that file in a folder they can see — Drive Desktop, Dropbox, OneDrive, a network share — and their sync client does the transport.">💾 Auto-save my copy to a file…</button>
-          <button onclick="fsLinkTheirs()" title="Watch their file and say when it changes. It never merges by itself: it opens the same review panel, and every conflict still defaults to keeping yours.">👀 Watch their file…</button>
-          <button onclick="fsUnlink()">✕ Stop watching</button>
-          <!-- Everything above was explained only in tooltips, so the one thing a
-               reader has to know BEFORE clicking — that this watches a file on
-               your own disk, which means the sync client has to be installed and
-               putting the file on drive.google.com does nothing — was invisible
-               until it had already failed. -->
-          <button onclick="openSyncGuide()" title="What this actually does, what your browser can do, and how to set the shared folder up on Mac or Windows">❓ How to set this up…</button>
-          <div class="grp" style="font-weight:400;text-transform:none;white-space:normal;max-width:19rem;line-height:1.35">You each write your own file. One file both of you write is what makes a sync client leave a second copy called "plan (1).json".</div>
-        </div>
-      </details>
       <span id="syncChip" style="display:none"></span>
-      <button class="btn-light btn-sm" onclick="resetProject()" title="Start a fresh plan — the current project stays saved in the Projects menu">New project</button>
     </div>
   </header>
 
@@ -4512,7 +4584,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.2049</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.2102</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5355,7 +5427,8 @@ Or say what you want, in your own words:
         const bar = m ? `<div class="progress-track" style="height:4px;margin-top:3px"><div class="progress-fill" style="width:${Math.min(100, m.pct || 0)}%;background:${(m.pct || 0) >= 100 ? 'var(--success)' : 'var(--primary)'}"></div></div>` : '';
         return `<div style="display:flex;align-items:center;gap:2px"><button data-proj="${id}" style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:2px;text-align:left;${id === act ? 'font-weight:700;color:var(--primary)' : ''}" title="${escapeHtml((meta.name || 'Untitled') + ' — last saved ' + (meta.updatedAt || '').slice(0, 16).replace('T', ' '))}"><span>${id === act ? '● ' : ''}${escapeHtml(meta.name || 'Untitled')}</span>${metaLine}${bar}</button>${id !== act ? `<button data-cmp="${id}" title="Compare with current (what-if)" style="width:auto;padding:0.2rem 0.4rem;align-self:stretch">⚖</button>` : ''}</div>`;
       }).join('') || '<div class="grp">No saved projects yet</div>';
-      el.innerHTML += `<div class="grp" style="margin-top:0.4rem;font-size:0.65rem;color:var(--muted)" title="Projects live in the browser's IndexedDB (disk-backed, effectively unlimited — the old ~5 MB localStorage limit no longer applies). Every meaningful save also keeps one of the last 15 rolling snapshots per project.">💾 IndexedDB storage (no 5 MB limit) · 15-snapshot history${window.showSaveFilePicker ? ' · 💾 file autosave available' : ''} · <a href="#" onclick="event.preventDefault();openRecovery()" style="color:var(--primary)">🛟 Recover data…</a></div>`;
+      const foot = document.getElementById('projMenuFoot');
+      if (foot) foot.innerHTML = `<span title="Projects live in the browser's IndexedDB (disk-backed, effectively unlimited — the old ~5 MB localStorage limit no longer applies). Every meaningful save also keeps one of the last 15 rolling snapshots per project.">\uD83D\uDCBE Saved in this browser · 15-snapshot history${window.showSaveFilePicker ? ' · file autosave available' : ''}</span> · <a href="#" onclick="event.preventDefault();openRecovery()" style="color:var(--primary);font-weight:600">\uD83D\uDEDF Recover data…</a>`;
       el.querySelectorAll('[data-proj]').forEach(btn => btn.addEventListener('click', () => switchProject(btn.dataset.proj)));
       el.querySelectorAll('[data-cmp]').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); compareProject(btn.dataset.cmp); }));
     }
@@ -5461,7 +5534,7 @@ Or say what you want, in your own words:
       saveLocal(); // persist current first
       const durable = await persistNow();
       if (!durable && tasks.length &&
-        !confirm('⚠ The CURRENT project could not be saved — switching now loses its unsaved changes.\n\nCancel to stay (then Export ▸ Download JSON as a backup), or OK to switch anyway.')) return;
+        !confirm('⚠ The CURRENT project could not be saved — switching now loses its unsaved changes.\n\nCancel to stay (then Export ▸ Download backup (.json)), or OK to switch anyway.')) return;
       if (!raw) {
         // last resort: the legacy single-project slot may hold the latest full save
         const legacy = (await idbGet('legacy.snapshot')) || localStorage.getItem(STORAGE_KEY);
@@ -5488,7 +5561,7 @@ Or say what you want, in your own words:
       // not by assuming it worked
       const durable = await persistNow();
       if (tasks.length && !durable) {
-        if (!confirm('⚠ The current project could NOT be saved to browser storage.\n\nCreating a new project now would LOSE it.\n\nCancel (recommended): Export ▸ Download JSON as a backup first.\nOK: continue anyway and lose the current plan.')) return;
+        if (!confirm('⚠ The current project could NOT be saved to browser storage.\n\nCreating a new project now would LOSE it.\n\nCancel (recommended): Export ▸ Download backup (.json) first.\nOK: continue anyway and lose the current plan.')) return;
       }
       const id = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
       localStorage.setItem(PROJ_ACTIVE_KEY, id);
@@ -5892,7 +5965,7 @@ Or say what you want, in your own words:
               + 'outright — it is not merged, it is gone. Your sync client would either resolve that '
               + 'last-writer-wins or quietly leave a second copy called "' + diskFileHandle.name.replace(/\.json$/i, '')
               + ' (1).json".\n\nNothing of yours has been lost: this stopped before writing.\n\n'
-              + 'You each need your OWN file. Use Sync ▸ Auto-save my copy to a file… and save under a '
+              + 'You each need your OWN file. Use Project ▸ Auto-save to a file… and save under a '
               + 'different name in the same folder, then point Watch their file… at theirs.');
             return;
           }
@@ -6114,7 +6187,7 @@ Or say what you want, in your own words:
        it, because a mis-click must not be able to erase a team's history. */
     async function trunkConnect(mode) {
       const creating = mode === 'new';
-      if (!window.showOpenFilePicker || !window.showSaveFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download JSON and Merge a copy.'); return; }
+      if (!window.showOpenFilePicker || !window.showSaveFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download backup (.json) and Merge a copy.'); return; }
       if (!trunkIdentity().label) { editIdentity(); if (!trunkIdentity().label) return; }
       try {
         const kind = [{ description: 'Team trunk', accept: { 'application/json': ['.json'] } }];
@@ -6313,7 +6386,7 @@ Or say what you want, in your own words:
         b.textContent = '🌳 Team trunk — needs Chrome or Edge';
         b.title = 'The shared team file uses the File System Access API, which today only Chrome and Edge '
           + 'implement, and which is unavailable on a page opened from file:// even in those. Everyone can '
-          + 'still collaborate through Export ▸ Download JSON and Merge a copy — it is the same merge, '
+          + 'still collaborate through Export ▸ Download backup (.json) and Merge a copy — it is the same merge, '
           + 'carried by hand instead of by a shared file.';
         return;
       }
@@ -6333,7 +6406,7 @@ Or say what you want, in your own words:
       if (g) g.style.display = trunkHandle ? '' : 'none';
     }
     async function setupDiskAutosave() {
-      if (!window.showSaveFilePicker) { alert('Direct on-disk autosave needs Chrome or Edge. Everything is still saved in the browser database (no 5 MB limit) — and Export ▸ Download JSON works everywhere for manual backups.'); return; }
+      if (!window.showSaveFilePicker) { alert('Direct on-disk autosave needs Chrome or Edge. Everything is still saved in the browser database (no 5 MB limit) — and Export ▸ Download backup (.json) works everywhere for manual backups.'); return; }
       try {
         if (diskFileHandle) {
           if ((await diskFileHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
@@ -6379,11 +6452,27 @@ Or say what you want, in your own words:
     function updateDiskBtn() {
       const btn = document.getElementById('diskAutoBtn');
       if (!btn) return;
-      if (!window.showSaveFilePicker) { btn.style.display = 'none'; return; }
-      btn.textContent = diskFileHandle ? '💾 File: on' : '💾 Auto-save file';
+      /* Disabled and explained rather than hidden, for the same reason the
+         trunk button is: a control that vanishes reads as a feature the product
+         does not have. And written as innerHTML with the .ico span, because
+         textContent dropped it — the row then started a character to the left
+         of every other row in the menu, which is the kind of thing you only see
+         once they are all stacked in one panel. */
+      if (!window.showSaveFilePicker) {
+        btn.disabled = true; btn.style.opacity = '0.55'; btn.style.cursor = 'not-allowed';
+        btn.innerHTML = '<span class="ico" aria-hidden="true">💾</span> Auto-save to a file — needs Chrome or Edge';
+        btn.title = 'Writing straight to a file on your disk uses the File System Access API, which today only '
+          + 'Chrome and Edge implement. Everything is still saved in this browser, and Export ▸ Download backup '
+          + '(.json) works everywhere.';
+        return;
+      }
+      btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = '';
+      btn.innerHTML = '<span class="ico" aria-hidden="true">💾</span> '
+        + (diskFileHandle ? 'Auto-saving to ' + escapeHtml(diskFileHandle.name || 'a file') : 'Auto-save to a file…');
       btn.title = diskFileHandle
         ? 'Every change auto-saves to "' + (diskFileHandle.name || 'file') + '" on disk. Click to re-authorize or turn off.'
-        : 'Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge). IMPORT restores from it any time.';
+        : 'Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge). This is YOUR copy '
+          + 'on YOUR disk: a backup, not a way to share. Import restores from it any time.';
     }
     // ——— 🛟 recovery: list EVERY surviving copy (projects, snapshots, legacy,
     // pre-migration localStorage) and restore any of them as a NEW project ———
@@ -6421,7 +6510,7 @@ Or say what you want, in your own words:
         + (rows.map((r, i) => `<div style="display:flex;justify-content:space-between;gap:0.5rem;align-items:center;padding:0.35rem 0;border-bottom:1px dashed var(--border);font-size:0.8rem">
             <div style="flex:1"><b>${escapeHtml(r.label)}</b><br/><span class="help-text">${r.tasks} task(s) · ${(r.size / 1024).toFixed(0)} KB</span></div>
             <button class="btn-sm btn-primary" onclick="recoverRow(${i})" ${r.tasks ? '' : 'disabled title="empty copy — nothing to restore"'}>⤴ Restore as new project</button>
-          </div>`).join('') || '<p class="help-text">Nothing recoverable found in this browser. If you ever used Export ▸ Download JSON (or 💾 file autosave), use IMPORT with that file.</p>');
+          </div>`).join('') || '<p class="help-text">Nothing recoverable found in this browser. If you ever used Export ▸ Download backup (.json) (or 💾 file autosave), use IMPORT with that file.</p>');
       openOverlay(document.getElementById('recoveryModal'));
     }
     async function recoverRow(i) {
@@ -6457,7 +6546,7 @@ Or say what you want, in your own words:
         b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:3000;background:#b91c1c;color:#fff;padding:8px 16px;font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
         document.body.appendChild(b);
       }
-      b.innerHTML = '⚠ <b>Changes are NOT being saved</b> — this browser is refusing to store data (<span id="storageBannerUsage">' + storageUsedMB().toFixed(1) + ' MB in the fallback store</span>). <b>Export ▸ Download JSON now</b>, then free space: open an old project via Projects ▸ and 🗑 Delete current. <button onclick="this.parentElement.remove()" aria-label="Dismiss warning" style="margin-left:10px;background:#fff;color:#b91c1c;border:none;border-radius:4px;padding:2px 8px;cursor:pointer">✕</button>';
+      b.innerHTML = '⚠ <b>Changes are NOT being saved</b> — this browser is refusing to store data (<span id="storageBannerUsage">' + storageUsedMB().toFixed(1) + ' MB in the fallback store</span>). <b>Export ▸ Download backup (.json) now</b>, then free space: open an old project via Projects ▸ and 🗑 Delete current. <button onclick="this.parentElement.remove()" aria-label="Dismiss warning" style="margin-left:10px;background:#fff;color:#b91c1c;border:none;border-radius:4px;padding:2px 8px;cursor:pointer">✕</button>';
       // report the REAL figures where the browser will tell us — the old text
       // quoted "~5 MB", which is the localStorage ceiling and has not been this
       // app's limit since the payloads moved to IndexedDB
@@ -24130,7 +24219,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         n++;
       }
       renderProjectMenu();
-      flashSaved('📦 ' + n + ' project(s) restored — open them from 📁 Projects'
+      flashSaved('📦 ' + n + ' project(s) restored — open them from 📂 Project'
         + (bankAdded || peopleAdded || adoptedOrgs
             ? ' · also merged in ' + bankAdded + ' bank record(s), ' + peopleAdded + ' new '
               + ptrPl(peopleAdded, 'person', 'people') + ' and ' + adoptedOrgs + ' new '
@@ -24164,7 +24253,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
           hydrate(data);
           saveLocal();
           repaintForProject(); renderProjectMenu(); switchTab('tasks');
-          flashSaved('📥 Imported "' + (data.projectName || 'project') + '" as its own project (' + tasks.length + ' tasks) — the previous plan stays in 📁 Projects');
+          flashSaved('📥 Imported "' + (data.projectName || 'project') + '" as its own project (' + tasks.length + ' tasks) — the previous plan stays in 📂 Project');
         } catch (err) { alert('Could not import: ' + err.message); }
       };
       reader.readAsText(file); ev.target.value = '';
@@ -25311,7 +25400,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
     // the library-aware flow: the current project is saved under its own id and
     // stays in Projects ▸; the fresh plan gets a NEW id.
     async function resetProject() {
-      if (tasks.length && !confirm('Start a NEW project?\n\nThe current plan stays saved in the 📁 Projects menu — nothing is deleted. (Use Projects ▸ 🗑 Delete current if you actually want it gone.)')) return;
+      if (tasks.length && !confirm('Start a NEW project?\n\nThe current plan stays saved in the 📂 Project menu — nothing is deleted. (Use Project ▸ 🗑 Delete current if you actually want it gone.)')) return;
       await newProject(false);
       const empt = document.getElementById('summaryGrid'); if (empt) empt.innerHTML = '';
       const pt = document.getElementById('planTruth'); if (pt) pt.innerHTML = '<p class="ptr-blank"><b>Nothing to compare yet.</b> Add activities and press <b>Calculate</b>.</p>';
@@ -32701,11 +32790,11 @@ Do not write payment terms or exclusions — both are generated from the project
         why: 'Safari does not implement the File System Access API at all, so it cannot hold on to a file '
            + 'between visits — neither writing your copy nor watching theirs.',
         fix: 'Use Chrome or Edge for the automatic loop. Safari can still do the whole thing by hand: '
-           + 'Export ▸ Download JSON, put it in the shared folder, and use “Merge a copy” on what they send. '
+           + 'Export ▸ Download backup (.json), put it in the shared folder, and use “Team ▸ Merge a copy” on what they send. '
            + 'Same merge, same conflict review — you just move the file yourself.' };
       return { ok: false,
         why: 'This browser does not offer the File System Access API, so it cannot keep a reference to a file.',
-        fix: 'Chrome and Edge do. Until then use Export ▸ Download JSON and “Merge a copy”, which work everywhere.' };
+        fix: 'Chrome and Edge do. Until then use Export ▸ Download backup (.json) and “Team ▸ Merge a copy”, which work everywhere.' };
     }
     /* The one fact somebody has to know BEFORE they start, and the only one the
        tooltips never said: this watches a file ON YOUR OWN DISK. The sync client
@@ -32724,7 +32813,7 @@ Do not write payment terms or exclusions — both are generated from the project
         '<p style="font-size:0.9rem;line-height:1.55;margin:0 0 0.8rem">You each keep <b>your own file</b> in a '
         + 'folder you both sync. Your copy is rewritten after every change; theirs is watched for changes. '
         + 'When theirs moves, you are told — and <b>nothing merges on its own</b>. You get the same review panel '
-        + 'as “Merge a copy”, with every conflict defaulting to keeping yours.</p>'
+        + 'as “Team ▸ Merge a copy”, with every conflict defaulting to keeping yours.</p>'
         /* THE TWO HALVES ARE INDEPENDENT and the button names do not say so.
            "Watch their file" sounds like it establishes a connection; it only
            READS. Somebody who sets up watching alone sits there making edits
@@ -37769,7 +37858,14 @@ Return ONLY JSON: {"narrative":"the three paragraphs separated by \\n\\n"}`;
       document.addEventListener('click', e => {
         document.querySelectorAll('details.export-menu[open]').forEach(d => {
           if (!d.contains(e.target)) { d.removeAttribute('open'); return; }
-          const btn = e.target.closest('.export-panel button, .export-panel [data-proj]');
+          /* LABELS TOO. Import and Merge a copy are <label>s wrapping a hidden
+             file input. They used to be top-level controls; inside a menu they
+             were the only rows that left it hanging open behind the file
+             dialog. clientSafeBtn is also a label and keeps its exemption — it
+             is a toggle, and a toggle whose menu shuts is a state change you
+             never get to see. A <summary> is neither, so the folded explainers
+             still open and close in place. */
+          const btn = e.target.closest('.export-panel button, .export-panel label, .export-panel [data-proj]');
           if (btn && btn.id !== 'clientSafeBtn') d.removeAttribute('open');
         });
       });
