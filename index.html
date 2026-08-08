@@ -1670,7 +1670,14 @@
     .roster-table th:nth-child(n+9):nth-child(-n+11), .roster-table td:nth-child(n+9):nth-child(-n+11),
     .roster-table th:nth-child(n+4):nth-child(-n+6), .roster-table td:nth-child(n+4):nth-child(-n+6) { text-align: right; }
     .rl-bill { text-align: right; }
-    #raidContainer th:nth-child(3), #raidContainer td:nth-child(3) { text-align: center; }
+    /* Column 3 is the TITLE — a sentence — and it was centred, so every entry
+       longer than one line got a ragged left edge and the column could not be
+       scanned down at all. Column 4 is the SCORE, which is a number and is the
+       one that wanted centring. An off-by-one that has been sitting in a
+       nth-child selector, which is exactly how those fail: silently, and
+       looking deliberate. */
+    #raidContainer th:nth-child(3), #raidContainer td:nth-child(3) { text-align: left; }
+    #raidContainer th:nth-child(4), #raidContainer td:nth-child(4) { text-align: center; }
     /* W3a: criticality is an edge indicator, not a row wash */
     tr.critical td:first-child { box-shadow: inset 3px 0 0 var(--critical); }
     tr.critical.late td:first-child { box-shadow: inset 3px 0 0 var(--warn), inset 6px 0 0 var(--critical); }
@@ -3336,14 +3343,27 @@
             <button class="btn-secondary btn-sm" onclick="openReviseStories()" title="Apply ONE instruction across every story and every acceptance criterion at once — remove a concept the plan invented, correct who the users actually are, drop a feature or region that is out of scope, make vague thresholds measurable. A generated plan that invented something is not a lint finding: the stories are well-formed, they are simply about the wrong thing. Stories the instruction does not touch come back unchanged, and ↶ Undo reverses the lot.">✏ Revise all stories…</button>
             <button class="btn-secondary btn-sm" onclick="openStoryModal(null)" title="Write a story by hand">+ Add story</button>
             <button class="btn-secondary btn-sm" onclick="generateTestPlan()" title="AI derives test cases from EVERY story's acceptance criteria (batched so nothing truncates): one TC per AC minimum, scheduled as WBS tasks under a Test Execution phase, each depending on the activity it verifies, owned by your QA/UAT resource. Safe to re-run — existing TCs are kept, only gaps are filled."><span class="ico" aria-hidden="true">🧪</span> Generate test plan</button>
-            <button class="btn-secondary btn-sm" onclick="exportTestPlanMarkdown()" title="Test plan document: strategy, entry/exit criteria, S1–S4 severity gates, AC→TC traceability, FULL test-case specifications (steps + expected results), and coverage gaps">⬇ Test plan (.md)</button>
-            <button class="btn-secondary btn-sm" onclick="exportTestCasesCSV()" title="UAT execution sheet (CSV): one row per test case with numbered steps, expected result, owner, schedule, and blank Result / Defect columns for the tester to fill in">⬇ Test cases (.csv)</button>
-            <button class="btn-secondary btn-sm" onclick="exportTestCasesXLS()" title="Same execution sheet formatted for Excel: styled header, wrapped steps, yellow fill-in columns. Excel shows a one-time format notice, then opens normally.">⬇ Excel</button>
-            <button class="btn-secondary btn-sm" onclick="exportReqsMarkdown()" title="Full requirements document: personas, epics, stories, ACs, NFRs, assumptions — ready for the SOW appendix">⬇ Markdown</button>
-            <button class="btn-secondary btn-sm" onclick="exportJiraCSV()" title="One CSV Jira imports directly (Settings ▸ System ▸ External System Import): epics, stories with full Given/When/Then acceptance criteria, and test cases with steps + expected results — formatted with Jira wiki markup. Stories/test cases that already carry a Jira link export their key in an Issue Key column, so re-exporting UPDATES those tickets instead of duplicating them.">⬆ Jira import (.csv)</button>
-          <button class="btn-secondary btn-sm" onclick="exportStoriesEditableCSV()" title="One row per acceptance criterion, Excel-safe. Send it to the client for edits, then bring the edited file back with IMPORT — stories merge by Story ID (blank ID = new story) and changed criteria offer test-case regeneration."><span class="ico" aria-hidden="true">✏️</span> Editable stories (.csv)</button>
-            <button class="btn-secondary btn-sm" onclick="exportTraceCSV()" title="Traceability matrix: one row per acceptance criterion — epic → story → AC → test cases → WBS item → status">⬇ Traceability (.csv)</button>
-            <button class="btn-secondary btn-sm" onclick="exportTraceXLS()" title="Same traceability matrix formatted for Excel: styled header, sized columns, line breaks inside Given/When/Then and test-case cells. Excel shows a one-time format notice, then opens normally.">⬇ Traceability Excel</button>
+            <!-- Seven downloads behind one word. They were seven equal buttons in
+                 a row of thirteen that wrapped to two lines, where the four
+                 things you actually DO on this tab had to compete with the
+                 things you occasionally hand to somebody else. Same disclosure
+                 the header already uses for Export and Projects. -->
+            <details class="export-menu">
+              <summary class="btn-secondary btn-sm" style="list-style:none">⬇ Export ▾</summary>
+              <div class="export-panel">
+                <div class="grp">Test plan</div>
+                      <button onclick="exportTestPlanMarkdown()" title="Test plan document: strategy, entry/exit criteria, S1–S4 severity gates, AC→TC traceability, FULL test-case specifications (steps + expected results), and coverage gaps">⬇ Test plan (.md)</button>
+                      <button onclick="exportTestCasesCSV()" title="UAT execution sheet (CSV): one row per test case with numbered steps, expected result, owner, schedule, and blank Result / Defect columns for the tester to fill in">⬇ Test cases (.csv)</button>
+                      <button onclick="exportTestCasesXLS()" title="Same execution sheet formatted for Excel: styled header, wrapped steps, yellow fill-in columns. Excel shows a one-time format notice, then opens normally.">⬇ Excel</button>
+                      <div class="grp">Requirements</div>
+                <button onclick="exportReqsMarkdown()" title="Full requirements document: personas, epics, stories, ACs, NFRs, assumptions — ready for the SOW appendix">⬇ Markdown</button>
+                      <button onclick="exportJiraCSV()" title="One CSV Jira imports directly (Settings ▸ System ▸ External System Import): epics, stories with full Given/When/Then acceptance criteria, and test cases with steps + expected results — formatted with Jira wiki markup. Stories/test cases that already carry a Jira link export their key in an Issue Key column, so re-exporting UPDATES those tickets instead of duplicating them.">⬆ Jira import (.csv)</button>
+                <button onclick="exportStoriesEditableCSV()" title="One row per acceptance criterion, Excel-safe. Send it to the client for edits, then bring the edited file back with IMPORT — stories merge by Story ID (blank ID = new story) and changed criteria offer test-case regeneration."><span class="ico" aria-hidden="true">✏️</span> Editable stories (.csv)</button>
+                      <div class="grp">Traceability</div>
+                <button onclick="exportTraceCSV()" title="Traceability matrix: one row per acceptance criterion — epic → story → AC → test cases → WBS item → status">⬇ Traceability (.csv)</button>
+                      <button onclick="exportTraceXLS()" title="Same traceability matrix formatted for Excel: styled header, sized columns, line breaks inside Given/When/Then and test-case cells. Excel shows a one-time format notice, then opens normally.">⬇ Traceability Excel</button>
+              </div>
+            </details>
           </div>
         </div>
         <div class="card-body">
@@ -4157,7 +4177,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0010</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0132</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -15989,16 +16009,28 @@ Or say what you want, in your own words:
            to sit unlabelled on the bar. Beside WORK on purpose: equal at 100%
            and different at every other allocation, which is the single fact
            this application most often has to make legible. */
-        if (!t.isSummary && !t.milestone && (t.te || 0) > 0) {
-          svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#64748b" text-anchor="end">${escapeXml(fmtDurCell(t.te))}</text>`;
+        if (!t.milestone && (t.te || 0) > 0) {
+          svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="${t.isSummary ? '#94a3b8' : '#64748b'}" text-anchor="end">${escapeXml(fmtDurCell(t.te))}</text>`;
         }
         /* EFFORT, in its own column. The bar says how long the activity is open;
            this says how much work is inside it, which is a different number
            whenever the allocation is not 100%. Two columns, each with one
-           meaning, rather than two numbers fighting for one label on a bar. */
-        if (!t.isSummary && !t.milestone) {
-          const eff = plannedEffortDays(t);
-          if (eff > 0) svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#64748b" text-anchor="end">${escapeXml(fmtDurCell(workingDaysToUnit(eff)))}</text>`;
+           meaning, rather than two numbers fighting for one label on a bar.
+
+           A PHASE HAS BOTH OF THESE TOO, and skipping summaries meant that
+           collapsing to L1 — the view somebody uses to brief anybody — showed
+           a chart whose only visible rows had two empty columns under two
+           headings. Reported exactly that way. plannedEffortUnit() already
+           rolls a summary up from its leaves, which is the right sum: work
+           ADDS. The duration beside it does not — a phase's span runs through
+           the dependency network, so parallel children overlap and the phase is
+           usually shorter than its parts added up. Same distinction the
+           dictionary and the activity table already draw, and the reason the
+           phase figures are set in the muted ink: they are a roll-up and a
+           span, not two totals. */
+        if (!t.milestone) {
+          const eff = t.isSummary ? plannedEffortUnit(t) : workingDaysToUnit(plannedEffortDays(t));
+          if (eff > 0) svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="${t.isSummary ? '#94a3b8' : '#64748b'}" text-anchor="end">${escapeXml(fmtDurCell(eff))}</text>`;
         }
       });
 
@@ -28114,9 +28146,18 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
           <td>${raidTypeChip(r)}</td>
           <td style="font-weight:600">${escapeHtml(r.title)}${raidTitleSubHtml(r)}</td>
           <td>${raidScoreBadge(r)}</td>
-          <td style="font-size:0.8rem">${escapeHtml(r.owner || '—') + roleSub(r.owner)}</td>
+          <td style="font-size:0.8rem">${personCell(r.owner)}</td>
           <td style="font-size:0.8rem">${raidLinkChips(r, false)}</td>
-          <td style="font-size:0.8rem;max-width:300px">${escapeHtml(r.mitigation || '')}</td>
+          ${/* A BLANK HERE IS THE POINT OF THE COLUMN. An open risk with nothing
+                written in it is the entry that most needs attention, and it
+                rendered as the emptiest cell on the row — indistinguishable
+                from a decision, which legitimately has none. Named, and only
+                for the kinds that are supposed to carry a plan. */''}
+          <td style="font-size:0.8rem;max-width:300px">${r.mitigation
+            ? escapeHtml(r.mitigation)
+            : (r.type === 'Risk' || r.type === 'Issue') && !closed
+              ? `<span class="io-flag" title="No mitigation recorded. This is an open ${escapeHtml(r.type)} with no plan against it — the one thing this column exists to hold.">no plan yet</span>`
+              : '<span class="help-text">—</span>'}</td>
           <td>${r.type === 'Exclusion'
             ? `<span class="help-text" title="An exclusion is a boundary, not something anybody works down. It has no lifecycle: it either prints in the SOW\u2019s Out of Scope section or it is deleted.">in the SOW</span>`
             : `<select class="mini-inp" style="width:auto" onchange="setRaidStatus(${r.id}, this.value)"${raidStatusOf(r.status) ? '' : ` title="Stored status is “${escapeHtml(String(r.status || ''))}”, which this log does not recognise — pick one of the three to fix it."`}>
