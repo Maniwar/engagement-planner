@@ -1715,6 +1715,10 @@
     #taskTable td:nth-child(4) { min-width: 220px; }
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
+    /* The gap-marker is a button now, so it has to look like one on hover
+       without becoming another chip competing with the real mitigations. */
+    .rd-plan { border: 0; font: inherit; font-size: var(--t-sm); cursor: pointer; box-shadow: none; padding: 0 4px; }
+    .rd-plan:hover:not(:disabled) { background: #fde68a; color: #78350f; }
 
     /* A peak load, drawn. Number then bar, so it scans as a column of numbers
        and reads as a column of levels at the same time. */
@@ -4177,7 +4181,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0144</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0205</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -28170,7 +28174,10 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
           <td style="font-size:0.8rem;max-width:300px">${r.mitigation
             ? escapeHtml(r.mitigation)
             : (r.type === 'Risk' || r.type === 'Issue') && !closed
-              ? `<span class="io-flag" title="No mitigation recorded. This is an open ${escapeHtml(r.type)} with no plan against it — the one thing this column exists to hold.">no plan yet</span>`
+              ? `<button type="button" class="io-flag rd-plan" onclick="aiBrainstormMitigations(${r.id})" title="${escapeHtml(
+                  'No response recorded. This is an open ' + r.type + ' with no plan against it — the one thing this column '
+                  + 'exists to hold. Click to have the AI draft one for THIS entry: what will be done, which lever it pulls, '
+                  + 'and the signal to watch for. Nothing you wrote is ever replaced.')}">✨ no plan yet</button>`
               : '<span class="help-text">—</span>'}</td>
           <td>${r.type === 'Exclusion'
             ? `<span class="help-text" title="An exclusion is a boundary, not something anybody works down. It has no lifecycle: it either prints in the SOW\u2019s Out of Scope section or it is deleted.">in the SOW</span>`
@@ -28195,6 +28202,18 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
           <input class="mini-inp" style="width:200px" placeholder="Filter by text…" value="${escapeHtml(raidQ)}" oninput="setRaidQuery(this.value)" aria-label="Filter RAID entries" />
           <label class="help-text" style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;white-space:nowrap"><input type="checkbox" ${raidOpenOnly ? 'checked' : ''} onchange="setRaidOpenOnly(this.checked)" />open only</label>
           ${dupN ? `<button class="btn-sm" style="background:#fef3c7;color:#b45309" onclick="raidDedupe()" title="Entries whose significant words overlap by three quarters or more are the same boundary written twice. The earliest of each group is kept.">🧹 ${dupN} near-duplicate${dupN === 1 ? '' : 's'}</button>` : ''}
+          ${(() => {
+            /* Named with its count, and absent when the count is zero. A button
+               that says "brainstorm mitigations" on a log where every entry
+               already has one is an invitation to a no-op; this says how much
+               work there is, which is also the finding. */
+            const n = raidNeedsPlan().length;
+            return n ? `<button class="btn-sm btn-primary" onclick="aiBrainstormMitigations()" title="${escapeHtml(
+              n + ' open ' + (n === 1 ? 'entry has' : 'entries have') + ' no response written on them. Drafts one for each — '
+              + 'what will be done, which lever it pulls, and the signal that tells you it is happening while there is still '
+              + 'time to act. Fills BLANKS ONLY: a response you wrote is never replaced, and one Undo reverses the pass.')}">`
+              + `<span class="ico" aria-hidden="true">✨</span> Brainstorm ${n} mitigation${n === 1 ? '' : 's'}</button>` : '';
+          })()}
           <button class="btn-sm btn-secondary" onclick="openReviseRaid()" title="Rewrite the whole log from one instruction — tighten the wording, drop anything about a topic, make every exclusion a limit rather than a promise. Nothing is changed until you review the result.">✨ Revise the log</button>
         </div>
         <div id="raidBulk" class="toolbar no-print" style="display:none;gap:0.35rem;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.4rem 0.6rem;margin-bottom:0.5rem">
@@ -28441,6 +28460,104 @@ Return ONLY this JSON, no prose, no code fence:
               + ' of the answer discarded — ' + drops.slice(0, 2).join('; ') : '') + '.' };
     }
 
+    /* ═══ A RISK WITH NO RESPONSE IS JUST A WORRY WRITTEN DOWN ═══════════
+       The log was good at CAPTURE — say it in a sentence and it files itself —
+       and had nothing at all for the next step. So plans accumulate open risks
+       with a score and an empty Mitigation column, which is the state the
+       column exists to make visible and nothing in the app could act on.
+
+       Deliberately the same shape as "Fill the gaps with AI" on the WBS: it
+       works on the entries the log has ALREADY flagged as having no plan, it
+       fills BLANKS ONLY, and one Undo reverses the pass. The set it acts on is
+       exactly the set the "no plan yet" flag marks — the column names the gap
+       and the button fills it, rather than two features with two opinions
+       about what counts. */
+    function raidNeedsPlan() {
+      return (raid || []).filter(r => (r.type === 'Risk' || r.type === 'Issue')
+        && String(r.status || 'Open') !== 'Closed'
+        && !String(r.mitigation || '').trim());
+    }
+    async function aiBrainstormMitigations(onlyId) {
+      const all = raidNeedsPlan();
+      const targets = onlyId != null ? all.filter(r => r.id === onlyId) : all;
+      if (!targets.length) {
+        alert(onlyId != null
+          ? 'That entry already has a response written on it — nothing here overwrites what you wrote.'
+          : 'Every open risk and issue already carries a response. Nothing to brainstorm.');
+        return;
+      }
+      if (!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE))) {
+        alert('Add your Anthropic API key first (⚙ API Key on the Tasks tab).'); return; }
+      computeWbsCodes();
+      const byId = new Map(tasks.map(t => [t.id, t]));
+      const team = Object.keys(resources || {}).map(n => n + ((resources[n] || {}).role ? ' (' + resources[n].role + ')' : '')
+        + (isClientResource(n) ? ' [CLIENT SIDE]' : ''));
+      const ctx = targets.map(r => {
+        const t = r.taskId != null ? byId.get(Number(r.taskId)) : null;
+        return { id: r.id, type: r.type, title: r.title,
+          score: (Number(r.probability) || 0) * (Number(r.impact) || 0),
+          probability: r.probability, impact: r.impact,
+          owner: String(r.owner || '').trim(),
+          activity: t ? (t.wbs + ' ' + t.name) : '',
+          activityStarts: t && t.startDate ? fmtISO(t.startDate) : '' };
+      });
+      const planSummary = tasksInWbsOrder().filter(({ task: t }) => !t.milestone)
+        .map(({ task: t, depth }) => '  '.repeat(depth) + t.wbs + ' ' + t.name
+          + (t.owner ? ' — ' + t.owner : '')).join('\n');
+      const p = `You are the delivery lead working the RAID log of a consulting engagement. For each entry below, write the RESPONSE — what will actually be done about it.
+
+Project: ${document.getElementById('projectName').value}
+
+THE PLAN:
+${planSummary}
+
+THE TEAM (owners must come from this list, exactly as spelled):
+${team.join('\n') || '(nobody on the roster)'}
+
+ENTRIES NEEDING A RESPONSE:
+${JSON.stringify(ctx, null, 1)}
+
+WHAT A RESPONSE HAS TO BE
+- It names its LEVER. Every response to a risk does one of four things: makes it less LIKELY, makes it hurt LESS, TRANSFERS it to somebody else (the client, a vendor, a contract clause), or ACCEPTS it with a fallback ready. Say which, in the words themselves — not as a label.
+- It is a specific act somebody performs before a specific moment, tied to the activity and its start date where there is one. "Monitor closely", "engage stakeholders", "mitigate through communication" are refusals to answer, and are rejected.
+- It names the SIGNAL that tells you it is happening while there is still time to act — the thing you would notice in week one rather than the week it lands.
+- An ISSUE is already happening, so its response is containment and recovery, not prevention. Do not write prevention for an issue.
+- Invent no tools, systems, vendors, contract terms or client staff the plan does not already mention. If the honest response depends on something outside the plan, say what has to be true instead of inventing it.
+- Owner: pick the person from THE TEAM who is best placed to carry it, spelled exactly. Prefer somebody already working the linked activity. Leave "" if nobody on the roster fits — do not invent a name.
+- One or two sentences. This lands in a table column, not a document.
+
+Return ONLY JSON: {"plans":[{"id":<the entry id>,"mitigation":"...","owner":"..."}],"note":"one line on what you saw across the set"}`;
+      try {
+        const onDelta = streamShow('Working ' + targets.length + ' entr' + (targets.length === 1 ? 'y' : 'ies'));
+        const raw = await callAnthropic(p, { onDelta: onDelta, cachePrefix: [histPromptBlock() + bankPromptBlock()] });
+        streamHide(true);
+        const res = parseAIJsonNoted(raw, 'the mitigation brainstorm');
+        if (!res || !Array.isArray(res.plans) || !res.plans.length) { alert('Nothing came back — nothing changed.'); return; }
+        const byRid = new Map((raid || []).map(r => [r.id, r]));
+        let wrote = 0, owned = 0, skipped = 0, badOwner = 0;
+        res.plans.forEach(pl => {
+          const r = byRid.get(Number(pl.id)); if (!r) return;
+          const m = String(pl.mitigation || '').trim();
+          const o = String(pl.owner || '').trim();
+          // BLANKS ONLY. A response somebody wrote is never replaced.
+          if (m && !String(r.mitigation || '').trim()) { r.mitigation = m; wrote++; }
+          else if (m) skipped++;
+          /* An owner it invented is worse than no owner: it reads as a real
+             assignment and nobody is expecting it. Only names on the roster. */
+          if (o && !String(r.owner || '').trim()) {
+            if (Object.prototype.hasOwnProperty.call(resources || {}, o)) { r.owner = o; owned++; }
+            else badOwner++;
+          }
+        });
+        saveLocal(); renderRaid(); if (typeof renderPricing === 'function') renderPricing();
+        const left = raidNeedsPlan().length;
+        flashSaved('✨ ' + wrote + ' response' + (wrote === 1 ? '' : 's') + ' drafted'
+          + (owned ? ', ' + owned + ' owner' + (owned === 1 ? '' : 's') + ' assigned' : '')
+          + (skipped ? ', ' + skipped + ' left alone because you had already written one' : '')
+          + (badOwner ? ', ' + badOwner + ' owner suggestion' + (badOwner === 1 ? '' : 's') + ' dropped (not on the roster)' : '')
+          + '. ' + left + ' still without a plan. Review every one — ↶ Undo reverses the pass.');
+      } catch (e) { streamHide(false); alert('The mitigation brainstorm failed: ' + (e.message || e)); }
+    }
     async function aiDraftRaid() {
       if (!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE))) {
         alert('Add your Anthropic API key first (⚙ API Key on the Tasks tab).'); return;
