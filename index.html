@@ -4167,7 +4167,47 @@ Or say what you want, in your own words:
     <!-- ANALYTICS VIEW -->
     <div id="view-analytics" role="tabpanel" class="view">
       <div class="summary-grid" id="summaryGrid"></div>
-      <div class="card" id="bankCard">
+      <!-- ═══ FIVE QUESTIONS, NOT ONE SCROLL ═══════════════════════════════
+           This tab was six cards deep in an order nobody chose: the estimate
+           bank, the standup, plan truth, the health check, and then one card
+           holding the guide, the glossary, the critical path, reserves, cost,
+           earned value, the histogram and the criticality table. The earned
+           value tiles — PV, EV, AC, SV, CV, SPI, CPI, EAC, which are the
+           headline of the whole tab and the thing anyone opens it for before a
+           steering call — sat roughly two thirds of the way down, under a phase
+           table, inside a card labelled "Monte Carlo forecast".
+
+           Same treatment the Resources tab got, for the same reason: grouped by
+           the question each answers, so you can reach one without reading the
+           others.
+
+             Truth    — is this project where it said it would be
+             Money    — what it costs, what we have earned, where it lands
+             Forecast — what the simulation says, and what buffer that needs
+             Health   — what is wrong with the plan as a plan
+             Bank     — what our own track record says our estimates are worth
+
+           Nothing was deleted or rewritten. The panels are the same panels. -->
+      <div class="stab-bar" id="anTabBar" role="tablist" aria-label="Analytics sections"></div>
+      <p class="help-text" id="anIntro" style="margin:0.5rem 0 0.7rem"></p>
+      <div class="card" data-an="money" id="moneyCard">
+        <div class="card-header">
+          <h2><span class="ico" aria-hidden="true">💰</span> Money — cost, earned value &amp; forecast at completion</h2>
+          <div class="toolbar no-print">
+            <button class="btn-secondary btn-sm" onclick="switchTab('baseline')" title="Open Plan vs actual — earned value needs logged actuals to say anything about cost performance">Log actuals</button>
+            <button class="btn-secondary btn-sm" onclick="setBaseline();renderAnalytics()" title="Freeze today's dates, effort and cost as the committed plan. PV and BAC are measured against it — without one, EVM has nothing to compare to.">📌 Set baseline</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="moneyContent">
+            <div class="empty-state">
+              <h3>Run Calculate to see the money</h3>
+              <p>Planned cost, earned value and the forecast at completion appear here.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" data-an="bank" id="bankCard">
         <div class="card-header">
           <h2><span class="ico" aria-hidden="true">📚</span> Estimate bank — your own track record</h2>
           <div class="toolbar no-print">
@@ -4178,12 +4218,12 @@ Or say what you want, in your own words:
         </div>
         <div class="card-body"><div id="bankPanel"></div></div>
       </div>
-      <div class="card" id="standupCard">
+      <div class="card" data-an="truth" id="standupCard">
         <div class="card-body" style="padding-top:0.75rem;padding-bottom:0.75rem">
           <div id="standupBody"></div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" data-an="truth">
         <div class="card-header">
           <h2><span class="ico" aria-hidden="true">⚖️</span> Plan truth — schedule, budget &amp; scope</h2>
           <div class="toolbar no-print">
@@ -4197,7 +4237,7 @@ Or say what you want, in your own words:
           </div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" data-an="health">
         <div class="card-header">
           <h2><span class="ico" aria-hidden="true">🩺</span> Plan Health Check &amp; Trend</h2>
           <div class="toolbar no-print">
@@ -4207,7 +4247,7 @@ Or say what you want, in your own words:
         </div>
         <div class="card-body"><div id="healthContainer"><p class="help-text">Run the health check to lint estimate quality (ranges too narrow, tasks too big, missing scope, top schedule drivers) — with an API key the AI also reviews the plan against your notes and historical data. Status snapshots build the forecast-trend chart here.</p></div></div>
       </div>
-      <div class="card">
+      <div class="card" data-an="forecast">
         <div class="card-header">
           <h2>Monte Carlo forecast &amp; target date</h2>
           <div class="toolbar no-print">
@@ -4236,7 +4276,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0703</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0727</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6616,7 +6656,16 @@ Or say what you want, in your own words:
       document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
       document.getElementById(`view-${name}`).classList.add('active');
       document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-      if (name === 'analytics') { const g = document.getElementById('summaryGrid'); if (g && !g.dataset.entered) animateTiles(); }
+      if (name === 'analytics') {
+        const g = document.getElementById('summaryGrid'); if (g && !g.dataset.entered) animateTiles();
+        /* Paint the sub-tabs on ARRIVAL, not only from renderAnalytics — which
+           returns before it draws anything when the plan has not been
+           calculated. Without this, opening Analytics on an uncalculated plan
+           showed all five sections stacked, because nothing had set the
+           display on any of them yet: the exact long scroll the split exists
+           to remove, on the one visit where the reader is least oriented. */
+        if (typeof paintAnTabs === 'function') paintAnTabs();
+      }
       updateTabSlider();
       // an in-flight AI stream follows you: inline on the Tasks tab, floating
       // bottom-right on every other tab
@@ -15892,7 +15941,108 @@ Or say what you want, in your own words:
       flashSaved('🎯 Target date set to ' + fmtNice(d) + ' — P' + Math.round(cf));
     }
 
+    /* ═══ ANALYTICS SUB-TABS ═════════════════════════════════════════════════
+       Same machinery as RES_TABS, deliberately: two tabs in one product that
+       both split a long panel should not do it two different ways, and a reader
+       who has learned one bar has learned both.
+
+       The bar is painted from the SAME list the sections are keyed on, so a
+       section cannot exist without a way to reach it — which is how a panel
+       ends up unreachable and nobody notices for a month. Membership is a
+       data-an attribute on the card, so putting a card in a section is one
+       attribute and never an edit here. */
+    const AN_TABS = [
+      { k: 'truth',    lbl: 'Truth',
+        intro: 'Is this project where it said it would be? Schedule, budget and scope as one bar each on one '
+             + 'shared scale, measured against the baseline — and the day’s standup read off the same data.' },
+      { k: 'money',    lbl: 'Money',
+        intro: 'What it costs, what has been earned, and where it lands. Planned cost against budget, then '
+             + 'earned value: PV is what the baseline says should be done by today, EV what actually is, AC '
+             + 'what was spent. CPI below 1.00 means every dollar spent is buying less than a dollar of plan.' },
+      { k: 'forecast', lbl: 'Forecast',
+        intro: 'What the simulation says. Every activity is sampled from its O/M/P range and the whole schedule '
+             + 'recomputed, thousands of times, which turns estimates into probabilities. Commit to P80 rather '
+             + 'than to the mean, and size the reserves off the gap between them.' },
+      { k: 'health',   lbl: 'Health',
+        intro: 'What is wrong with the plan AS A PLAN — ranges too narrow to be honest, activities too big to '
+             + 'track, scope with nobody on it, work recorded as finished before its own baseline opens.' },
+      { k: 'bank',     lbl: 'Bank',
+        intro: 'What your own track record says your estimates are worth: every measured activity from every '
+             + 'past engagement, and the correction it implies for this one.' }
+    ];
+    let anTab = 'truth';
+    try { const v = localStorage.getItem('pertGantt.anTab');
+      if (v && AN_TABS.some(t => t.k === v)) anTab = v; } catch (e) {}
+    function setAnTab(k) {
+      if (!AN_TABS.some(t => t.k === k)) return;
+      anTab = k;
+      try { localStorage.setItem('pertGantt.anTab', k); } catch (e) {}
+      paintAnTabs();
+    }
+    /* Every link into this tab now has to say which section it meant. Before
+       the split, switchTab('analytics') was a complete instruction; with five
+       sections it is not, and a "size the buffer from P80" button landing on
+       the Bank because that is where you happened to be last is worse than the
+       crowded page it replaced, because the button stops doing what it says. */
+    function anGoto(k) { setAnTab(k); switchTab('analytics'); }
+    function paintAnTabs() {
+      const view = document.getElementById('view-analytics');
+      if (view) view.querySelectorAll('[data-an]').forEach(el => {
+        el.style.display = el.getAttribute('data-an') === anTab ? '' : 'none';
+      });
+      const bar = document.getElementById('anTabBar');
+      if (bar) bar.innerHTML = AN_TABS.map(t => {
+        const c = anTabCount(t.k);
+        return '<button type="button" class="stab" role="tab" aria-selected="' + (t.k === anTab)
+          + '" onclick="setAnTab(\'' + t.k + '\')">' + escapeHtml(t.lbl)
+          + (c && c.n ? '<span class="stab-n' + (c.warn ? ' stab-warn' : '') + '" title="'
+              + escapeHtml(c.tip || '') + '">' + escapeHtml(String(c.n)) + '</span>' : '') + '</button>';
+      }).join('');
+      const intro = document.getElementById('anIntro');
+      const cur = AN_TABS.find(t => t.k === anTab);
+      if (intro) { intro.textContent = cur ? cur.intro : ''; intro.style.display = cur ? '' : 'none'; }
+    }
+    /* A badge is only worth its space if it changes what you would click. So
+       these count things that mean "there is something in here you have not
+       seen", never how many rows a table happens to have — a badge reading 47
+       beside a tab called Bank tells you the bank has 47 rows, which you could
+       have guessed, and trains you to stop reading badges. */
+    function anTabCount(k) {
+      try {
+        if (k === 'health') {
+          const f = (typeof lintPlan === 'function') ? lintPlan() : [];
+          if (!f.length) return null;
+          const hi = f.filter(x => /high|critical/i.test(String(x.severity || ''))).length;
+          return { n: f.length, warn: hi > 0,
+            tip: f.length + ' finding' + (f.length === 1 ? '' : 's')
+              + (hi ? ', ' + hi + ' of them high severity' : '') };
+        }
+        if (k === 'money') {
+          if (!calculated || !hasBaseline()) return null;
+          /* Same three calls the tiles make — earnedValue, actualCostOf summed
+             over the leaves — rather than a second arithmetic for the badge. A
+             badge that can disagree with the panel it points at is worse than
+             no badge. */
+          const ev = earnedValue(hasBaseline());
+          const ac = leafTasks().reduce((sx, t) => sx + actualCostOf(t), 0);
+          if (!(ac > 0) || !(ev >= 0)) return null;
+          const cpi = ev / ac;
+          if (!(cpi > 0) || cpi >= 1) return null;
+          return { n: '!', warn: true, tip: 'CPI is ' + cpi.toFixed(2)
+            + ' — every dollar spent is buying less than a dollar of plan' };
+        }
+        if (k === 'forecast') {
+          if (!mcResult || !(mcResult.p50 > 0)) return null;
+          const over = Math.round((mcResult.p80 - mcResult.p50) / mcResult.p50 * 100);
+          if (over < 15) return null;
+          return { n: '!', warn: true, tip: 'P80 sits ' + over + '% beyond P50 — the estimates carry enough '
+            + 'spread that the mean is not a date to commit to' };
+        }
+      } catch (e) {}
+      return null;
+    }
     function renderAnalytics() {
+      paintAnTabs();
       if (!calculated) return;
       const leaves = leafTasks();
       const projectDuration = Math.max(0, ...leaves.map(t => t.ef), 0);
@@ -16373,11 +16523,19 @@ Or say what you want, in your own words:
           <li><strong>Overall progress:</strong> ${prog.toFixed(1)}% complete (TE-weighted)</li>
         </ul>
         ${reservesBlock}
-        ${costBlock}
         ${histBlock}
         ${critTable}
         <p class="help-text" style="margin-top:1rem">Monte Carlo samples each activity from a Beta-PERT distribution and re-runs the critical-path calculation ${mcResult ? mcResult.iters.toLocaleString() : ''} times — more robust than the normal approximation, especially for skewed estimates. Use P80/P90 dates for commitments, not the deterministic mean.</p>
       `;
+      /* THE MONEY GETS ITS OWN CARD, which is the whole point of this change.
+         Cost, earned value and the re-forecast used to be `${costBlock}` two
+         thirds of the way down a card headed "Monte Carlo forecast & target
+         date" — under the critical path, under the reserves — so the eight
+         tiles anyone opens this tab for before a steering call were something
+         you scrolled past the simulation to reach, inside a card that does not
+         claim to be about money. Same block, same arithmetic, its own home. */
+      const moneyHost = document.getElementById('moneyContent');
+      if (moneyHost) moneyHost.innerHTML = costBlock;
     }
 
     // ========================= GANTT (SVG) =========================
@@ -17764,13 +17922,26 @@ Or say what you want, in your own words:
         const predChips = (t.predecessors || []).map(pd => { const pt = idToW[pd.id]; return pt ? `<span style="white-space:nowrap" title="${escapeHtml('Waits for ' + (pt.wbs ? pt.wbs + ' ' : '') + pt.name + ' (' + pd.type + lagStr(pd.lag) + ')')}">↤ ${escapeHtml(pt.wbs || pt.name)}</span>` : ''; }).filter(Boolean);
         const succChips = (succOfW[t.id] || []).map(s2 => `<span style="white-space:nowrap" title="${escapeHtml('Feeds ' + (s2.t.wbs ? s2.t.wbs + ' ' : '') + s2.t.name + ' (' + s2.type + lagStr(s2.lag) + ')')}">↦ ${escapeHtml(s2.t.wbs || s2.t.name)}</span>`);
         const linksCell = predChips.concat(succChips).join(' · ') || '<span class="help-text">—</span>';
-        const dur = t.milestone ? '◆' : (calculated ? fmtDur(t.te) : '—');
+        /* The dictionary gets the same milestone treatment the activity list
+           got, because it is the same question asked on a different page: a
+           gate row read ◆ ◆ $0 across duration, work and cost, and a reader
+           landing on "Project Closed" learned nothing about what closing it
+           took. The columns stay honest — the gate really is zero of all three
+           — and the reach goes under the name where it cannot be mistaken for
+           a per-row figure. */
+        const msDur = t.milestone
+          ? '<span style="cursor:help" title="' + escapeHtml('A milestone has no duration of its own — it is '
+              + 'the moment the work before it is finished.' + (calculated ? '\n\n' + milestoneReachTip(t) : ''))
+            + '">◆</span>'
+          : '';
+        const dur = t.milestone ? msDur : (calculated ? fmtDur(t.te) : '—');
+        const msReachW = (t.milestone && calculated) ? milestoneReachChips(t) : '';
         const twisty = t.isSummary
           ? `<button class="wbs-twisty" onclick="event.stopPropagation();toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
           : '<span class="wbs-twisty-spacer"></span>';
         return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
           <td style="white-space:nowrap">${ekTask(t)}</td>
-          <td style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span></td>
+          <td style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span>${msReachW}</td>
           <td style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : personCell(t.owner)}</td>
           <td class="num">${dur}</td>
           <td class="num" title="${escapeHtml(workCellTip(t))}">${(() => {
@@ -17782,7 +17953,7 @@ Or say what you want, in your own words:
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.startDate) : '—'}</td>
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.finishDate) : '—'}</td>
           <td class="num">${calculated ? (t.percentComplete || 0) + '%' : '—'}</td>
-          ${anyCost ? `<td class="num" style="font-size:0.8rem">${fmtMoney(taskCost(t))}</td>` : ''}
+          ${anyCost ? `<td class="num" style="font-size:0.8rem${t.milestone ? ';cursor:help' : ''}"${t.milestone ? ` title="${escapeHtml('A milestone spends nothing — the money behind the gate is on the activities that spend it.' + (calculated ? '\n\n' + milestoneReachTip(t) : ''))}"` : ''}>${fmtMoney(taskCost(t))}</td>` : ''}
           <td style="font-size:0.78rem;max-width:260px;min-width:170px">${(() => {
             const ins = t.isSummary ? [] : taskInputs(t);
             if (!ins.length) return t.isSummary || t.milestone ? '<span class="help-text">—</span>'
@@ -24272,6 +24443,11 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       const empt = document.getElementById('summaryGrid'); if (empt) empt.innerHTML = '';
       const pt = document.getElementById('planTruth'); if (pt) pt.innerHTML = '<p class="ptr-blank"><b>Nothing to compare yet.</b> Add activities and press <b>Calculate</b>.</p>';
       const ac = document.getElementById('analyticsContent'); if (ac) ac.innerHTML = '<div class="empty-state"><h3>Run Calculate to see analytics</h3></div>';
+      /* The money card is its own host now, so it needs its own clear. A reset
+         that empties one of two panels leaves the previous project's earned
+         value on screen under a new project's name. */
+      const mc2 = document.getElementById('moneyContent');
+      if (mc2) mc2.innerHTML = '<div class="empty-state"><h3>Run Calculate to see the money</h3></div>';
     }
 
     // ========================= AI PLAN BUILDER =========================

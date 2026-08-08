@@ -313,6 +313,18 @@ const QA = JSON.parse(fs.readFileSync(
          So measure what is on screen. A mark with height and no width is
          invisible, and so is one with width and no height. */
       switchTab('analytics');
+      /* The Analytics tab is five sub-tabs now, and geometry only exists on the
+         open one — an inactive section is display:none, so every bar measures
+         0×0 and this check reported "the histogram drew no visible bar at all"
+         on a build where it drew perfectly. That reading was WRONG but the
+         check was not being silly: a mark with no box is exactly what it is
+         paid to find. The fix is to look where the chart now lives.
+
+         Deliberately setAnTab and not a direct style poke: if the histogram
+         ever moves to a section this line does not name, the check should go
+         red, because a chart nobody can navigate to is the same defect as a
+         chart that draws nothing. */
+      if (typeof setAnTab === 'function') setAnTab('forecast');
       {
         const marks = [...document.querySelectorAll('.mch-wrap .mch-b > i')];
         if (marks.length) {

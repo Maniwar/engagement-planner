@@ -190,6 +190,72 @@ const { chromium } = requirePlaywright();
   sub.bad.forEach(x => bad.push(x));
   note.teamSections = sub.out;
 
+  /* ═══ 1a. THE ANALYTICS SECTIONS, THE SAME WAY ═══════════════════════════
+     Analytics was split into five sub-tabs for the same reason Resources was:
+     six cards in one scroll, with the earned-value tiles — the headline of the
+     whole tab — two thirds of the way down inside a card labelled "Monte Carlo
+     forecast". Splitting a panel introduces exactly one new failure mode, and
+     it is silent: a section with no button, or a button with no section, means
+     content that is still in the file and no longer reachable by anybody. That
+     is strictly worse than the crowded page, because a crowded page at least
+     admits everything it holds.
+
+     So the same three questions the Resources check asks. Every section has a
+     button. Every section paints something. No two sections paint the SAME
+     something, which is how you catch a bar wired to a panel that does not
+     exist — the check that would have caught it if the split had been done
+     wrong, rather than a check that agrees with whatever the code does. */
+  const an = await page.evaluate(() => {
+    const bad = [], out = {}, seen = {};
+    switchTab('analytics');
+    if (typeof AN_TABS === 'undefined') return { bad: ['the analytics sub-tabs are gone entirely'], out };
+    AN_TABS.forEach(t => {
+      setAnTab(t.k);
+      const view = document.getElementById('view-analytics');
+      const vis = [...view.querySelectorAll('[data-an]')].filter(e => e.offsetHeight > 0);
+      const txt = vis.map(e => (e.textContent || '')).join(' ').replace(/\s+/g, ' ').trim();
+      seen[t.k] = txt;
+      const btn = [...document.querySelectorAll('#anTabBar .stab')]
+        .find(b => (b.textContent || '').indexOf(t.lbl) === 0);
+      if (!btn) bad.push('Analytics :: "' + t.lbl + '" is a section with no button that reaches it');
+      else if (btn.getAttribute('aria-selected') !== 'true')
+        bad.push('Analytics :: selecting "' + t.lbl + '" left a different button marked as the current one');
+      if (!vis.length)
+        bad.push('Analytics :: "' + t.lbl + '" shows no card at all — the section is unreachable content');
+      if (txt.length < 40)
+        bad.push('Analytics :: "' + t.lbl + '" paints ' + txt.length + ' characters — the section is a dead end');
+      const leaked = vis.filter(e => e.getAttribute('data-an') !== t.k).map(e => e.getAttribute('data-an'));
+      if (leaked.length)
+        bad.push('Analytics :: "' + t.lbl + '" also shows the ' + [...new Set(leaked)].join(', ')
+          + ' section — the split is not actually splitting anything');
+    });
+    /* THE HEADLINE HAS TO BE ON THE MONEY SECTION. This is the reason the tab
+       was split, so it is asserted rather than left to the eye: earned value on
+       Money, and NOT still sitting inside the forecast card as well. */
+    setAnTab('money');
+    const mh = document.getElementById('moneyContent');
+    if (!mh || !/Earned value/.test(mh.textContent || ''))
+      bad.push('Analytics :: the Money section does not carry the earned-value block, which is the whole '
+        + 'reason it exists as a section');
+    setAnTab('forecast');
+    const fh = document.getElementById('analyticsContent');
+    if (fh && /Earned value/.test(fh.textContent || ''))
+      bad.push('Analytics :: the earned-value block is ALSO still inside the Monte Carlo card — two copies '
+        + 'of the same tiles can drift into printing two different answers on one tab');
+    const keys = Object.keys(seen);
+    for (let i = 0; i < keys.length; i++)
+      for (let j = i + 1; j < keys.length; j++)
+        if (seen[keys[i]] && seen[keys[i]] === seen[keys[j]])
+          bad.push('Analytics :: "' + keys[i] + '" and "' + keys[j] + '" paint exactly the same thing, so one '
+            + 'of them is wired to the wrong panel');
+    out.sections = keys.length;
+    out.sizes = keys.map(k => k + ':' + seen[k].length);
+    setAnTab('truth');
+    return { bad, out };
+  });
+  an.bad.forEach(x => bad.push(x));
+  note.analyticsSections = an.out;
+
   /* ═══ 1b. A READING YOU CAN REACH ═══════════════════════════════════════
      The spend curve's readout names the activities behind the day you point at,
      each as a button that opens it. The buttons sit BELOW the chart, so moving
