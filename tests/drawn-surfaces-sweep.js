@@ -1102,8 +1102,39 @@ const QA = JSON.parse(fs.readFileSync(
           if (!/LONGER/.test(tip))
             say('Work cell', 'work exceeds duration and the explanation does not say why: "' + tip + '"');
         }
-        if (workCellTip(tasks.find(x => x.milestone) || null) !== '')
-          say('Work cell', 'a milestone carries a work explanation, though it holds no work');
+        /* ═══ A MILESTONE'S WORK CELL ══════════════════════════════════════
+           This asserted the tip was the EMPTY STRING. That is an
+           implementation choice, not the property worth protecting, and it
+           went red on a build where the milestone's cell started explaining
+           itself — "a milestone consumes no effort, nobody works ON a date" —
+           which is strictly more honest than the silence it replaced. Root
+           cause 2 again: anchored to how the answer was spelled rather than to
+           what it says.
+
+           What actually matters, in both directions:
+             · the cell must not be a bare diamond with nothing behind it — an
+               unexplained symbol is a question the reader cannot answer, and
+               this is exactly what was reported on the live build;
+             · and whatever it says, it must SAY the milestone holds no work,
+               so the reach figures printed beside it (what it took to get to
+               the gate) can never be read as the gate's own size.
+           The second is the one that would cost money if it broke, so the
+           identity behind it — plannedEffortUnit is still zero — is asserted
+           here too rather than trusted to the prose. */
+        const msT = tasks.find(x => x.milestone) || null;
+        if (msT) {
+          const mtip = (typeof workCellTip === 'function') ? workCellTip(msT) : '';
+          out.milestoneWorkTip = mtip.slice(0, 80);
+          if (!mtip)
+            say('Work cell', 'a milestone\'s work cell is a bare diamond with no explanation — the reader '
+              + 'is left to guess whether that means zero, unknown, or not applicable');
+          else if (!/no effort|no work|not work|zero/i.test(mtip))
+            say('Work cell', 'a milestone\'s work cell explains itself without ever saying it holds no '
+              + 'work: "' + mtip.slice(0, 90) + '"');
+          if (plannedEffortUnit(msT) !== 0)
+            say('Work cell', 'a milestone contributes ' + plannedEffortUnit(msT) + ' to the effort rollup — '
+              + 'whatever its cell says, the plan is counting the gate as work');
+        }
         t2.units = k.u; t2.attendees = k.a; t2.participants = k.p; calculate();
       })();
 

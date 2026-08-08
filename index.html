@@ -1080,6 +1080,16 @@
       font-size: var(--t-sm); color: var(--muted); line-height: 1.5; }
     .wl-when { font-variant-numeric: tabular-nums; }
     .wl-late { color: var(--critical); font-weight: 700; }
+    /* The milestone's reach, under its name. Recessive on purpose: it is
+       context for the gate, not a competing row, and the numbers it carries are
+       cumulative where every other number on that line is per-row. The dotted
+       underline says "there is more here" without adding a control. */
+    .ms-reach { display: block; font-size: var(--t-xs); color: var(--muted); cursor: help;
+      margin: 1px 0 0; padding-left: 1.35rem; letter-spacing: .01em;
+      border-bottom: 1px dotted transparent; width: fit-content; }
+    .ms-reach b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ms-reach:hover { border-bottom-color: var(--border); }
+    .ms-reach-none { font-style: italic; }
     /* .wl-crit is gone: "critical path" was a second line under the status
        sentence, and is now the red left edge on the one status chip — the same
        treatment the activity list uses, for the same reason. */
@@ -4226,7 +4236,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0645</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0703</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -9087,7 +9097,13 @@ Or say what you want, in your own words:
         <button class="btn-sm btn-secondary" onclick="cleanupRedundantLinks()" title="Removes only the redundant links — the schedule is IDENTICAL (the chain already gates them); the charts and exports get cleaner. ↶ Undo restores.">Remove ${redun.length} link(s)</button></td></tr>` : '';
       tbody.innerHTML = totalRow + alarmRow + tcRow + redunRow + visibleWbsOrder().map(({ task: t, depth }) => {
         const summary = t.isSummary;
-        const teStr = t.milestone ? '◆' : (calculated ? fmtDur(t.te) : '—');
+        /* The diamond explains itself on hover instead of being a symbol you
+           either know or do not: zero of its own, and what it took to reach it. */
+        const teStr = t.milestone
+          ? '<span title="' + escapeHtml('A milestone has no duration of its own — it is the moment the '
+              + 'work before it is finished.' + (calculated ? '\n\n' + milestoneReachTip(t) : ''))
+            + '" style="cursor:help">◆</span>'
+          : (calculated ? fmtDur(t.te) : '—');
         const slackStr = calculated ? (Math.abs(t.slack) < 0.05 ? '0.0' : t.slack.toFixed(1)) : '—';
         const st = taskStatus(t);
         /* ═══ ONE MARK, ONE WORD, AND THE WORD ONLY WHEN IT EARNS ITS PLACE ═══
@@ -9135,7 +9151,14 @@ Or say what you want, in your own words:
         const twisty = summary
           ? `<button class="wbs-twisty" onclick="toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
           : '<span class="wbs-twisty-spacer"></span>';
-        const nameCell = `<span style="display:inline-flex;align-items:center;padding-left:${depth * 16}px">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}${taxChip(t)}</span>`;
+        /* A milestone row carries its REACH under its name — elapsed, work,
+           money, progress for everything upstream of the gate. It goes here and
+           not in TE or WORK because those columns mean "this row's own size",
+           and a cumulative number sitting in a per-row column is the same
+           mistake as the Gantt bar that read 2.1 over a one-day activity. The
+           columns keep saying zero, which is true. */
+        const msReach = (t.milestone && calculated) ? milestoneReachChips(t) : '';
+        const nameCell = `<span style="display:${msReach ? 'block' : 'inline-flex'};align-items:center;padding-left:${depth * 16}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}${taxChip(t)}</span>${msReach}</span>`;
         const pctCell = summary
           ? `<span title="Rolled up automatically from sub-tasks, weighted by expected duration (TE) — check off the children and this updates itself">${calculated ? (t.percentComplete || 0) + '%' : '—'} <span class="help-text" style="font-size:0.65rem">auto</span></span>`
           : (t.milestone && effectivePreds(t).length)
@@ -9158,7 +9181,7 @@ Or say what you want, in your own words:
           <td${a}${ed('m')}>${summary ? rollCell(t.mUp, 'most-likely') : t.milestone ? '—' : fmtDurCell(t.m)}</td>
           <td${a}${ed('p')}>${summary ? rollCell(t.pUp, 'pessimistic') : t.milestone ? '—' : fmtDurCell(t.p)}</td>
           <td${a}><strong>${noEst ? '⚠ 0' : teStr}</strong></td>
-          <td${a} style="color:#475569" title="${escapeHtml(workCellTip(t))}">${(() => {
+          <td${a} style="color:#475569${t.milestone ? ';cursor:help' : ''}" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.milestone) return '◆';
             if (!calculated) return '—';
             const w = t.isSummary
@@ -11260,7 +11283,11 @@ Or say what you want, in your own words:
        arithmetic was right and the table never said why, which is the same
        thing as being wrong to the person reading it. */
     function workCellTip(t) {
-      if (!t || t.milestone) return '';
+      if (!t) return '';
+      /* A milestone consumes no work, and saying only that leaves the reader
+         with a diamond and no answer to the question they came with. */
+      if (t.milestone) return 'A milestone consumes no effort — nobody works ON a date. '
+        + (calculated ? '\n\n' + milestoneReachTip(t) : 'Press Calculate schedule to see what it took to reach it.');
       if (t.isSummary) {
         const kids = leafDescendants(t.id).filter(x => !x.milestone);
         const w = kids.reduce((a, x) => a + workingDaysToUnit(plannedEffortDays(x)), 0);
@@ -11276,6 +11303,104 @@ Or say what you want, in your own words:
       return fmtDurCell(t.te || 0) + ' open \u00d7 ' + (Math.round(tot * 10) / 10) + '% = ' + fmtDurCell(w)
         + ' of work' + (who ? ' \u2014 ' + who : '')
         + (tot > 100 ? '. More than one person is on this, so the work is LONGER than the time it is open: a 30-minute call with two people is an hour of somebody\u2019s time.' : '');
+    }
+    /* ═══ WHAT IT TOOK TO GET HERE ═══════════════════════════════════════════
+       A milestone row is five em-dashes and two diamonds. That is correct as
+       far as it goes: a milestone is a DATE, not work — it has no duration and
+       no effort, and the moment it gets either, every rollup that touches it
+       double-counts. So O/M/P/TE/WORK stay exactly as they are and this number
+       never feeds them.
+
+       But the question you ask AT a gate is not "how big is this diamond". It
+       is "what did it take to get here" — how long, how much work, how much
+       money, how much of it is actually done. All four are already in the file
+       and nothing on screen added them up. So: the transitive predecessor
+       closure of the milestone, resolved to LEAVES, using the same
+       plannedEffortDays / taskCost / TE-weighted-percent rules every other
+       surface uses. A summary in the closure contributes through its children
+       and never twice, which is the same rule the WORK column already follows.
+
+       `span` is calendar days from the earliest start anywhere upstream to the
+       milestone's own date — the elapsed reach, deliberately NOT the sum of the
+       durations, because upstream work runs in parallel and adding spans is the
+       mistake this codebase has made before (#84).
+
+       Cycles are guarded the way redundantLinkList guards them: a malformed
+       plan renders a smaller number rather than hanging the tab. */
+    function milestoneReach(t) {
+      if (!t || !t.milestone) return null;
+      const byId = {};
+      tasks.forEach(x => { byId[x.id] = x; });
+      const seen = new Set(), leafIds = new Set(), leaves = [];
+      const take = x => { if (!x || x.milestone || x.isSummary || leafIds.has(x.id)) return;
+        leafIds.add(x.id); leaves.push(x); };
+      const walk = id => {
+        if (seen.has(id)) return;
+        seen.add(id);
+        const x = byId[id];
+        if (!x) return;
+        if (x.isSummary) leafDescendants(x.id).forEach(k => { take(k); (k.predecessors || []).forEach(p => walk(p.id)); });
+        else take(x);
+        (x.predecessors || []).forEach(p => walk(p.id));
+      };
+      (t.predecessors || []).forEach(p => walk(p.id));
+      let effort = 0, cost = 0, teSum = 0, teDone = 0, done = 0, logged = 0, anyLog = false, earliest = null;
+      leaves.forEach(x => {
+        effort += workingDaysToUnit(plannedEffortDays(x));
+        cost += taskCost(x);
+        const te = Number(x.te) || 0, pc = Number(x.percentComplete) || 0;
+        teSum += te; teDone += te * pc / 100;
+        if (pc >= 100) done++;
+        const ae = actualEffortDays(x);
+        if (ae != null) { logged += workingDaysToUnit(ae); anyLog = true; }
+        if (isRealDate(x.startDate)) {
+          const s = stripTime(x.startDate);
+          if (!earliest || s < earliest) earliest = s;
+        }
+      });
+      const end = isRealDate(t.startDate) ? stripTime(t.startDate) : null;
+      return { n: leaves.length, effort: effort, cost: cost,
+        span: (earliest && end) ? Math.abs(calDaysBetween(earliest, end)) + 1 : null,
+        from: earliest, at: end,
+        pct: leaves.length === 0 ? 0
+          : teSum > 0 ? Math.round(teDone / teSum * 100) : Math.round(done / leaves.length * 100),
+        done: done, logged: anyLog ? logged : null };
+    }
+    /* One sentence, built once, so the table cell, the editor and the Gantt
+       marker cannot describe the same gate three different ways. */
+    function milestoneReachTip(t) {
+      const r = milestoneReach(t);
+      if (!r) return '';
+      if (!r.n) return 'Nothing feeds this milestone yet. Link the activities it depends on and this will '
+        + 'show what it took to reach it.';
+      return 'What it took to reach this gate: ' + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies') + ', '
+        + fmtDurCell(r.effort) + ' of work, ' + fmtMoney(r.cost)
+        + (r.span != null ? ', over ' + r.span + ' calendar day' + (r.span === 1 ? '' : 's')
+            + ' from ' + fmtNice(r.from) + ' to ' + fmtNice(r.at) : '')
+        + '. ' + r.done + ' of ' + r.n + ' finished — ' + r.pct + '% by effort'
+        + (r.logged != null ? '; ' + fmtDurCell(r.logged) + ' logged against ' + fmtDurCell(r.effort)
+            + ' planned' : '')
+        + '.\n\nThe milestone itself is still zero, because it is a date and not work. This is the reach '
+        + 'behind it and it is display only — it never enters the schedule, the critical path or the '
+        + 'price, all of which already count these same activities once each.';
+    }
+    /* The compact form for the row: elapsed, work, money, progress. */
+    function milestoneReachChips(t) {
+      const r = milestoneReach(t);
+      if (!r) return '';
+      if (!r.n) return '<span class="ms-reach ms-reach-none" title="'
+        + escapeHtml(milestoneReachTip(t)) + '">nothing feeds this gate yet</span>';
+      /* Both numbers are LABELLED. "44d · 52.88d" put a calendar span and a
+         work total side by side wearing the same unit — the reader has no way
+         to tell which is which, and this is the one confusion the whole app has
+         spent the most effort keeping straight (#84). Elapsed is calendar days
+         and always will be; work is in the plan's chosen unit, so it takes the
+         word rather than a suffix. */
+      return '<span class="ms-reach" title="' + escapeHtml(milestoneReachTip(t)) + '">to here:'
+        + (r.span != null ? ' <b>' + r.span + '</b> days elapsed ·' : '')
+        + ' <b>' + escapeHtml(fmtDurCell(r.effort)) + '</b> of work'
+        + ' · <b>' + escapeHtml(fmtMoney(r.cost)) + '</b>'
+        + ' · <b>' + r.pct + '%</b> done</span>';
     }
     function plannedEffortUnit(t, useBaseline) {
       if (!t || t.milestone) return 0;

@@ -379,9 +379,70 @@ const DATA = FIXTURE();
     if (crit.length && namesShown < crit.length)
       say('Analytics tab', 'lists ' + namesShown + ' of the ' + crit.length + ' zero-slack activities in the critical path');
 
+    /* ═══ A MILESTONE'S REACH IS A READOUT, NEVER AN INPUT ══════════════════
+       Milestone rows now print what it took to get to them: the elapsed span,
+       the work and the money of everything upstream. That number is CUMULATIVE
+       and every other number on the row is per-row, so the whole risk of the
+       feature is that it leaks — into te, into the effort rollup, into taskCost,
+       into the project total. Any of those double-counts every activity feeding
+       the gate, which on a plan like this is most of them.
+
+       So the reach has to be RIGHT (recomputed here off the raw fields, by a
+       breadth-first walk written differently from the product's depth-first
+       one), and the milestone has to still be ZERO everywhere the plan sums. */
+    const msReach = { milestones: 0, checked: 0 };
+    if (typeof milestoneReach === 'function') {
+      const byId = {}; tasks.forEach(t => { byId[t.id] = t; });
+      const before = { cost: projectCost(),
+        effort: leafTasks().reduce((a, t) => a + plannedEffortUnit(t), 0) };
+      tasks.filter(t => t.milestone).forEach(m => {
+        msReach.milestones++;
+        const r = milestoneReach(m);
+        const out = new Set(), seen = new Set(), stack = (m.predecessors || []).map(p => p.id);
+        while (stack.length) {
+          const id = stack.shift(); if (seen.has(id)) continue; seen.add(id);
+          const x = byId[id]; if (!x) continue;
+          if (x.isSummary) leafDescendants(x.id).forEach(k => { if (!k.milestone) out.add(k.id);
+            (k.predecessors || []).forEach(p => stack.push(p.id)); });
+          else if (!x.milestone) out.add(x.id);
+          (x.predecessors || []).forEach(p => stack.push(p.id));
+        }
+        const mine = [...out].map(i => byId[i]);
+        const myEff = mine.reduce((a, x) => a + workingDaysToUnit(plannedEffortDays(x)), 0);
+        const myCost = mine.reduce((a, x) => a + taskCost(x), 0);
+        if (r.n !== mine.length)
+          say('Milestone "' + m.name + '"', 'reports ' + r.n + ' activities behind the gate; an independent '
+            + 'closure of the dependency graph finds ' + mine.length);
+        if (Math.abs(r.effort - myEff) > 0.02)
+          say('Milestone "' + m.name + '"', 'reports ' + r.effort.toFixed(2) + ' of work behind the gate '
+            + 'against an independent ' + myEff.toFixed(2));
+        if (Math.abs(r.cost - myCost) > 0.5)
+          say('Milestone "' + m.name + '"', 'reports ' + Math.round(r.cost) + ' of cost behind the gate '
+            + 'against an independent ' + Math.round(myCost));
+        /* THE LEAK CHECKS. If any of these stops being zero, the reach has been
+           wired into something that adds up. */
+        if ((Number(m.te) || 0) !== 0)
+          say('Milestone "' + m.name + '"', 'has a duration of ' + m.te + ' — a milestone is a date, and a '
+            + 'duration here lands in the critical path and the finish date');
+        if (plannedEffortUnit(m) !== 0)
+          say('Milestone "' + m.name + '"', 'contributes ' + plannedEffortUnit(m) + ' to the effort rollup — '
+            + 'the work behind a gate is already counted on the activities that do it, so this is double');
+        if (Math.abs(taskCost(m) - (Number(m.fixedCost) || 0)) > 0.005)
+          say('Milestone "' + m.name + '"', 'costs ' + Math.round(taskCost(m)) + ' beyond its own fixed cost — '
+            + 'the money behind a gate is already on the activities that spend it');
+        msReach.checked++;
+      });
+      const after = { cost: projectCost(),
+        effort: leafTasks().reduce((a, t) => a + plannedEffortUnit(t), 0) };
+      if (Math.abs(after.cost - before.cost) > 0.005 || Math.abs(after.effort - before.effort) > 0.005)
+        say('Milestone reach', 'reading it changed the project totals (cost ' + Math.round(before.cost)
+          + '→' + Math.round(after.cost) + ', effort ' + before.effort.toFixed(2) + '→'
+          + after.effort.toFixed(2) + ') — it is a readout and must not touch the plan');
+    }
+
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
 
-    return { contradictions: bad, linkTypes: linkCover,
+    return { contradictions: bad, linkTypes: linkCover, msReach: msReach,
              counts: { leaves: leaves().length, edges, violated, critical: crit.length, nonWorking },
              projectFinish: +projEf.toFixed(3),
              reserves: { cpm: +rv.cpmUnits.toFixed(2), committed: +rv.committedUnits.toFixed(2),
