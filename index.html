@@ -3045,6 +3045,12 @@
           <div class="grp">Actions</div>
           <button onclick="loadSample()">Load sample engagement</button>
           <button class="btn-ghost btn-sm" id="diskAutoBtn" onclick="setupDiskAutosave()" title="Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true"></span> Auto-save to file</button>
+          <div class="grp">Team</div>
+          <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect()" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🌳</span> Team trunk…</button>
+          <div id="trunkOps" style="display:none">
+            <button class="btn-ghost btn-sm" onclick="trunkPull()" style="border:none;color:var(--text)" title="Read the shared file and take anything newer. If you have changed nothing since you last shared, it applies straight through — nothing of yours can be lost."><span class="ico" aria-hidden="true">⬇</span> Pull latest</button>
+            <button class="btn-ghost btn-sm" onclick="trunkPush()" style="border:none;color:var(--text)" title="Append your versions to the shared file. Refuses if the trunk has moved since you last pulled, because appending onto a history missing somebody else's work is what creates a gap."><span class="ico" aria-hidden="true">⬆</span> Push mine</button>
+          </div>
           <button onclick="newProject(false)"><span class="ico" aria-hidden="true">➕</span> New project</button>
           <button onclick="newProject(true)"><span class="ico" aria-hidden="true">⧉</span> Duplicate current</button>
           <button onclick="deleteProject()" style="color:#b91c1c"><span class="ico" aria-hidden="true">🗑</span> Delete current</button>
@@ -4187,7 +4193,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0403</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0537</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5398,6 +5404,241 @@ Or say what you want, in your own words:
         } catch (e) { if (!diskWarned) { diskWarned = true; flashSaved('⚠ File autosave failed: ' + (e.message || e)); } }
       }, 800);
     }
+    /* ═══════════════════════════════════════════════════════════════════
+       THE TEAM TRUNK — one shared file that ACCUMULATES instead of one that
+       gets overwritten.
+
+       The personal autosave writes the WHOLE plan every time, which is why it
+       can only ever have one writer: two people pointed at it and the second
+       write does not merge the first, it replaces it. The guard that stops
+       that is honest but it is a refusal — it makes the situation impossible
+       rather than making it work, so a team of four still passes files around
+       by hand and merges pairwise.
+
+       A trunk holds the LIST OF VERSIONS that produced the plan. Nobody
+       overwrites; everybody appends. To get the latest you read the list and
+       take the end of it.
+
+       THE REASON IS NOT TIDINESS, IT IS FAILURE MODE. When a whole-plan
+       overwrite collides, the losing work is gone and nothing records that it
+       existed — no error, no trace, which is the exact defect the writer guard
+       had to forbid outright. Here every entry names its parent, so a lost
+       write leaves a HOLE: an entry claiming a parent nobody can find. That is
+       detectable, reportable and recoverable. It fails loudly.
+
+       Every entry keeps its identity forever so the chain can always be
+       verified; only the payloads are trimmed, oldest first, past a window.
+       That keeps the file bounded without ever making a gap unprovable. */
+    const TRUNK_FORMAT = 'engagement-planner/trunk@1';
+    const TRUNK_KEEP_DOCS = 40;      // entries that keep a full plan payload
+    let trunkHandle = null, trunkBusy = false;
+
+    function trunkEntryFromVersion(v, doc) {
+      return { vid: v.vid, pvid: v.pvid || null, at: v.at || fmtISO(new Date()),
+               by: diskWriterId(), byName: String(trunkWho() || ''), kind: v.kind || 'edit',
+               label: String(v.label || ''), doc: doc || null };
+    }
+    function trunkWho() {
+      try { return localStorage.getItem('pertGantt.whoAmI') || ''; } catch (e) { return ''; }
+    }
+    function trunkSetWho(n) {
+      try { localStorage.setItem('pertGantt.whoAmI', String(n || '').trim()); } catch (e) {}
+    }
+    /* Every pvid must resolve to the base or to an entry EARLIER in the log.
+       One that does not is work somebody wrote and something ate. */
+    function trunkVerifyChain(t) {
+      const seen = new Set();
+      if (t.base && t.base.vid) seen.add(t.base.vid);
+      const gaps = [];
+      (t.log || []).forEach(e => {
+        if (e.pvid && !seen.has(e.pvid)) gaps.push({ vid: e.vid, missingParent: e.pvid, by: e.byName || e.by || 'somebody', at: e.at });
+        seen.add(e.vid);
+      });
+      return { ok: !gaps.length, gaps: gaps };
+    }
+    function trunkTip(t) {
+      const l = t.log || [];
+      return l.length ? l[l.length - 1] : (t.base || null);
+    }
+    /* Where this copy stands against the trunk, by the same ancestry rules the
+       merge uses — the trunk's vids ARE plan version vids, so a trunk is just
+       another copy's history in a file. */
+    function trunkRelation(t) {
+      if (!t || t._format !== TRUNK_FORMAT) return { relation: 'notatrunk' };
+      if (planLineage && t.lineage && planLineage !== t.lineage) return { relation: 'unrelated' };
+      const theirVids = [].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid));
+      const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
+      if (!theirVids.length) return { relation: 'empty' };
+      if (!myVids.length) return { relation: 'behind', behind: theirVids.length, ahead: 0 };
+      const theirSet = new Set(theirVids), mySet = new Set(myVids);
+      const myTip = myVids[myVids.length - 1], theirTipV = theirVids[theirVids.length - 1];
+      if (myTip === theirTipV) return { relation: 'same', ahead: 0, behind: 0 };
+      if (theirSet.has(myTip)) return { relation: 'behind', behind: theirVids.length - 1 - theirVids.indexOf(myTip), ahead: 0 };
+      if (mySet.has(theirTipV)) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };
+      let base = null;
+      for (let i = myVids.length - 1; i >= 0; i--) if (theirSet.has(myVids[i])) { base = myVids[i]; break; }
+      if (!base) return { relation: 'unrelated' };
+      return { relation: 'diverged', baseVid: base,
+               ahead: myVids.length - 1 - myVids.indexOf(base),
+               behind: theirVids.length - 1 - theirVids.indexOf(base) };
+    }
+    /* Identity is kept for every entry; only payloads age out. A gap must stay
+       provable a year later, so the vid/pvid pairs are never dropped. */
+    function trunkCompact(t) {
+      const l = t.log || [];
+      const withDoc = l.filter(e => e.doc);
+      if (withDoc.length <= TRUNK_KEEP_DOCS) return t;
+      const drop = withDoc.length - TRUNK_KEEP_DOCS;
+      let dropped = 0;
+      for (let i = 0; i < l.length && dropped < drop; i++) {
+        if (!l[i].doc) continue;
+        // the oldest surviving payload becomes the new floor before its own is dropped
+        t.base = { vid: l[i].vid, pvid: l[i].pvid || null, at: l[i].at, by: l[i].by, doc: l[i].doc };
+        l[i].doc = null; dropped++;
+      }
+      return t;
+    }
+    async function trunkRead(handle) {
+      const f = await handle.getFile();
+      const txt = await f.text();
+      if (!txt.trim()) return null;
+      const t = JSON.parse(txt);
+      if (t && t._format !== TRUNK_FORMAT) throw new Error('That file is not a team trunk.');
+      return t;
+    }
+    async function trunkWrite(handle, t) {
+      t.updatedAt = new Date().toISOString();
+      const w = await handle.createWritable();
+      await w.write(JSON.stringify(t, null, 1));
+      await w.close();
+    }
+    /* Pushing publishes where you ARE, so if the plan has moved since the last
+       version it mints one first. Otherwise "push" would send a checkpoint from
+       an hour ago and quietly call it your latest. */
+    function trunkEnsureTip() {
+      const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
+      const now = JSON.stringify(snapshotPlan());
+      if (last && JSON.stringify(last.snap) === now) return last;
+      return pushVersion('sync', 'shared with the team');
+    }
+    async function trunkConnect() {
+      if (!window.showOpenFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download JSON and Merge a copy.'); return; }
+      if (!trunkWho()) {
+        const n = prompt('Your name, so the others can see whose work is whose in the shared file:', '');
+        if (n === null) return;
+        trunkSetWho(n);
+      }
+      try {
+        const [h] = await showOpenFilePicker({ types: [{ description: 'Team trunk', accept: { 'application/json': ['.json'] } }] });
+        if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted'
+            && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Without write permission this can only be read.'); return; }
+        let t = null;
+        try { t = await trunkRead(h); } catch (e) { alert(e.message || String(e)); return; }
+        if (t) {
+          const chk = trunkVerifyChain(t);
+          if (!chk.ok) {
+            alert('⚠ That trunk has ' + chk.gaps.length + ' gap' + (chk.gaps.length === 1 ? '' : 's') + ' in its history.\n\n'
+              + 'An entry names a parent that is not in the file — somebody\'s work was written and then lost, '
+              + 'probably by two people syncing the file at the same moment.\n\nFirst missing link: '
+              + chk.gaps[0].missingParent + ', expected before ' + chk.gaps[0].vid + ' (' + (chk.gaps[0].byName || chk.gaps[0].by) + ').\n\n'
+              + 'Ask whoever wrote it to push again — their copy still has it. Nothing here is corrupted; a piece is simply missing.');
+          }
+          const rel = trunkRelation(t);
+          if (rel.relation === 'unrelated') {
+            alert('That trunk belongs to a different engagement.\n\nIt was not started from a copy of this plan, so '
+              + 'merging it would make every activity look like an addition. Open it as its own project instead.');
+            return;
+          }
+        }
+        trunkHandle = h;
+        try { await idbSet('trunk.handle', h); } catch (e) {}
+        updateTrunkBtn();
+        if (!t) { await trunkPush(true); flashSaved('🌳 Trunk started in "' + h.name + '" — everyone else Connects to this same file'); }
+        else { flashSaved('🌳 Connected to "' + h.name + '"'); await trunkPull(true); }
+      } catch (e) { /* picker cancelled */ }
+    }
+    async function trunkPull(quiet) {
+      if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
+      if (trunkBusy) return; trunkBusy = true;
+      try {
+        const t = await trunkRead(trunkHandle);
+        if (!t) { flashSaved('The trunk is empty — push yours to start it.'); return; }
+        const chk = trunkVerifyChain(t);
+        const rel = trunkRelation(t);
+        if (rel.relation === 'same') { flashSaved('✓ In step with the trunk' + (chk.ok ? '' : ' — but it has ' + chk.gaps.length + ' gap(s), see Connect')); return; }
+        if (rel.relation === 'ahead') { flashSaved('You are ' + rel.ahead + ' ahead of the trunk — push to share it'); return; }
+        if (rel.relation === 'unrelated') { alert('That trunk is a different engagement.'); return; }
+        const tip = trunkTip(t);
+        if (!tip || !tip.doc) {
+          alert('The newest entry in the trunk has no plan attached — its payload was compacted away, which should '
+            + 'not happen to the tip. The file may have been edited by hand.'); return;
+        }
+        if (rel.relation === 'behind') {
+          /* A FAST-FORWARD IS NOT A MERGE. Everything of mine is already in
+             their history and I have added nothing since — there is nothing to
+             weigh, so asking me to review conflicts would imply a risk that
+             does not exist. Applied straight through. */
+          if (!quiet && !confirm('The trunk is ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
+              + ' ahead of you, and you have changed nothing since you last shared.\n\nTake it? Nothing of yours can be lost.')) return;
+          hydrate(tip.doc); recompute(); refreshAll(); saveLocal();
+          flashSaved('⬇ Fast-forwarded ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
+            + (tip.byName ? ' — latest from ' + tip.byName : ''));
+          return;
+        }
+        // diverged: hand the trunk tip to the review that already exists
+        flashSaved('You and the trunk have both moved — opening the review');
+        mergeReview(tip.doc, 'the team trunk');
+      } catch (e) { alert('Could not read the trunk: ' + (e.message || e)); }
+      finally { trunkBusy = false; }
+    }
+    async function trunkPush(quiet) {
+      if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
+      if (trunkBusy) return; trunkBusy = true;
+      try {
+        trunkEnsureTip();
+        // READ BEFORE WRITE, ALWAYS. The trunk may have moved since we last
+        // looked, and appending onto a stale copy is how a whole-file sync
+        // eats somebody's entries.
+        let t = null;
+        try { t = await trunkRead(trunkHandle); } catch (e) { alert(e.message || String(e)); return; }
+        if (!t) t = { _format: TRUNK_FORMAT, lineage: planLineageId(),
+                      name: document.getElementById('projectName').value || 'Untitled', base: null, log: [] };
+        const rel = trunkRelation(t);
+        if (rel.relation === 'unrelated') { alert('That trunk is a different engagement — refusing to push onto it.'); return; }
+        if (rel.relation === 'behind' || rel.relation === 'diverged') {
+          alert('The trunk has moved on since you last pulled'
+            + (rel.behind ? ' (' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's') + ' you do not have)' : '')
+            + '.\n\nPull first — pushing now would append your work onto a history that is missing theirs, '
+            + 'which is exactly the hole this format exists to prevent.');
+          return;
+        }
+        const have = new Set([].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid)));
+        const mine = (planVersions || []).filter(v => v.vid && !have.has(v.vid));
+        if (!mine.length) { if (!quiet) flashSaved('✓ The trunk already has everything of yours'); return; }
+        mine.forEach((v, i) => {
+          // the newest carries the live plan; the rest carry their own snapshot
+          const doc = (i === mine.length - 1) ? serialize() : Object.assign({}, serialize(), v.snap);
+          t.log.push(trunkEntryFromVersion(v, JSON.parse(JSON.stringify(doc))));
+        });
+        t.lineage = t.lineage || planLineageId();
+        t.name = document.getElementById('projectName').value || t.name;
+        trunkCompact(t);
+        await trunkWrite(trunkHandle, t);
+        flashSaved('⬆ Pushed ' + mine.length + ' version' + (mine.length === 1 ? '' : 's') + ' to the trunk');
+      } catch (e) { alert('Could not write the trunk: ' + (e.message || e)); }
+      finally { trunkBusy = false; }
+    }
+    function updateTrunkBtn() {
+      const b = document.getElementById('trunkBtn');
+      if (!b) return;
+      if (!window.showOpenFilePicker) { b.style.display = 'none'; return; }
+      b.textContent = trunkHandle ? '🌳 Trunk: on' : '🌳 Team trunk…';
+      b.title = trunkHandle
+        ? 'Sharing through "' + (trunkHandle.name || 'file') + '". Pull takes the latest; Push publishes yours.'
+        : 'One shared file the whole team appends to, so everybody can take the latest without handing copies around.';
+      const g = document.getElementById('trunkOps');
+      if (g) g.style.display = trunkHandle ? '' : 'none';
+    }
     async function setupDiskAutosave() {
       if (!window.showSaveFilePicker) { alert('Direct on-disk autosave needs Chrome or Edge. Everything is still saved in the browser database (no 5 MB limit) — and Export ▸ Download JSON works everywhere for manual backups.'); return; }
       try {
@@ -5437,7 +5678,8 @@ Or say what you want, in your own words:
     }
     async function restoreDiskHandle() {
       try { const h = await idbGet('disk.handle'); if (h && h.queryPermission) diskFileHandle = h; } catch (e) {}
-      updateDiskBtn();
+      try { const th = await idbGet('trunk.handle'); if (th && th.queryPermission) trunkHandle = th; } catch (e) {}
+      updateDiskBtn(); updateTrunkBtn();
       // the watched file survives a reload too — the handle is stored beside this one
       try { if (typeof fsRestore === 'function') fsRestore(); } catch (e) {}
     }
