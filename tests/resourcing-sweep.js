@@ -432,7 +432,14 @@ const DATA = FIXTURE();
 
       let painted = 0, wrong = 0, firstWrong = null;
       rows.forEach(row => {
-        const nm = (row.querySelector('.rl-label div') || {}).title || '';
+        /* IDENTITY, NOT PRESENTATION. This read the first div inside the label
+           and took its title attribute as the person's name — so the day the
+           label became an avatar + name + role cell, the element was a span,
+           the title read "Name — Role — Company", the lookup returned '' and
+           this check reported nine phantom over-capacity cells whose owner it
+           could not name. The blank in "first: on 2026-08-20" was the tell.
+           The row carries data-person now: a restyle cannot move it. */
+        const nm = row.getAttribute('data-person') || '';
         [...row.querySelectorAll('.rl-cell')].forEach(c => {
           const drill = c.dataset.rlDrill;
           if (!c.classList.contains('over')) return;
@@ -456,7 +463,14 @@ const DATA = FIXTURE();
          case that eventually never runs. */
       const settled = (() => {
         for (const row of rows) {
-          const nm = (row.querySelector('.rl-label div') || {}).title || '';
+          /* IDENTITY, NOT PRESENTATION. This read the first div inside the label
+           and took its title attribute as the person's name — so the day the
+           label became an avatar + name + role cell, the element was a span,
+           the title read "Name — Role — Company", the lookup returned '' and
+           this check reported nine phantom over-capacity cells whose owner it
+           could not name. The blank in "first: on 2026-08-20" was the tell.
+           The row carries data-person now: a restyle cannot move it. */
+        const nm = row.getAttribute('data-person') || '';
           const R4 = rl3.perResource[nm];
           if (!R4) continue;
           const iso = Object.keys(R4.days || {}).find(k =>

@@ -4177,7 +4177,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0132</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0144</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -16815,7 +16815,21 @@ Or say what you want, in your own words:
       const d = new Date(start); let guard = 0;
       while (d <= maxFinish && guard < 3000) { guard++; if (isWorkingDay(d, holidays)) days.push(new Date(d)); d.setDate(d.getDate() + 1); }
       if (!days.length) days.push(new Date(start));
-      const cellW = days.length > 80 ? 9 : days.length > 40 ? 13 : 20;
+      /* THE SAME 20px CEILING THE GANTT HAD. On a long engagement the day
+         columns compress, which is right — but on a short one they stayed at
+         20px and a five-day plan drew a 100px heatmap in a 1700px panel, on
+         the tab whose whole subject is that picture. The wide steps are for
+         the wide plans; below 40 days the cells take whatever room is
+         actually there, up to a size where a day is still obviously a day. */
+      const hmAvail = Math.max(240, (((document.getElementById('resourcesContainer') || {}).clientWidth) || 1100) - 200);
+      /* Capped at 72 rather than "fill the width". A Gantt bar has to be
+         positioned on a timeline, so compressing one destroys information and
+         stretching one restores it. A heatmap cell is a colour: past a certain
+         size a bigger square says nothing a smaller square did not, and an
+         eight-day plan drawn across 1300px would be inflation dressed as
+         design. 72 is where a day still reads as a day. */
+      const cellW = days.length > 80 ? 9 : days.length > 40 ? 13
+        : Math.max(20, Math.min(72, Math.floor(hmAvail / Math.max(1, days.length))));
       const trackW = days.length * cellW;
       const u = unitLabel();
 
@@ -16884,9 +16898,9 @@ Or say what you want, in your own words:
           cells += `<div class="rl-cell${isOver ? ' over' : ''}" style="left:${i * cellW}px;width:${cellW}px;background:${bg}${dayTasks.length ? ';cursor:pointer' : ''}" title="${escapeHtml(tip)}"${dayTasks.length ? ` data-rl-drill="${ri}|${iso}"` : ''}></div>`;
         });
         const over = R.overDays.length;
-        rows += `<div class="rl-row">
+        rows += `<div class="rl-row" data-person="${escapeHtml(name)}">
           <div class="rl-label">
-            <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+            ${personCell(name)}
             <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
               <span class="help-text" style="margin:0">cap ${R.capacity}%</span>
               <span class="risk-tag" style="background:${over ? '#fee2e2' : '#dcfce7'};color:${over ? '#b91c1c' : '#15803d'}">${over ? 'peak ' + Math.round(R.peak) + '%' : 'OK'}</span>
