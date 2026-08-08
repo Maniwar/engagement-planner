@@ -1084,7 +1084,11 @@
        context for the gate, not a competing row, and the numbers it carries are
        cumulative where every other number on that line is per-row. The dotted
        underline says "there is more here" without adding a control. */
-    .ms-reach { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;
+    /* nowrap, and the cell that holds it is given room. Wrapping turned one
+       reading into a three-line block in the WBS dictionary, whose name column
+       is 186px against the 195px this needs — a 9px shortfall that tripled the
+       row height. Measured rather than guessed, the same way the roster was. */
+    .ms-reach { display: flex; align-items: center; gap: 0.3rem; flex-wrap: nowrap; white-space: nowrap;
       font-size: var(--t-xs); color: var(--muted); cursor: help;
       margin: 2px 0 0; padding-left: 1.05rem; width: fit-content; }
     /* The bar IS the progress of everything behind the gate. A bar and not a
@@ -1102,6 +1106,10 @@
     /* A milestone's own estimate columns. Recessive, because "there is nothing
        here" is the answer, and it is the same answer five times across one row. */
     .ms-na { color: var(--slack); cursor: help; }
+    /* Only the milestone rows claim it, so an ordinary activity's name column
+       is not widened to reserve room for something it never shows. */
+    #wbsContainer td.wbs-ms-name { min-width: 210px; }
+    #wbsContainer td.wbs-own { max-width: 176px; }
     /* ═══ THE CHAIN ═══════════════════════════════════════════════════════
        A table, not a diagram. The relation is many-to-many — three people can
        wait on one, and one can wait on three — and a node-and-arrow picture of
@@ -4376,7 +4384,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1712</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1729</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6631,7 +6639,35 @@ Or say what you want, in your own words:
       return Math.round((stripTime(b) - stripTime(a)) / 86400000);
     }
     function stripTime(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+    /* ═══ TWO DATE FORMATS, AND THE SPLIT IS THE READER ══════════════════════
+       Every date on screen was "Aug 10, 2026". In a dense table that is three
+       tokens and a comma to say one thing, in a column that appears twice per
+       row (start and finish) across five tables — and it was part of what left
+       the milestone row wrapping to three lines in the WBS dictionary.
+
+       So the screen gets the numeric form. LOCALE-AWARE, deliberately: this
+       renders 08/10/2026 for a reader in the US and 10/08/2026 for one in the
+       UK, each correct for the person looking at it. Hard-coding month-first
+       would be right for one of them and silently a different date for the
+       other, which is the worst outcome available.
+
+       Documents keep the spelled month. A SOW, a payment schedule, a status
+       report and a copied update all travel — to a client, into an email, into
+       somebody else's inbox in another country — and the reader who opens them
+       does not share the browser that wrote them. "Aug 10, 2026" cannot be
+       misread as 8 October; "08/10/2026" can, and on a payment schedule that is
+       a real invoice on the wrong day.
+
+       Two formatters in a file that otherwise insists on one definition per
+       fact, because a date FORMAT is not a fact — it is presentation, and a
+       table and a contract have different readers. The 22 document call sites
+       are named rather than pattern-matched, so a new one has to choose. */
     function fmtNice(d) {
+      if (!d) return '—';
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    /* The travelling form: spelled month, unambiguous in any locale. */
+    function fmtDoc(d) {
       if (!d) return '—';
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     }
@@ -18278,8 +18314,12 @@ Or say what you want, in your own words:
           : '<span class="wbs-twisty-spacer"></span>';
         return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
           <td style="white-space:nowrap">${ekTask(t)}</td>
-          <td style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span>${msReachW}</td>
-          <td style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : personCell(t.owner)}</td>
+          <td class="${msReachW ? 'wbs-ms-name' : ''}" style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span>${msReachW}</td>
+          ${/* Capped. personCell already truncates its own role and company
+                sub-line, so 222px was reserving room the cell does not use —
+                and this is the widest table in the app, where every reserved
+                pixel pushes the last column past the edge. */''}
+          <td class="wbs-own" style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : personCell(t.owner)}</td>
           <td class="num">${dur}</td>
           <td class="num" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.isSummary) { const e = leafDescendants(t.id).reduce((a, x) => a + plannedEffortDays(x), 0);
@@ -20585,7 +20625,7 @@ Or say what you want, in your own words:
         ? `<span class="fg-head"><label>Drafted document</label></span>
            <div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;padding:.55rem .7rem">
              <div style="font-weight:600;font-size:.85rem">📄 ${escapeHtml(d.title || '(untitled)')}</div>
-             <div class="help-text" style="margin:.15rem 0 .35rem">saved ${escapeHtml(d.at ? fmtNice(new Date(d.at)) : 'earlier')}${d.model ? ' · ' + escapeHtml(d.model) : ''} · ${d.body.length.toLocaleString()} characters</div>
+             <div class="help-text" style="margin:.15rem 0 .35rem">saved ${escapeHtml(d.at ? fmtDoc(new Date(d.at)) : 'earlier')}${d.model ? ' · ' + escapeHtml(d.model) : ''} · ${d.body.length.toLocaleString()} characters</div>
              <div class="help-text" style="white-space:pre-wrap;max-height:5rem;overflow:hidden">${escapeHtml(d.body.slice(0, 320))}…</div>
              <button type="button" class="btn-sm btn-secondary" style="margin-top:.4rem" onclick="openDraftChat(${t.id}, ${ekJs2(d.storyId || '')}, false)">🤖 Open the drafting conversation</button>
            </div>`
@@ -21711,7 +21751,7 @@ Write the test cases for the criteria above, following the contract exactly. Ret
       const typeCount = k => allAcs.filter(({ a }) => a.type === k).length;
       const deps = []; reqs.stories.forEach(s => (s.assumptions || []).forEach(x => { if (/^D:/i.test(x)) deps.push(x); }));
       const L = ['# Test Plan — ' + projName(), '',
-        '_Generated ' + fmtNice(new Date()) + ' from the requirements traceability chain: story → acceptance criterion → test case → WBS schedule._', '',
+        '_Generated ' + fmtDoc(new Date()) + ' from the requirements traceability chain: story → acceptance criterion → test case → WBS schedule._', '',
         '## 1. Scope & coverage',
         '- User stories: **' + reqs.stories.length + '** • acceptance criteria: **' + allAcs.length + '** • test cases: **' + covered.reduce((n, { a }) => n + testCasesForAC(a.id).length, 0) + '**',
         '- AC coverage: **' + covered.length + '/' + allAcs.length + '**' + (covered.length < allAcs.length ? '  ⚠ gaps listed in §6' : ' — complete'),
@@ -22867,7 +22907,7 @@ ${existingBatch.length ? 'EXISTING STORIES FOR THIS BRANCH — keep their IDs, i
       computeWbsCodes();
       const idToTask = {}; tasks.forEach(t => idToTask[t.id] = t);
       const L = ['# Requirements & User Stories — ' + projName(), '',
-        '_Generated ' + fmtNice(new Date()) + '. Trace: epic → story → acceptance criteria → WBS activity. Acceptance criteria are the billing checklist: a deliverable is accepted when its criteria pass._', ''];
+        '_Generated ' + fmtDoc(new Date()) + '. Trace: epic → story → acceptance criteria → WBS activity. Acceptance criteria are the billing checklist: a deliverable is accepted when its criteria pass._', ''];
       if (reqs.personas.length) { L.push('## Personas'); reqs.personas.forEach(p => L.push('- **' + p.name + '** — ' + p.definition)); L.push(''); }
       const rendered = new Set();
       const emit = (title, list) => {
@@ -23219,7 +23259,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       const fill = td + 'background:#fefce8;min-width:90px;';
       let html = `<div style="font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;max-width:1000px">
         <h2 style="margin:0 0 2px;font-size:16px">Status update request — ${escapeHtml(projName())}${escapeHtml(scopeNote)}</h2>
-        <p style="margin:0 0 10px;font-size:12.5px;color:#475569">${escapeHtml(fmtNice(new Date()))} • Please fill in the <b>yellow cells</b> on your rows — a %, or “done” plus the finish date, and any blockers — then reply with the table. The reply gets pasted straight back into the plan; blockers you note are logged into the project risk register.</p>`;
+        <p style="margin:0 0 10px;font-size:12.5px;color:#475569">${escapeHtml(fmtDoc(new Date()))} • Please fill in the <b>yellow cells</b> on your rows — a %, or “done” plus the finish date, and any blockers — then reply with the table. The reply gets pasted straight back into the plan; blockers you note are logged into the project risk register.</p>`;
       owners.forEach(o => {
         html += `<h3 style="margin:12px 0 4px;font-size:13.5px">${escapeHtml(roleText(o))} — ${byOwner[o].length} open item${byOwner[o].length === 1 ? '' : 's'}</h3>
         <table style="border-collapse:collapse;width:100%">
@@ -23227,7 +23267,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
           ${byOwner[o].map(t => `<tr>
             <td style="${td};white-space:nowrap">${escapeHtml(t.wbs)}</td>
             <td style="${td}">${t.milestone ? '◆ ' : ''}${escapeHtml(t.name)}${isLate(t) ? ' <span style="color:#b91c1c;font-weight:700">⚠ behind</span>' : ''}</td>
-            <td style="${td};white-space:nowrap">${calculated && t.startDate ? escapeHtml(fmtNice(t.startDate) + ' → ' + fmtNice(t.finishDate)) : ''}</td>
+            <td style="${td};white-space:nowrap">${calculated && t.startDate ? escapeHtml(fmtDoc(t.startDate) + ' → ' + fmtDoc(t.finishDate)) : ''}</td>
             <td style="${td};text-align:right;white-space:nowrap">${escapeHtml(fmtDur(t.te || 0))}</td>
             <td style="${td};text-align:right">${t.percentComplete || 0}%</td>
             <td style="${fill}">&nbsp;</td><td style="${fill}">&nbsp;</td><td style="${fill}">&nbsp;</td><td style="${fill};min-width:200px">&nbsp;</td>
@@ -23238,7 +23278,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
 
       // plain-text fallback for Slack / plain-text mail clients
       const L = [];
-      L.push('STATUS UPDATE REQUEST — ' + projName() + scopeNote + ' — ' + fmtNice(new Date()));
+      L.push('STATUS UPDATE REQUEST — ' + projName() + scopeNote + ' — ' + fmtDoc(new Date()));
       L.push('');
       L.push('Please update your items below: replace ____ with today\'s % complete (or "done"),');
       L.push('add the actual finish date for anything completed, and the TIME SPENT — the WORK you actually did '
@@ -23249,7 +23289,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         L.push('');
         L.push('== ' + roleText(o) + ' ==');
         byOwner[o].forEach(t => {
-          const win = calculated && t.startDate ? fmtNice(t.startDate) + ' → ' + fmtNice(t.finishDate) + ', ' : '';
+          const win = calculated && t.startDate ? fmtDoc(t.startDate) + ' → ' + fmtDoc(t.finishDate) + ', ' : '';
           L.push(`• [${t.wbs}] ${t.name}${t.milestone ? ' (milestone)' : ''} — ${win}estimate ${fmtDur(t.te || 0)}, currently ${t.percentComplete || 0}%${isLate(t) ? '  ⚠ behind schedule' : ''}`);
           L.push('    now at: ____%    time spent: ____ (90m / 1.5h / 2d)    actual finish (if done): YYYY-MM-DD    blockers/notes:');
         });
@@ -23295,7 +23335,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       const fill = td + 'background:#fefce8;min-width:60px;';
       let html = `<div style="font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;max-width:1000px">
         <h2 style="margin:0 0 2px;font-size:16px">Estimate review request — ${escapeHtml(projName())}${escapeHtml(scopeNote)}</h2>
-        <p style="margin:0 0 10px;font-size:12.5px;color:#475569">${escapeHtml(fmtNice(new Date()))} • You are closest to this work — please sanity-check the three-point estimates on your rows (${escapeHtml(unit)}). Fill the <b>yellow cells</b> ONLY where the current numbers are wrong: new Optimistic / Most&nbsp;Likely / Pessimistic (keep O ≤ M ≤ P) and a one-line basis (what you know that the plan doesn't). Reply with the table — it pastes straight back into the plan.</p>`;
+        <p style="margin:0 0 10px;font-size:12.5px;color:#475569">${escapeHtml(fmtDoc(new Date()))} • You are closest to this work — please sanity-check the three-point estimates on your rows (${escapeHtml(unit)}). Fill the <b>yellow cells</b> ONLY where the current numbers are wrong: new Optimistic / Most&nbsp;Likely / Pessimistic (keep O ≤ M ≤ P) and a one-line basis (what you know that the plan doesn't). Reply with the table — it pastes straight back into the plan.</p>`;
       owners.forEach(o => {
         html += `<h3 style="margin:12px 0 4px;font-size:13.5px">${escapeHtml(roleText(o))} — ${byOwner[o].length} item${byOwner[o].length === 1 ? '' : 's'}</h3>
         <table style="border-collapse:collapse;width:100%">
@@ -23310,7 +23350,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       });
       html += `<p style="margin:10px 0 0;font-size:11.5px;color:#94a3b8">Generated from the ${escapeHtml(projName())} plan • PM: paste the filled reply into Tasks ▸ AI ▸ “Update progress” — corrected estimates apply automatically and the schedule/price recompute.</p></div>`;
       const L = [];
-      L.push('ESTIMATE REVIEW REQUEST — ' + projName() + scopeNote + ' — ' + fmtNice(new Date()));
+      L.push('ESTIMATE REVIEW REQUEST — ' + projName() + scopeNote + ' — ' + fmtDoc(new Date()));
       L.push('');
       L.push('Please sanity-check the 3-point estimates (' + unit + ') on your items.');
       L.push('Only reply where the numbers should change: fill new O/M/P (keep O <= M <= P) and say why.');
@@ -23373,15 +23413,15 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       const th = td + 'background:#f1f5f9;font-weight:700;text-align:left;';
       const statusOf = t => t.percentComplete >= 100 ? '✅ Complete' : (isLate(t) ? '🔴 Behind' : t.percentComplete > 0 ? '🔵 In progress' : '⚪ Not started');
       const msRows = tasks.filter(t => t.milestone).map(t =>
-        `<tr><td style="${td}">◆ ${escapeHtml(t.name)}</td><td style="${td}">${fmtNice(t.finishDate)}</td><td style="${td}">${statusOf(t)}</td></tr>`).join('');
+        `<tr><td style="${td}">◆ ${escapeHtml(t.name)}</td><td style="${td}">${fmtDoc(t.finishDate)}</td><td style="${td}">${statusOf(t)}</td></tr>`).join('');
       const taskRows = tasksInWbsOrder().map(({ task: t, depth }) => {
         const bold = t.isSummary ? 'font-weight:700;background:#f8fafc;' : '';
         const varD = (t.baseFinish && t.finishDate) ? calDaysBetween(t.baseFinish, currentFinish(t)) : null;
         return `<tr><td style="${td}${bold}">${t.wbs}</td>
           <td style="${td}${bold}padding-left:${9 + depth * 14}px">${t.milestone ? '◆ ' : ''}${escapeHtml(t.name)}</td>
           <td style="${td}${bold}">${escapeHtml(t.owner ? roleText(t.owner) : '')}</td>
-          <td style="${td}${bold}">${fmtNice(t.startDate)}</td>
-          <td style="${td}${bold}">${fmtNice(t.finishDate)}</td>
+          <td style="${td}${bold}">${fmtDoc(t.startDate)}</td>
+          <td style="${td}${bold}">${fmtDoc(t.finishDate)}</td>
           <td style="${td}${bold}text-align:right">${t.percentComplete || 0}%</td>
           <td style="${td}${bold}">${t.isSummary ? '' : statusOf(t)}</td>
           <td style="${td}${bold}text-align:right;color:${varD > 0 ? '#b91c1c' : varD < 0 ? '#15803d' : '#64748b'}">${varD == null ? '—' : (varD > 0 ? '+' : '') + varD + 'd'}</td></tr>`;
@@ -23456,7 +23496,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         <h2 style="margin:0 0 4px">${escapeHtml(projName())} — Status Report</h2>
         <p style="margin:2px 0 10px;color:#64748b;font-size:12px">Generated ${new Date().toLocaleDateString()} • PERT 3-point estimates • ${mcResult ? mcResult.iters.toLocaleString() + ' Monte-Carlo simulations' : 'deterministic CPM'}${clientSafeReports ? ' • client version' : ''}</p>
         ${narrBlock}
-        <p style="margin:6px 0;font-size:13px"><b>Overall:</b> ${prog.toFixed(0)}% complete • forecast finish <b>${fmtNice(finish)}</b>${mcResult ? ` • P80 ${fmtNice(durationToDate(mcResult.p80))} • P90 ${fmtNice(durationToDate(mcResult.p90))}` : ''}${rv.contingencyUnits > 0 ? ` • committed (with contingency) ${fmtNice(rv.committedDate)}` : ''}</p>
+        <p style="margin:6px 0;font-size:13px"><b>Overall:</b> ${prog.toFixed(0)}% complete • forecast finish <b>${fmtDoc(finish)}</b>${mcResult ? ` • P80 ${fmtDoc(durationToDate(mcResult.p80))} • P90 ${fmtDoc(durationToDate(mcResult.p90))}` : ''}${rv.contingencyUnits > 0 ? ` • committed (with contingency) ${fmtDoc(rv.committedDate)}` : ''}</p>
         ${baseLine}${costLine}${moneyInLine}${overLine}
         <p style="margin:6px 0;font-size:13px"><b>Critical path:</b> ${escapeHtml(critNames) || '—'}</p>
         ${msRows ? `<h3 style="margin:14px 0 4px;font-size:14px">Milestones</h3><table style="border-collapse:collapse"><tr><th style="${th}">Milestone</th><th style="${th}">Date</th><th style="${th}">Status</th></tr>${msRows}</table>` : ''}
@@ -30197,8 +30237,8 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
         const per = RETAINER_PERIODS[T.period].label;
         retainerPeriods(false, lv).forEach(p => {
           const day = stripTime(new Date(p.start + T.days * DAY)).getTime();
-          out.rows.push({ day: day, when: fmtNice(new Date(day)),
-            event: (per === 'week' ? 'Week ' : 'Month ') + p.n + ' — commencing ' + fmtNice(new Date(p.start)),
+          out.rows.push({ day: day, when: fmtDoc(new Date(day)),
+            event: (per === 'week' ? 'Week ' : 'Month ') + p.n + ' — commencing ' + fmtDoc(new Date(p.start)),
             note: 'retainer for the ' + per + ', invoiced in advance, net ' + T.days,
             amount: T.retainer });
         });
@@ -30212,7 +30252,7 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
       r.segs.forEach(s => { const k = dayKey(s.s); money.set(k, (money.get(k) || 0) + s.c); });
       out.unplaced = Math.max(0, r.total - r.placed);
       const push = (day, event, note, amount) => out.rows.push({
-        day: day, when: fmtNice(new Date(day)), event: event, note: note, amount: amount });
+        day: day, when: fmtDoc(new Date(day)), event: event, note: note, amount: amount });
 
       /* The deposit. The curve places it at project start + terms; this names
          that day rather than recomputing it, and takes its own amount out of
@@ -30261,7 +30301,7 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
          terms that is the tail — work after the final checkpoint, which bills
          when the work itself finishes. On monthly terms it is every month. */
       [...money.keys()].sort((a, b) => a - b).forEach(k => {
-        const monthEnd = fmtNice(new Date(k - T.days * DAY));
+        const monthEnd = fmtDoc(new Date(k - T.days * DAY));
         push(k,
           T.kind === 'monthly' ? 'Monthly invoice — work delivered to ' + monthEnd
                                : 'On completion of all remaining work',
@@ -30353,8 +30393,8 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
       let dropped = 0;
       const D = {
         name: projName(),
-        start: fmtNice(projectStartDate()), finish: fmtNice(finish),
-        committed: rv.contingencyUnits > 0 ? fmtNice(rv.committedDate) : null,
+        start: fmtDoc(projectStartDate()), finish: fmtDoc(finish),
+        committed: rv.contingencyUnits > 0 ? fmtDoc(rv.committedDate) : null,
         clientSafe: clientSafeReports,
         // scope depth: L1/L2/L3 keep the SOW executive-readable on big plans;
         // rows AT the cutoff show rolled-up effort; milestones always survive
@@ -30464,7 +30504,7 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
           }));
           return out;
         })(),
-        milestones: tasks.filter(t => t.milestone).map(t => ({ name: t.name, date: fmtNice(t.finishDate) })),
+        milestones: tasks.filter(t => t.milestone).map(t => ({ name: t.name, date: fmtDoc(t.finishDate) })),
         team: Object.keys(resources).filter(n => !isClientResource(n)).map(n => ({ name: n, role: (resources[n] && resources[n].role) ? n + ' — ' + resources[n].role : n, capacity: getCapacity(n), billRate: getBillRate(n), billText: rawBillRate(n) ? fmtMoney(rawBillRate(n)) + rateUnitSuffix(n) : '' })).filter(r => tasks.some(t => taskParticipants(t).some(pr => pr.name === r.name))),
         /* What the client is on the hook for, ROLLED UP to the work rather than
            listed case by case. A UAT coordinator assigned to twenty generated
@@ -36278,7 +36318,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
                 + (r.crit ? ' <span style="color:#b45309">[critical path]</span>' : '') + '</td>'
                 + '<td style="' + td + (r.overdue ? 'color:#b91c1c;font-weight:700;' : '') + '">'
                 + h(r.state) + '</td>'
-                + '<td style="' + td + '">' + h(r.finish ? fmtNice(r.finish) : '—') + '</td>'
+                + '<td style="' + td + '">' + h(r.finish ? fmtDoc(r.finish) : '—') + '</td>'
                 + '<td style="' + td + '">' + h(wlEffText(r)) + '</td>'
                 + '<td style="' + td + '">' + (h(wlWaitText(r)) || '—') + '</td>'
                 + (anyRisk ? '<td style="' + td + '">' + (h(wlRiskText(r)) || '—') + '</td>' : '')
@@ -36287,7 +36327,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
       }).join('');
       return '<div style="font-family:\'Segoe UI\',system-ui,sans-serif;color:#1e293b;max-width:900px">'
         + '<h2 style="margin:0 0 2px;font-size:18px">Worklist — ' + h(projName()) + '</h2>'
-        + '<p style="color:#64748b;font-size:12px;margin:0 0 10px">As at ' + h(fmtNice(new Date()))
+        + '<p style="color:#64748b;font-size:12px;margin:0 0 10px">As at ' + h(fmtDoc(new Date()))
         + '. Read off the dependency network: finish-to-start needs its predecessor finished, start-to-start '
         + 'only needs it started. "Waiting on" names the activity AND who owns it, so a chase has somewhere '
         + 'to go.</p>' + body + '</div>';
