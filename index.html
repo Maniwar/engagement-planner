@@ -1010,10 +1010,19 @@
     .wl-lead { font-size: var(--t-sm); color: var(--text); margin: 0.35rem 0 0.1rem; line-height: 1.6; }
     .wl-bar { display: flex; flex-wrap: wrap; gap: 0.15rem 0.9rem; align-items: center;
       margin: 0.35rem 0 0.1rem; font-size: var(--t-xs); color: var(--muted); }
-    .wl-f { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+    /* nowrap, because these are checkbox LABELS: "Show every row" broken over
+       three lines beside a box reads as three separate controls, and pushed the
+       filter bar to twice the height of the row it filters. */
+    .wl-f { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; white-space: nowrap; }
     .wl-f input { margin: 0; }
     .wl-fn { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
-    .wl-gh-off { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+    /* One recessive line per card for everything the filter is holding back,
+       rather than a bold uppercase heading per hidden group. It has to stay
+       readable — a filter the reader forgot they set is how a card reads as
+       "this person has nothing" — but it is a note about a checkbox, not
+       content, and it was previously typeset as content. */
+    .wl-hid { font-size: var(--t-xs); color: var(--muted); margin: 0.35rem 0 0;
+      padding-top: 0.3rem; border-top: 1px dashed var(--border); }
     /* the person's name is the way in to their full breakdown, so it has to look
        like something you can press without becoming a button in a row of buttons */
     .wl-nmb { background: none; border: 0; padding: 0; margin: 0; box-shadow: none; cursor: pointer;
@@ -1071,7 +1080,10 @@
       font-size: var(--t-sm); color: var(--muted); line-height: 1.5; }
     .wl-when { font-variant-numeric: tabular-nums; }
     .wl-late { color: var(--critical); font-weight: 700; }
-    .wl-crit { color: var(--warn); font-weight: 700; }
+    /* .wl-crit is gone: "critical path" was a second line under the status
+       sentence, and is now the red left edge on the one status chip — the same
+       treatment the activity list uses, for the same reason. */
+    .wl-state { white-space: nowrap; }
     .wl-wait { font-size: var(--t-xs); color: var(--muted); }
     .wl-none { font-size: var(--t-sm); color: var(--muted); font-style: italic; }
     .wl-more { font-size: var(--t-xs); color: var(--muted); font-style: italic; }
@@ -1715,6 +1727,26 @@
     #taskTable td:nth-child(4) { min-width: 220px; }
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
+    .wl-keys { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.3rem 0 0.15rem !important; }
+    .wl-k { font-size: var(--t-xs); color: var(--muted); background: #f1f5f9; border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.08rem 0.4rem; white-space: nowrap; }
+    .wl-k b { color: var(--text); font-variant-numeric: tabular-nums; }
+    .wl-k-go { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; } .wl-k-go b { color: #15803d; }
+    .wl-k-none b { color: var(--slack); }
+    .wl-k-late { background: var(--critical-bg); border-color: #fecaca; color: #b91c1c; } .wl-k-late b { color: #b91c1c; }
+    .wl-k-warn { background: #fffbeb; border-color: #fde68a; color: #92400e; } .wl-k-warn b { color: #92400e; }
+    /* Four repetitions of one header row inside one card. The columns are the
+       same in every group, so the first one names them and the rest inherit. */
+    /* Hide a header only when a table already NAMED those columns above it.
+       The blanket "inside a fold" version killed the header on cards whose only
+       table IS the fold — which is most of them on a plan where nothing can be
+       started, so every column went unlabelled. */
+    .wl-p table ~ table thead,
+    .wl-p table ~ .wl-fold table thead,
+    .wl-p .wl-fold ~ table thead { display: none; }
+    .wl-fold > summary { cursor: pointer; font-size: var(--t-xs); font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--muted); padding: 0.25rem 0; }
+    .wl-fold[open] > summary { margin-bottom: 0.2rem; }
     /* Work from other engagements, on the same track as this project's — one
        bar answering "how much of this person is spoken for", with the part you
        can do something about drawn first. */
@@ -4194,7 +4226,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0549</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0645</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8949,6 +8981,40 @@ Or say what you want, in your own words:
         + (mismatch ? '. ⚠ The phase row itself is labeled "' + (t.owner || '').trim() + '" but owns no scheduled work — sub-tasks carry all the effort. Reassign the sub-tasks (bulk-select or ⚖ Spread test cases) if the wrong people ended up doing it.' : '');
       return `<span style="cursor:help${mismatch ? ';color:#b45309' : ''}" title="${escapeHtml(title)}">${mismatch ? '⚠ ' : ''}${escapeHtml(label)}</span>`;
     }
+    /* ═══ ONE STATUS CHIP, WHEREVER STATUS IS SHOWN ══════════════════════════
+       The activity list got the ring-plus-word chip and the worklist kept its
+       own stacked text — two renderings of the same fact on two tabs, and the
+       one on the worklist was the older, wordier one. A reader moving between
+       them had to re-learn the column.
+
+       So the chip is a function, not a block of markup inside one renderer.
+       The mark IS the progress: a 9px disc filled by conic-gradient to the row's
+       actual percent, hollow at 0 and solid at 100. `quiet` drops the pill for
+       the default state so the exceptions are what the eye lands on, and `crit`
+       is a red edge rather than a second pill, because critical is a POSITION
+       on the network, not a peer of "in progress". */
+    const ST_TIPS = {
+      Critical: 'On the critical path: zero slack — ANY delay here pushes the finish date. Fix by shortening/decomposing it, adding people (Units%/capacity), or re-sequencing so it is no longer the bottleneck.',
+      Complete: 'Done (100%).',
+      Done: 'Done (100%).',
+      'In progress': 'Work started; % complete drives the earned-value and phase rollups.',
+      'Late start': 'Scheduled to have started before today but still at 0% — update progress or re-plan.',
+      'Not started': 'No progress recorded yet.',
+      'Rolls up': 'This row has no status of its own — its dates, % and cost are the sum of its children. Edit the children, not this row.',
+      '✓ Complete': 'Phase complete — every sub-task in this roll-up is at 100%.',
+      Pending: 'Press Calculate schedule (top of the page).'
+    };
+    function stChip(cls, label, o) {
+      const opt = o || {};
+      const pct = Math.max(0, Math.min(100, Number(opt.pct) || 0));
+      const tip = opt.tip != null ? opt.tip
+        : (opt.crit ? ST_TIPS.Critical + '\n\n' : '') + (ST_TIPS[label] || '');
+      return '<span class="badge badge-st ' + cls + (opt.crit ? ' is-crit' : '')
+        + (opt.quiet ? ' is-quiet' : '') + '" style="cursor:help;--p:' + pct + '"'
+        + ' title="' + escapeHtml(tip) + '"'
+        + ' aria-label="' + escapeHtml((opt.crit ? 'Critical path. ' : '') + label) + '">'
+        + escapeHtml(label) + '</span>';
+    }
     function renderTaskTable() {
       const tbody = document.getElementById('taskBody');
       const empty = document.getElementById('tasksEmpty');
@@ -9024,16 +9090,6 @@ Or say what you want, in your own words:
         const teStr = t.milestone ? '◆' : (calculated ? fmtDur(t.te) : '—');
         const slackStr = calculated ? (Math.abs(t.slack) < 0.05 ? '0.0' : t.slack.toFixed(1)) : '—';
         const st = taskStatus(t);
-        const badgeTips = {
-          Critical: 'On the critical path: zero slack — ANY delay here pushes the finish date. Fix by shortening/decomposing it, adding people (Units%/capacity), or re-sequencing so it is no longer the bottleneck.',
-          Complete: 'Done (100%).',
-          'In progress': 'Work started; % complete drives the earned-value and phase rollups.',
-          'Late start': 'Scheduled to have started before today but still at 0% — update progress or re-plan.',
-          'Not started': 'No progress recorded yet.',
-          'Rolls up': 'This row has no status of its own — its dates, % and cost are the sum of its children. Edit the children, not this row.',
-          '✓ Complete': 'Phase complete — every sub-task in this roll-up is at 100%.',
-          Pending: 'Press Calculate schedule (top of the page).'
-        };
         /* ═══ ONE MARK, ONE WORD, AND THE WORD ONLY WHEN IT EARNS ITS PLACE ═══
            Twelve rows down this column read "Not started", beside a DONE column
            reading 0% and an unticked checkbox — the same fact three times, in
@@ -9052,15 +9108,11 @@ Or say what you want, in your own words:
            state — an adjective on the row, not a peer of its progress — so it
            is a red edge on the one chip. Two chips of identical shape were 196px
            wide and read as two alarms; this is ~120 and reads as one fact with
-           a qualifier, which is what it is. */
-        const mkBadge = (cls, label, o) => {
-          const opt = o || {};
-          const pct = Math.max(0, Math.min(100, Number(opt.pct) || 0));
-          const tip = (opt.crit ? badgeTips.Critical + '\n\n' : '') + (badgeTips[label] || '');
-          return `<span class="badge badge-st ${cls}${opt.crit ? ' is-crit' : ''}${opt.quiet ? ' is-quiet' : ''}"`
-            + ` style="cursor:help;--p:${pct}" title="${escapeHtml(tip)}"`
-            + ` aria-label="${escapeHtml((opt.crit ? 'Critical path. ' : '') + label)}">${label}</span>`;
-        };
+           a qualifier, which is what it is.
+
+           The chip itself is stChip() — shared with the worklist, so the two
+           tabs cannot drift into two different renderings of one fact. */
+        const mkBadge = stChip;
         const sumDone = summary && (t.percentComplete || 0) >= 100;
         /* CRITICAL IS A POSITION, NOT A STATE. It says any delay here moves the
            finish date; the progress badge says whether the work has started.
@@ -34944,6 +34996,62 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
        own status in words, what it is waiting on and who owns that, and any open
        RAID entry raised against it. Everything is still one click from the thing
        it names. */
+    /* ═══ THE SAME STATUS CHIP THE ACTIVITY LIST USES ════════════════════════
+       This column used to print a sentence — "not started — blocked", "in
+       flight, 40% done", "3 days late" — with "critical path" stacked
+       underneath it on a second line. Three problems with that. It was two
+       lines tall in a card that has to fit seven of itself on a screen; it was
+       a different rendering of the same fact than the activity list two tabs
+       over, so the reader learns the column twice; and a sentence has no shape,
+       so nothing in a column of them draws the eye to the one that is late.
+
+       Now it is stChip: the ring is the percent, the word is printed only when
+       it is not the default for the group the row is sitting under, and
+       critical is the red edge rather than a line of its own. What the sentence
+       carried that the chip cannot — how late, waiting on whom — moves into the
+       tooltip, which is where the rest of this table already keeps its detail.
+
+       fmtNice/calDaysBetween are the same calls the row's own `state` string
+       made, so the chip cannot disagree with the tooltip about the date. */
+    function wlStateChip(r) {
+      const pct = Number(r.pct) || 0;
+      const o = { pct: pct, crit: !!r.crit };
+      const critNote = r.crit ? '\n\nOn the critical path: zero slack, so any slip here moves the finish date.' : '';
+      const due = r.finish ? fmtNice(r.finish) : null;
+      if (pct >= 100) return stChip('badge-done', 'Done', Object.assign(o, { pct: 100,
+        tip: 'Finished — recorded at 100%.' + critNote }));
+      if (r.overdue) {
+        const n = Math.abs(calDaysBetween(r.finish, stripTime(new Date())));
+        return stChip('badge-critical', n + (n === 1 ? ' day late' : ' days late'), Object.assign(o, {
+          tip: 'Due ' + due + ' and still at ' + Math.round(pct) + '%.' + critNote }));
+      }
+      if (pct > 0) return stChip('badge-prog', Math.round(pct) + '% done', Object.assign(o, {
+        tip: 'Work has started.' + (due ? ' Due ' + due + '.' : '') + critNote }));
+      if ((r.blockers || []).length) {
+        const b = r.blockers[0];
+        const who = b.owners && b.owners.length ? b.owners.join(', ') : 'nobody';
+        return stChip('badge-blocked', 'Blocked', Object.assign(o, {
+          tip: 'Waiting on ' + b.name + ' — owned by ' + who
+            + (r.blockers.length > 1 ? ' (and ' + (r.blockers.length - 1) + ' other predecessor'
+              + (r.blockers.length > 2 ? 's' : '') + ')' : '') + '.' + critNote }));
+      }
+      /* Nothing in its way and nothing recorded against it. Under a "Can start
+         now" heading that is the default, so the chip goes quiet — recessive
+         text beside its hollow ring rather than a pill competing with the rows
+         that need attention. Still a word, though: a bare circle is a design
+         that has to be explained. */
+      if (!r.start || r.start <= stripTime(new Date()))
+        return stChip('badge-notstarted', 'Can start', Object.assign(o, { quiet: !r.crit,
+          tip: 'Nothing is blocking it and no progress is recorded yet.'
+            + (due ? ' Due ' + due + '.' : '') + critNote }));
+      /* The year is dropped from the CHIP when it is this year — "Starts Aug 17,
+         2026" is 150px of a 22% column and the four characters doing the work
+         are the ones that survive. The tooltip keeps the full date, so nothing
+         is lost where the year actually matters (a plan that runs over one). */
+      const startLbl = fmtNice(r.start).replace(new RegExp(',\\s*' + new Date().getFullYear() + '$'), '');
+      return stChip('badge-slack', 'Starts ' + startLbl, Object.assign(o, { quiet: !r.crit,
+        tip: 'Not due to begin until ' + fmtNice(r.start) + '.' + (due ? ' Due ' + due + '.' : '') + critNote }));
+    }
     function wlTableRow(r, showBlock) {
       const risk = (r.raid || []).length
         ? '<div class="wl-risk">' + r.raid.slice(0, 2).map(x =>
@@ -34978,9 +35086,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
            eighty-character title it wrapped onto its own line and read as a row
            of its own; beside the status it is what it actually is — a fact about
            this activity's standing. */
-        + '<td class="wl-td wl-state">' + escapeHtml(r.state)
-        + (r.crit ? '<div class="wl-crit" title="Zero slack — this one moves the finish date">critical path</div>' : '')
-        + '</td>'
+        + '<td class="wl-td wl-state">' + wlStateChip(r) + '</td>'
         + '<td class="wl-td">' + when + '</td>' + wlEffCell(r) + waiting + '</tr>';
     }
     /* ESTIMATE AND WHAT IT ACTUALLY TOOK, side by side.
@@ -35129,26 +35235,76 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
             + (choke.owners && choke.owners.length ? ', owned by ' + escapeHtml(choke.owners.join(', ')) : '')
             + '.' : '')
         + '</p>';
-      const cards = people.map(p => {
+      /* ═══ THE TAB ASKS ONE QUESTION, SO ANSWER IT FIRST ═══════════════
+         "What each person can start now" — and the cards came back in roster
+         order, so on a plan where nothing is startable the reader met four
+         identical cards saying "everything is waiting on somebody else"
+         followed by eleven rows of blocked work each. The people who can
+         actually do something were wherever the alphabet put them.
+
+         Sorted by whether there is anything to pick up, then by how much of it
+         — and where there is nothing startable, the blocked list folds away
+         behind its own count. That card's honest content is one line: nothing,
+         because of these. Eleven rows restating it is the same mistake as
+         printing the warnings above the summary. */
+      const ordered = people.slice().sort((a, b) =>
+        (b.now.length > 0) - (a.now.length > 0)
+        || b.now.length - a.now.length
+        || b.blocking - a.blocking
+        || b.effort - a.effort);
+      const cards = ordered.map(p => {
+        const idle = p.now.length === 0;
         const alert = p.overdue > 0 ? '1' : '0';
         const role = p.name === WL_NOBODY ? 'these have no owner at all'
           : ((resources[p.name] || {}).role || '');
+        /* These four numbers are what somebody came to this tab for, and they
+           were set in the same small grey as everything else. Chips, with the
+           one that answers the question carrying the weight. */
+        const chip = (n, lbl, cls) => '<span class="wl-k' + (cls ? ' ' + cls : '') + '"><b>' + n + '</b> ' + lbl + '</span>';
         const bits = [];
-        bits.push('<b>' + p.now.length + '</b> to pick up');
-        if (p.blocked.length) bits.push('<b>' + p.blocked.length + '</b> blocked');
-        if (p.overdue) bits.push('<b class="wl-late">' + p.overdue + '</b> overdue');
-        if (p.blocking) bits.push('<b>' + p.blocking + '</b> holding others up');
-        if (p.risks) bits.push('<b>' + p.risks + '</b> open RAID');
-        /* A hidden group still announces itself. "Blocked (11) — hidden" is a
-           filter; a heading that simply is not there is an activity that has
-           disappeared from the plan as far as the reader can tell. */
+        bits.push(chip(p.now.length, 'to pick up', p.now.length ? 'wl-k-go' : 'wl-k-none'));
+        if (p.blocked.length) bits.push(chip(p.blocked.length, 'blocked'));
+        if (p.overdue) bits.push(chip(p.overdue, 'overdue', 'wl-k-late'));
+        if (p.blocking) bits.push(chip(p.blocking, 'holding others up', 'wl-k-warn'));
+        if (p.risks) bits.push(chip(p.risks, 'open RAID'));
+        /* A hidden group still announces itself — a heading that simply is not
+           there is an activity that has disappeared from the plan as far as the
+           reader can tell. But it announced itself in the same bold uppercase as
+           the real group headings, once per hidden group, on every card: six
+           cards each shouting FINISHED 1 — HIDDEN BY THE FILTER ABOVE, which is
+           chrome about a checkbox the reader can see three inches higher.
+
+           So the notices collect and print once, small and recessive, under the
+           content they are absent from. Still stated, no longer competing. */
+        const hidden = [];
         const grp = (key, lbl, rows, showBlock, cap) => {
           if (!rows.length) return '';
-          if (!wlView[key]) return '<p class="wl-gh wl-gh-off">' + lbl + ' <span class="wl-fn">'
-            + rows.length + '</span> — hidden by the filter above</p>';
+          if (!wlView[key]) { hidden.push(lbl.toLowerCase() + ' ' + rows.length); return ''; }
           return '<p class="wl-gh">' + lbl + ' <span class="wl-fn">' + rows.length + '</span></p>'
             + wlTable(rows, showBlock, cap);
         };
+        /* ═══ SAY IT ONCE ═══════════════════════════════════════════════════
+           An idle card used to be three lines saying the same thing: the
+           heading CAN START NOW, the sentence "everything open for them is
+           waiting on somebody else — see below", and then the fold BLOCKED 7 —
+           WAITING ON SOMEBODY ELSE. Plus a chip at the top already reading
+           "0 to pick up". Four statements of one fact, and the card was mostly
+           made of them.
+
+           When there IS startable work the heading earns its place — it names
+           the group under it. When there is not, the fold's own summary is the
+           answer, and the heading and the sentence are both dropped. Where
+           there is nothing to fold either (nothing open, or the next thing
+           starts later) one plain sentence remains, because a card with only
+           chips on it reads as if it failed to load. */
+        const startBlock = p.now.length
+          ? grp('now', 'Can start now', p.now, false, MAXN)
+          : (p.blocked.length && wlView.blocked) ? ''
+          : '<p class="wl-none">' + (p.blocked.length
+              ? 'Everything open for them is waiting on somebody else.'
+              : p.soon.length ? 'Nothing to start yet — their next activity begins '
+                  + escapeHtml(fmtNice(p.soon[0].start)) + '.'
+                  : 'Nothing open at all.') + '</p>';
         return '<div class="wl-p" data-alert="' + alert + '">'
           + '<div class="wl-h"><button type="button" class="wl-nm wl-nmb no-print" onclick="wlOpenPerson('
           + ekJs2(p.name) + ')" title="' + escapeHtml('Open ' + p.name + '’s full breakdown — every '
@@ -35161,18 +35317,18 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
           + '<button class="btn-sm btn-secondary no-print" onclick="wlCopy(' + ekJs2(p.name) + ')" '
           + 'title="Copy this person\'s worklist as a formatted table — activity, status, due date, what it is '
           + 'waiting on and any open RAID entry. Pastes into email or a doc with the formatting intact.">📋 Copy</button></div>'
-          + '<p class="wl-li" style="margin:0">' + bits.join(' · ')
-          + (p.done ? ' · <b>' + p.done + '</b> finished' : '') + ' · <span class="wl-when">'
-          + (Math.round(p.effort * 10) / 10) + ' ' + escapeHtml(u) + ' of work left</span></p>'
-          + (p.now.length ? grp('now', 'Can start now', p.now, false, MAXN)
-            : '<p class="wl-gh">Can start now</p><p class="wl-none">' + (p.blocked.length
-                ? 'Everything open for them is waiting on somebody else — see below.'
-                : p.soon.length ? 'Nothing yet — their next activity starts '
-                    + escapeHtml(fmtNice(p.soon[0].start)) + '.'
-                    : 'Nothing open at all.') + '</p>')
-          + grp('blocked', 'Blocked', p.blocked, true, MAXB)
+          + '<p class="wl-li wl-keys" style="margin:0">' + bits.join('')
+          + (p.done ? chip(p.done, 'finished') : '')
+          + chip(Math.round(p.effort * 10) / 10 + ' ' + escapeHtml(u), 'of work left') + '</p>'
+          + startBlock
+          + (idle && p.blocked.length && wlView.blocked
+              ? '<details class="wl-fold"><summary>Blocked <span class="wl-fn">' + p.blocked.length
+                + '</span> — nothing they can start until somebody else moves</summary>'
+                + wlTable(p.blocked, true, MAXB) + '</details>'
+              : grp('blocked', 'Blocked', p.blocked, true, MAXB))
           + grp('soon', 'Later', p.soon, false, MAXB)
           + grp('done', 'Finished', p.doneRows, false, MAXB)
+          + (hidden.length ? '<p class="wl-hid">Hidden by the filter: ' + escapeHtml(hidden.join(' · ')) + '</p>' : '')
           + '</div>';
       }).join('');
       const body = wlViewBar(people) + head + '<div class="wl">' + cards + '</div>';

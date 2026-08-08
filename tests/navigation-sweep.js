@@ -651,13 +651,43 @@ const { chromium } = requirePlaywright();
     out.rowsDefault = beforeGrp; out.rowsWithHiddenGroups = rowsNow();
     if (out.rowsWithHiddenGroups <= beforeGrp)
       say2('switching on Later and Finished drew no additional rows — those groups cannot be seen');
-    // and a hidden group must still announce itself rather than vanish
+    /* And a hidden group must still announce itself rather than vanish.
+
+       Case-insensitive DELIBERATELY. What this asserts is that the reader is
+       told the rows were filtered, not that the notice is typeset one
+       particular way — and the first time the panel moved that notice from a
+       per-group heading ("— hidden by the filter above") to one collected line
+       under the card ("Hidden by the filter: finished 1") the check went red
+       over the capital H alone, on a build where the sentence was still there
+       and easier to read than before. That is root cause 2: an assertion
+       anchored to presentation instead of to the thing it cares about.
+
+       The count is checked too, so a build that prints the words while dropping
+       the numbers still fails — it is the numbers that make the notice usable
+       ("finished 1" tells you what turning the box back on will get you). */
     wlSetView('blocked', false);
-    const offTxt = (document.getElementById('worklistHost') || {}).textContent || '';
-    out.hiddenGroupAnnounced = /hidden by the filter/.test(offTxt);
+    const offHost = document.getElementById('worklistHost');
+    const offTxt = (offHost || {}).textContent || '';
+    out.hiddenGroupAnnounced = /hidden by the filter/i.test(offTxt);
+    /* Scoped to the ELEMENTS carrying the notice, not to the panel's whole
+       textContent. Read off the panel, "hidden by the filter" is followed by
+       whatever the next card starts with — a person's name and their chip
+       counts — so a regex looking for a digit after the phrase matched on a
+       build that had dropped the numbers entirely. It passed against a mutant
+       and was worth nothing. The digit has to be inside the notice itself. */
+    out.hiddenGroupNotices = offHost
+      ? [...offHost.querySelectorAll('*')].filter(e => !e.children.length
+          && /hidden by the filter/i.test(e.textContent || '')).map(e => e.textContent.trim())
+      : [];
+    out.hiddenGroupCounted = out.hiddenGroupNotices.length > 0
+      && out.hiddenGroupNotices.every(t => /\d/.test(t));
     if (totBlk && !out.hiddenGroupAnnounced)
       say2('switching a group off removed it without trace — from the reader\'s side those activities '
         + 'have disappeared from the plan rather than been filtered');
+    if (totBlk && out.hiddenGroupAnnounced && !out.hiddenGroupCounted)
+      say2('the filtered-out group is announced but not counted — "hidden by the filter" without a number '
+        + 'tells the reader something is missing and not how much, which is the half that would let them '
+        + 'decide whether to go and look');
     wlSetView('blocked', true); wlSetView('done', false); wlSetView('soon', false); wlSetView('all', false);
 
     /* The drill-in is checked against the person with the MOST work, and among
