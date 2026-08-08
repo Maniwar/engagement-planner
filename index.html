@@ -1740,9 +1740,58 @@
     #taskTable th:nth-child(15), #taskTable td:nth-child(15) { min-width: 104px; }
     #wbsContainer th:nth-child(4), #wbsContainer td:nth-child(4),
     #wbsContainer th:nth-child(7), #wbsContainer td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; }
-    .roster-table th:nth-child(n+9):nth-child(-n+11), .roster-table td:nth-child(n+9):nth-child(-n+11),
-    .roster-table th:nth-child(n+4):nth-child(-n+6), .roster-table td:nth-child(n+4):nth-child(-n+6) { text-align: right; }
+    /* ═══ ALIGNED BY WHAT A CELL IS, NOT BY WHERE IT SITS ═══════════════════
+       This was two nth-child ranges — columns 4-6 and 9-11 — which is a rule
+       about POSITIONS, and positions move. Merging the three rate columns into
+       one shifted everything past capacity by two, so the ranges would have
+       started right-aligning the wrong things while remaining perfectly valid
+       CSS and looking deliberate. The same class of mistake the assertions in
+       this repo keep getting caught making: anchored to presentation rather
+       than to the thing being described. A cell holding a number says so. */
+    .roster-table .rl-num { text-align: right; font-variant-numeric: tabular-nums; }
     .rl-bill { text-align: right; }
+    /* One cell for two rates and the unit they are written in. */
+    .rl-rates { white-space: nowrap; }
+    .rl-rates input { width: 62px; text-align: right; }
+    .rl-rates .rl-sep { color: var(--slack); margin: 0 0.15rem; }
+    .rl-rates select { width: auto; margin-left: 0.2rem; }
+    /* Availability, closed by default: a reading, with the editor behind it. */
+    /* 110, not 150. The min-width was sized for the OPEN editor — seven day
+       toggles in a row — and the cell is closed by default now, so it was
+       reserving room for something nobody is looking at. Opened, the editor
+       widens the column for as long as it is open, which is correct: that is
+       when the room is actually needed. */
+    .rl-avail { min-width: 110px; }
+    .rl-name { white-space: nowrap; }
+    /* Role and Company were absorbing every spare pixel — 294px around a 130px
+       input, and 172px around a select that reads "— none —" on most plans —
+       which is what pushed the table past its panel and put Rename and ✕ off
+       the right-hand edge. Under auto layout a column takes what its widest
+       content asks for, and a text input asks for its default size regardless
+       of the width you gave it, so the CELL has to be told. */
+    .roster-table .rl-role-c { width: 140px; max-width: 140px; }
+    .roster-table .rl-role-c input { width: 100%; min-width: 0; }
+    .roster-table .rl-org-c { width: 116px; max-width: 116px; }
+    /* 106, because 92 clipped "Internal" to "Interr" in the select itself —
+       a truncated OPTION is not a narrow column, it is a control that misreports
+       its own value. The 14px comes back off Company, whose select shows
+       "— none —" on most plans and has room to spare. */
+    .roster-table .rl-kind-c { width: 106px; max-width: 106px; }
+    .roster-table .rl-kind-c select { width: 100%; min-width: 0; }
+    .rl-load .rl-n { color: var(--muted); font-weight: 400; margin-left: 0.3rem; cursor: help; }
+    .roster-table .rl-org-c select { width: 100%; min-width: 0; }
+    .av > summary { cursor: pointer; list-style: none; display: flex; align-items: center;
+      gap: 0.3rem; flex-wrap: wrap; font-size: var(--t-xs); padding: 0.1rem 0; }
+    .av > summary::-webkit-details-marker { display: none; }
+    .av > summary::before { content: '▸'; color: var(--muted); font-size: 0.8em; flex: none; }
+    .av[open] > summary::before { content: '▾'; }
+    .av > summary:hover .av-w { text-decoration: underline; }
+    .av-w { font-weight: 600; }
+    .av-own { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;
+      border-radius: 999px; padding: 0 0.35rem; font-size: 0.9em; }
+    .av-pto { background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+      border-radius: 999px; padding: 0 0.35rem; font-size: 0.9em; }
+    .av[open] { padding-bottom: 0.25rem; }
     /* Column 3 is the TITLE — a sentence — and it was centred, so every entry
        longer than one line got a ragged left edge and the column could not be
        scanned down at all. Column 4 is the SCORE, which is a number and is the
@@ -4327,7 +4376,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0804</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1637</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -11242,6 +11291,45 @@ Or say what you want, in your own words:
       parts.splice(idx, 1);
       setPto(name, parts.join(', '));
     }
+    /* ═══ A WEEK, READ BACK AS A SENTENCE ════════════════════════════════════
+       The roster drew seven toggle buttons and a PTO strip for every person,
+       always open, and that made each row 87px tall — seven people came to
+       609px of table for a fact most rows never change. The controls are worth
+       having; having them open on every row at all times is not.
+
+       So the cell collapses to what it SAYS — "Mon–Fri", "Mon–Fri · 2 away" —
+       and the editor is one click behind it. The summary has to be readable at
+       a glance or the collapse just hides information: it names the actual days
+       (compressed into runs, so Mon,Tue,Wed,Thu,Fri is "Mon–Fri" and not five
+       chips), says when somebody is on the project's own week rather than their
+       own, and counts what they are away for. */
+    const DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    function resWeekLabel(name) {
+      const on = [0,1,2,3,4,5,6].filter(d => resWorksOn(name, d));
+      if (!on.length) return 'no working days';
+      if (on.length === 7) return 'every day';
+      /* Runs, not a list. The week is cyclic but a run that wraps Sunday reads
+         worse compressed than spelled out, so runs are found in plain order. */
+      const runs = [];
+      on.forEach(d => {
+        const last = runs[runs.length - 1];
+        if (last && d === last[1] + 1) last[1] = d; else runs.push([d, d]);
+      });
+      return runs.map(([a, b2]) => a === b2 ? DOW3[a]
+        : (b2 - a === 1 ? DOW3[a] + ', ' + DOW3[b2] : DOW3[a] + '–' + DOW3[b2])).join(', ');
+    }
+    /* How many DAYS somebody is away, not how many entries they typed. "2
+       entries" is a fact about the input; "9 days away" is the fact that moves
+       a date, and one range can hold either. */
+    function ptoDayCount(name) {
+      return ptoParts(name).reduce((n, part) => {
+        const m = part.match(/^(\d{4}-\d{2}-\d{2})\s*\.\.\s*(\d{4}-\d{2}-\d{2})$/);
+        if (!m) return n + 1;
+        const a = new Date(m[1] + 'T00:00:00'), b2 = new Date(m[2] + 'T00:00:00');
+        if (!(b2 >= a)) return n + 1;
+        return n + Math.round((b2 - a) / 86400000) + 1;
+      }, 0);
+    }
     function ptoChipLabel(part) {
       const m = part.match(/^(\d{4}-\d{2}-\d{2})\s*\.\.\s*(\d{4}-\d{2}-\d{2})$/);
       const nice = iso => { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
@@ -17638,19 +17726,63 @@ Or say what you want, in your own words:
         const over = R.overDays.length;
         const isClient = isClientResource(name);
         return `<tr style="${isClient ? 'background:#f8fafc' : ''}">
-          <td style="font-weight:600">${escapeHtml(name)}${isClient ? ' <span class="risk-tag" style="background:#dbeafe;color:#1e40af">CLIENT</span>' : ''}</td>
-          <td><select class="mini-inp rl-kind" data-ri="${ri}" style="width:auto" title="Client/external people carry no cost or billing — but their workload and PTO are still tracked">
+          ${/* The CLIENT badge said what the Type dropdown two cells away says,
+                in a tag wide enough to wrap every client name onto a second
+                line — so the redundant half of the pair was also the expensive
+                half. The row keeps its tinted background, which carries the
+                same fact without costing a line. */''}
+          <td class="rl-name" style="font-weight:600"${isClient ? ' title="Client-side — tracked for workload and PTO, never costed or billed"' : ''}>${escapeHtml(name)}</td>
+          <td class="rl-kind-c"><select class="mini-inp rl-kind" data-ri="${ri}" title="Client/external people carry no cost or billing — but their workload and PTO are still tracked">
             <option value="internal" ${!isClient ? 'selected' : ''}>Internal</option>
             <option value="client" ${isClient ? 'selected' : ''}>Client</option></select></td>
-          <td><input class="mini-inp rl-role" data-ri="${ri}" type="text" value="${escapeHtml((resources[name] || {}).role || '')}" placeholder="e.g. Platform Developer" title="${escapeHtml((resources[name] || {}).role ? (resources[name] || {}).role + ' — ' : '')}What they do on this engagement — the AI captures it from your notes ('Marcus Webb — CRM Platform Developer'); applying a rate card also fills it. Shows on owner hovers so a roster of names still tells you who does what." style="width:150px" /></td>
-          <td>${orgPickerHtml(name, ri)}</td>
-          <td><input class="mini-inp rl-cap" data-ri="${ri}" type="number" min="1" step="10" value="${R.capacity}" title="Capacity % — 100 = 1 full-time person, 300 = a 3-person team" /></td>
-          <td>${isClient ? '<span class="help-text">n/a</span>' : `<input class="mini-inp rl-rate" data-ri="${ri}" type="number" min="0" step="${resRateUnit(name) === 'hour' ? 5 : 50}" value="${rawRate(name)}" title="COST rate at 100%, in the unit on the right (feeds the budget layer — hourly × 8 = the daily figure the math uses)" />`}</td>
-          <td>${isClient ? '<span class="help-text">n/a</span>' : `<input class="mini-inp rl-bill" data-ri="${ri}" type="number" min="0" step="${resRateUnit(name) === 'hour' ? 5 : 50}" value="${rawBillRate(name)}" title="BILL rate, in the unit on the right (client-facing — feeds pricing & SOW)" />`}</td>
-          <td>${isClient ? '' : `<select class="mini-inp rl-runit" data-ri="${ri}" style="width:auto" title="Enter this person's rates per day or per hour — one unit covers both columns. Hourly converts at 1 day = 8 h everywhere the math runs (billing, pricing, SOW).">
-            <option value="day" ${resRateUnit(name) !== 'hour' ? 'selected' : ''}>$/day</option>
-            <option value="hour" ${resRateUnit(name) === 'hour' ? 'selected' : ''}>$/hr</option></select>`}</td>
-          <td style="max-width:250px">
+          <td class="rl-role-c"><input class="mini-inp rl-role" data-ri="${ri}" type="text" value="${escapeHtml((resources[name] || {}).role || '')}" placeholder="e.g. Platform Developer" title="${escapeHtml((resources[name] || {}).role ? (resources[name] || {}).role + ' — ' : '')}What they do on this engagement — the AI captures it from your notes ('Marcus Webb — CRM Platform Developer'); applying a rate card also fills it. Shows on owner hovers so a roster of names still tells you who does what." style="width:130px" /></td>
+          <td class="rl-org-c">${orgPickerHtml(name, ri)}</td>
+          <td class="rl-num"><input class="mini-inp rl-cap" data-ri="${ri}" type="number" min="1" step="10" value="${R.capacity}" title="Capacity % — 100 = 1 full-time person, 300 = a 3-person team" /></td>
+          ${/* ═══ THREE COLUMNS FOR TWO FACTS ═══════════════════════════════
+                Cost rate, Bill rate and Unit were three headed columns, and the
+                third is not a fact about this person at all — it is the UNIT
+                the other two are written in, which is why it sat in a column
+                that read "$/day" on every row and told the reader nothing they
+                could not see from the two numbers beside it. Three headers,
+                three column widths and a horizontal scrollbar, to say "1200 and
+                1900, per day".
+
+                One cell. The unit reads as what it is, a suffix on the pair,
+                and the header names the pair. The inputs keep their classes and
+                data-ri so every existing handler binds exactly as before. */''}
+          <td class="rl-rates">${isClient
+            ? '<span class="help-text" title="Client-side people are tracked for workload and PTO but never costed or billed, so there is no rate to set.">not costed</span>'
+            : `<input class="mini-inp rl-rate" data-ri="${ri}" type="number" min="0" step="${resRateUnit(name) === 'hour' ? 5 : 50}" value="${rawRate(name)}" title="COST rate at 100% — what they cost YOU, in the unit at the end of this cell. Feeds the budget and EVM layer; hourly × 8 gives the daily figure the maths uses." />`
+            + `<span class="rl-sep" aria-hidden="true">/</span>`
+            + `<input class="mini-inp rl-bill" data-ri="${ri}" type="number" min="0" step="${resRateUnit(name) === 'hour' ? 5 : 50}" value="${rawBillRate(name)}" title="BILL rate — what you charge the client, in the unit at the end of this cell. Feeds pricing, margin and the SOW." />`
+            + `<select class="mini-inp rl-runit" data-ri="${ri}" title="The unit BOTH rates above are written in. Hourly converts at 1 day = 8 h everywhere the maths runs — billing, pricing, SOW.">
+            <option value="day" ${resRateUnit(name) !== 'hour' ? 'selected' : ''}>/day</option>
+            <option value="hour" ${resRateUnit(name) === 'hour' ? 'selected' : ''}>/hr</option></select>`}</td>
+          ${/* ═══ OPEN ON EVERY ROW, ALWAYS, FOR A FACT MOST ROWS NEVER CHANGE ══
+                Seven weekday toggles plus a PTO strip plus an Add button, drawn
+                open for everybody, made each row 87px — seven people came to
+                609px of table, and the tallest thing on the roster was the
+                column people touch least. The controls earn their place; being
+                permanently open does not.
+
+                So the cell reads back what it SAYS — "Mon–Fri", "Mon–Fri · 9
+                days away" — and the editor is one click behind it. The summary
+                has to stand on its own or this is just hiding information,
+                which is why it names the actual days rather than a count, and
+                counts DAYS away rather than entries typed: one range can hold
+                either, and it is the days that move a date.
+
+                Every control keeps its data attribute and stays in the DOM
+                inside the closed <details>, so the handlers bound after render
+                bind exactly as they did before. */''}
+          <td class="rl-avail">
+            <details class="av"><summary title="${escapeHtml('Click to set which days ' + name
+              + ' works and add vacation or unavailable dates. Work scheduled on a day they do not work is '
+              + 'flagged the same way work on a holiday is.')}"><span class="av-w">${escapeHtml(resWeekLabel(name))}</span>${
+              resWorkDays(name) ? '<span class="av-own" title="' + escapeHtml('Their own week, rather than the project default.') + '">own</span>' : ''
+            }${(() => { const n = ptoDayCount(name); return n
+              ? '<span class="av-pto" title="' + escapeHtml(n + ' day' + (n === 1 ? '' : 's')
+                  + ' away. Work scheduled on these days is flagged.') + '">' + n + ' away</span>' : ''; })()}</summary>
             <div class="res-wk" title="${escapeHtml('The days of the week this person works. Work scheduled on a day they do not is flagged the same way work on a holiday is. Untouched means they follow the project week.')}">${
               ['S','M','T','W','T','F','S'].map((lbl, dw) => {
                 const on = resWorksOn(name, dw);
@@ -17666,9 +17798,22 @@ Or say what you want, in your own words:
               <button class="btn-sm btn-success" data-pto-save="${ri}">✓</button>
               <button class="btn-sm btn-secondary" data-pto-cancel="${ri}" aria-label="Cancel PTO entry">✕</button>
             </span>
+            </details>
           </td>
-          <td>${assigned.length}</td>
-          <td>${effort.toFixed(1)}d</td>
+          ${/* TWO COLUMNS, ONE QUESTION. "Tasks" and "Planned effort" both
+                answer how much is on this person, and neither is readable
+                without the other: 8 activities means nothing until you know
+                they add to 3.6 days. Together they are one reading, and the
+                two headers were costing ~110px that put Rename and Remove off
+                the edge of a 1440px screen. Effort leads because it is the
+                number that decides anything; the count qualifies it. */''}
+          <td class="rl-num rl-load">${assigned.length
+            ? '<b>' + effort.toFixed(1) + 'd</b><span class="rl-n" title="'
+              + escapeHtml(assigned.length + ' activit' + (assigned.length === 1 ? 'y' : 'ies')
+                + ' they take part in, including as an attendee. The days beside it are those activities\''
+                + ' planned spans weighted by this person\'s allocation.') + '">'
+              + assigned.length + '&#8202;\u00d7</span>'
+            : '<span class="help-text">none</span>'}</td>
           ${/* A PEAK IS A READING, SO DRAW IT AS ONE. 200% and 300% sat in the
                 same grey as 50%, on the one column whose entire job is to say
                 "this person is booked past what they have" — the number was
@@ -17719,7 +17864,7 @@ Or say what you want, in your own words:
             return '';
           })()}${over ? `<span class="badge badge-critical">over ×${over}d</span>`
             : R.peak > R.capacity + 1e-6
-              ? `<span class="badge badge-ok" title="The ${Math.round(R.peak)}% peak is on days where every overlapping activity is already finished. A double-booking you have lived through is history rather than an action item, so it is not counted and there is nothing to mend — it would count again the moment one of them went back to unfinished.">OK — peak already worked</span>`
+              ? `<span class="badge badge-ok" style="cursor:help" title="The ${Math.round(R.peak)}% peak is on days where every overlapping activity is already FINISHED. A double-booking you have lived through is history rather than an action item, so it is not counted and there is nothing to mend — it would count again the moment one of them went back to unfinished.">OK <span class="help-text" style="font-size:0.85em">worked</span></span>`
               : '<span class="badge badge-ok">OK</span>'}</td>
           <td style="white-space:nowrap">
             <button class="btn-sm btn-secondary" data-res-rename="${ri}">Rename</button>
@@ -17740,7 +17885,7 @@ Or say what you want, in your own words:
           <button class="btn-sm btn-primary no-print" onclick="addResourcePrompt()"><span class="ico" aria-hidden="true">➕</span> Add resource</button></span>
         </div>
         <div class="table-wrap" style="margin-bottom:1rem"><table class="roster-table">
-          <thead><tr><th title="Person, role or team">Resource</th><th title="Internal = yours (costed & billed). Client = their people: tracked for workload/PTO but never costed or billed">Type</th><th title="Job on the engagement — filled by the AI from your notes, editable, also set when a rate card is applied">Role</th><th title="The company they work for. &quot;Us&quot; for your own people, the client&#39;s name for theirs, and the actual firm for a subcontractor or integration partner. It is recorded on every archived activity, so the estimate bank can tell you how a given partner&#39;s work has historically run against estimate — a question a role or a person&#39;s name cannot answer.">Company</th><th title="100 = one full-time person; 300 = a 3-person team; 50 = someone available half-time">Capacity %</th><th title="What they cost YOU — in the unit chosen in the next column; drives the cost & EVM layer">Cost rate</th><th title="What you charge the client — drives pricing, margin and the SOW">Bill rate</th><th title="Rates entered per day or per hour (1 day = 8 h — hourly people convert automatically everywhere)">Unit</th><th title="Which days of the week this person works, and any vacation or unavailable dates. Work scheduled on a day they do not work, or on a day off, is flagged as a conflict. NOTE: narrowing somebody's week catches conflicts; widening it does not make the scheduler use the extra days, because the schedule itself runs on the project calendar.">Availability</th><th title="Tasks they participate in (incl. as attendee)">Tasks</th><th title="Total planned working days × their allocation">Planned effort</th><th title="Busiest single day as % of capacity">Peak load</th><th title="OK = within capacity every day; over ×N = N conflict days to resolve">Status</th><th></th></tr></thead>
+          <thead><tr><th title="Person, role or team">Resource</th><th title="Internal = yours (costed & billed). Client = their people: tracked for workload/PTO but never costed or billed">Type</th><th title="Job on the engagement — filled by the AI from your notes, editable, also set when a rate card is applied">Role</th><th title="The company they work for. &quot;Us&quot; for your own people, the client&#39;s name for theirs, and the actual firm for a subcontractor or integration partner. It is recorded on every archived activity, so the estimate bank can tell you how a given partner&#39;s work has historically run against estimate — a question a role or a person&#39;s name cannot answer.">Company</th><th title="100 = one full-time person; 300 = a 3-person team; 50 = someone available half-time">Cap %</th><th title="Two rates and the unit they are written in. Cost is what they cost YOU and drives the budget and EVM layer; bill is what you charge the client and drives pricing, margin and the SOW. One unit covers both — hourly converts at 1 day = 8 h everywhere the maths runs. Client-side people are never costed or billed.">Cost / Bill</th><th title="Collapsed to a reading — click a row open to change it. Which days of the week this person works, and any vacation or unavailable dates. Work scheduled on a day they do not work, or on a day off, is flagged as a conflict. NOTE: narrowing somebody's week catches conflicts; widening it does not make the scheduler use the extra days, because the schedule itself runs on the project calendar.">Availability</th><th title="How much is on this person: their planned effort — every activity they take part in, weighted by their allocation — and beside it the number of activities that is spread across. Neither number is readable without the other, so they share a column.">Workload</th><th title="Busiest single day as a % of capacity — the bar is that peak against their capacity, so a full bar IS capacity and the ink turns when it is exceeded. A second segment appears when the person is also booked on another engagement in this browser.">Peak</th><th title="OK = within capacity every day; over ×N = N conflict days to resolve">Status</th><th></th></tr></thead>
           <tbody>${rosterRows}</tbody>
         </table></div>`;
       const holidays = getHolidaySet();

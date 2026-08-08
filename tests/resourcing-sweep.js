@@ -1030,8 +1030,102 @@ const DATA = FIXTURE();
       return { rateCard: Math.round(pv.rateCard), fee: Math.round(pv.fee), gap: Math.round(pv.gap) };
     })();
 
+    /* ═══ THE ROSTER'S COLLAPSED CONTROLS STILL WORK ════════════════════════
+       The availability cell used to draw seven weekday toggles, a PTO strip and
+       an Add button open on every row, which made each row 87px — seven people
+       came to 609px, and the tallest thing on the roster was the column people
+       touch least. It reads back as a sentence now with the editor one click
+       behind it.
+
+       Collapsing a control is how a control ships dead, and it ships dead
+       quietly: nobody notices a toggle that stopped toggling if they have to
+       open a disclosure to reach it. So this opens the editor and drives it —
+       and it also requires the SUMMARY to name the days, because a collapse
+       that replaces "Mon Tue Wed Thu Fri" with a chevron has not compressed the
+       information, it has hidden it. */
+    const roster = {};
+    (() => {
+      /* The roster only exists on the Team section, and this sweep spends most
+         of its length on Workload. Asking for the table without asking for its
+         section found nothing and reported the roster as empty — a check
+         failing on its own navigation, which reads exactly like a product bug. */
+      const wasTab = (typeof resTab !== 'undefined') ? resTab : null;
+      if (typeof setResTab === 'function') setResTab('team');
+      const tr = document.querySelector('.roster-table tbody tr');
+      roster.restoreTab = wasTab;
+      if (!tr) { say('Roster', 'the roster drew no rows at all'); return; }
+      /* The person is read off the ROW. The roster is sorted and `resources` is
+         in insertion order, so the first key and the first row are different
+         people — an earlier version of this compared one while clicking the
+         other and reported a working control as decorative. */
+      const nameEl = tr.querySelector('.rl-name');
+      const who = nameEl ? nameEl.textContent.trim() : '';
+      roster.person = who;
+      roster.rowHeight = tr.offsetHeight;
+      const det = tr.querySelector('.av');
+      if (!det) { say('Roster', 'the availability editor is gone from the roster entirely'); return; }
+      roster.closedByDefault = !det.open;
+      const summary = det.querySelector('summary');
+      roster.summary = summary ? summary.textContent.trim() : '';
+      if (det.open)
+        say('Roster', 'the availability editor is open by default on every row again — that is what made each '
+          + 'row 87px tall, on the column people touch least');
+      /* The reading has to carry the DAYS. A chevron and nothing else is not a
+         summary of a week. */
+      if (!/mon|tue|wed|thu|fri|sat|sun|every day|no working/i.test(roster.summary))
+        say('Roster', 'the collapsed availability cell does not name any day — it reads "' + roster.summary
+          + '", so the week has been hidden rather than summarised');
+      det.open = true;
+      const before = JSON.stringify(resWorkDays(who) ? [...resWorkDays(who)] : null);
+      const wk = tr.querySelector('[data-reswk]');
+      if (!wk) { say('Roster', 'the weekday toggles are gone from the opened editor'); return; }
+      wk.click();
+      const after = JSON.stringify(resWorkDays(who) ? [...resWorkDays(who)] : null);
+      roster.weekBefore = before; roster.weekAfter = after;
+      if (before === after)
+        say('Roster', 'clicking a weekday inside the opened availability editor changed nothing for ' + who
+          + ' — the control is decorative now that it is behind a disclosure');
+      /* Put it back: this sweep must not leave the plan altered for the checks
+         that run after it. */
+      const tr2 = [...document.querySelectorAll('.roster-table tbody tr')]
+        .find(r => (r.querySelector('.rl-name') || {}).textContent.trim() === who);
+      if (tr2) { const d2 = tr2.querySelector('.av'); if (d2) d2.open = true;
+        const w2 = tr2.querySelector('[data-reswk]'); if (w2) w2.click(); }
+      roster.restored = JSON.stringify(resWorkDays(who) ? [...resWorkDays(who)] : null) === before;
+      if (!roster.restored)
+        say('Roster', 'this check could not put the working week back the way it found it, so everything '
+          + 'downstream of it is reading an altered plan');
+      /* AND IT MUST FIT. Rename and ✕ were off the right-hand edge of the panel
+         because three rate columns and an over-wide Role column pushed the
+         table past its container — a control you cannot scroll to on a panel
+         with no visible scrollbar is a control that does not exist. */
+      const tbl = document.querySelector('.roster-table');
+      const wrap = tbl && tbl.parentElement;
+      if (tbl && wrap) {
+        /* THE WRAPPER'S SCROLL, not the table's rect. The table carries
+           width:100%, so its bounding box is CLAMPED to the panel: measuring it
+           reports the panel width whether the content fits or not, and a
+           deliberate overflow mutant sailed past. What the reader experiences
+           is a horizontal scrollbar, and that is scrollWidth against
+           clientWidth on the element that does the scrolling.
+
+           Both are reported, because the table rect exceeding the panel is a
+           different symptom (min-content forcing the table wider than its own
+           100%) and worth seeing when it happens. */
+        roster.tableW = Math.round(tbl.getBoundingClientRect().width);
+        roster.wrapW = wrap.clientWidth;
+        roster.wrapScrollW = wrap.scrollWidth;
+        roster.overflowPx = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+        if (roster.overflowPx > 2)
+          say('Roster', 'the roster overflows its panel by ' + roster.overflowPx + 'px (' + wrap.scrollWidth
+            + ' of content in ' + wrap.clientWidth + '), so Status, Rename and Remove sit past the right-hand '
+            + 'edge behind a horizontal scroll');
+      }
+      if (wasTab && typeof setResTab === 'function') setResTab(wasTab);
+    })();
+
     return { contradictions: bad, ledger, multiMeasure, timesheet, priceGap, count: n, recount: mine, built,
-             overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, heatmap,
+             overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, heatmap, roster,
              lintFindings: lint.map(f => String(f.finding).slice(0, 80)) };
   });
 
