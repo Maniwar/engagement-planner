@@ -15,7 +15,7 @@
 #
 #   2. Refuse the commit if any check is red. Every commit to this file lands
 #      on a public demo, so a red suite is a shipped defect. The hand-derived
-#      plan, twenty-one sweeps and the drawing mutation check take about ten
+#      plan, twenty-two sweeps and the drawing mutation check take about ten
 #      minutes — the price of this one file being the release. The
 #      engine mutation check is another 26-40 minutes and is opt-in via FULL=1;
 #      run it before anything the user will look at.
