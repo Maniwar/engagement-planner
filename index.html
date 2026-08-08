@@ -4139,7 +4139,20 @@ Or say what you want, in your own words:
 
     <!-- RAID & SOW VIEW -->
     <div id="view-raid" role="tabpanel" class="view">
-      <div class="card">
+      <!-- ═══ THREE QUESTIONS JOINED BY AN AMPERSAND ═══════════════════════
+           "RAID & SOW" names two unrelated things, which is the same tell the
+           Resources tab had before it was split: what could go wrong on
+           delivery, what we charge and what we make, and the document that goes
+           to the client. Three readers, three moments, one scroll — and the
+           pricing panel sat between the risk log and the document it prices,
+           so reaching the SOW meant scrolling past a margin calculation, and
+           reaching the margin meant scrolling past nine exclusions.
+
+           Same machinery as the Resources and Analytics tabs, deliberately: a
+           reader who has learned one of these bars has learned all three. -->
+      <div class="stab-bar" id="csTabBar" role="tablist" aria-label="Contract sections"></div>
+      <p class="help-text" id="csIntro" style="margin:0.5rem 0 0.7rem"></p>
+      <div class="card" data-cs="raid">
         <div class="card-header">
           <h2>RAID log — risks, assumptions, issues, decisions &amp; exclusions</h2>
           <div class="toolbar no-print">
@@ -4248,7 +4261,7 @@ Or say what you want, in your own words:
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-cs="pricing">
         <div class="card-header">
           <h2>Pricing &amp; margin</h2>
           <span class="help-text">Bill rates set on the Resources tab • cost from day rates &amp; fixed costs</span>
@@ -4256,7 +4269,7 @@ Or say what you want, in your own words:
         <div class="card-body"><div id="pricingContainer"></div></div>
       </div>
 
-      <div class="card">
+      <div class="card" data-cs="sow">
         <div class="card-header">
           <h2>Statement of Work (SOW) draft</h2>
           <div class="toolbar no-print">
@@ -4444,7 +4457,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1747</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.2014</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7133,6 +7146,7 @@ Or say what you want, in your own words:
       document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
       document.getElementById(`view-${name}`).classList.add('active');
       document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+      if (name === 'raid' && typeof paintCsTabs === 'function') paintCsTabs();
       if (name === 'analytics') {
         const g = document.getElementById('summaryGrid'); if (g && !g.dataset.entered) animateTiles();
         /* Paint the sub-tabs on ARRIVAL, not only from renderAnalytics — which
@@ -16626,6 +16640,81 @@ Or say what you want, in your own words:
           if (over < 15) return null;
           return { n: '!', warn: true, tip: 'P80 sits ' + over + '% beyond P50 — the estimates carry enough '
             + 'spread that the mean is not a date to commit to' };
+        }
+      } catch (e) {}
+      return null;
+    }
+    /* ═══ CONTRACT SUB-TABS ══════════════════════════════════════════════════
+       Third use of this machinery, same as the last two on purpose. The tab
+       was three cards deep — the risk log, then pricing, then the document —
+       which put a margin calculation between the risks and the SOW those risks
+       and that margin both feed. */
+    const CS_TABS = [
+      { k: 'raid',    lbl: 'RAID',
+        intro: 'What could go wrong, what we have assumed, what is already an issue, what was decided and '
+             + 'what is explicitly out. Every entry can name the activities, stories and criteria it touches, '
+             + 'so a risk is attached to the work it threatens rather than filed beside it.' },
+      { k: 'pricing', lbl: 'Pricing',
+        intro: 'What the engagement costs you, what you charge for it, and the margin between. Cost comes '
+             + 'from day rates and fixed costs; the fixed-bid basis decides which point of the simulation you '
+             + 'are pricing against, and P80 is the one you can commit to.' },
+      { k: 'sow',     lbl: 'SOW',
+        intro: 'The document that goes to the client — scope, deliverables, assumptions, exclusions, payment '
+             + 'schedule and terms, assembled from the plan itself. Change orders live here too, because they '
+             + 'are how this document changes after it is signed.' }
+    ];
+    let csTab = 'raid';
+    try { const v = localStorage.getItem('pertGantt.csTab');
+      if (v && CS_TABS.some(t => t.k === v)) csTab = v; } catch (e) {}
+    function setCsTab(k) {
+      if (!CS_TABS.some(t => t.k === k)) return;
+      csTab = k;
+      try { localStorage.setItem('pertGantt.csTab', k); } catch (e) {}
+      paintCsTabs();
+    }
+    /* Every link into this tab has to say which section it meant, for the same
+       reason the other two do: switchTab('raid') was a complete instruction
+       when there was one destination and is not when there are three. */
+    function csGoto(k) { setCsTab(k); switchTab('raid'); }
+    function paintCsTabs() {
+      const view = document.getElementById('view-raid');
+      if (view) view.querySelectorAll('[data-cs]').forEach(el => {
+        el.style.display = el.getAttribute('data-cs') === csTab ? '' : 'none';
+      });
+      const bar = document.getElementById('csTabBar');
+      if (bar) bar.innerHTML = CS_TABS.map(t => {
+        const c = csTabCount(t.k);
+        return '<button type="button" class="stab" role="tab" aria-selected="' + (t.k === csTab)
+          + '" onclick="setCsTab(\'' + t.k + '\')">' + escapeHtml(t.lbl)
+          + (c && c.n ? '<span class="stab-n' + (c.warn ? ' stab-warn' : '') + '" title="'
+              + escapeHtml(c.tip || '') + '">' + escapeHtml(String(c.n)) + '</span>' : '') + '</button>';
+      }).join('');
+      const intro = document.getElementById('csIntro');
+      const cur = CS_TABS.find(t => t.k === csTab);
+      if (intro) { intro.textContent = cur ? cur.intro : ''; intro.style.display = cur ? '' : 'none'; }
+    }
+    /* Counts that mean "there is something in here to deal with". An open risk
+       is an action; an exclusion is not, and a badge counting all nine entries
+       would say the log is busy rather than that it needs you. */
+    function csTabCount(k) {
+      try {
+        if (k === 'raid') {
+          const open = (raid || []).filter(r => (r.type === 'Risk' || r.type === 'Issue')
+            && String(r.status || '') !== 'Closed');
+          if (!open.length) return null;
+          const issues = open.filter(r => r.type === 'Issue').length;
+          return { n: open.length, warn: issues > 0,
+            tip: open.length + ' open ' + (open.length === 1 ? 'entry' : 'entries')
+              + (issues ? ', ' + issues + ' of them already an issue rather than a risk' : ' — risks, none of them realised yet') };
+        }
+        if (k === 'sow') {
+          /* Issued and unanswered is the action: somebody has been asked to
+             agree scope and has not. Accepted and rejected ones are settled. */
+          const pend = (coLog || []).filter(c => coState(c) === 'issued');
+          if (!pend.length) return null;
+          return { n: pend.length, warn: true,
+            tip: pend.length + ' change order' + (pend.length === 1 ? '' : 's')
+              + ' issued and not yet answered — that scope is neither agreed nor withdrawn' };
         }
       } catch (e) {}
       return null;

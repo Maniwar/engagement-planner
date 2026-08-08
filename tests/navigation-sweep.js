@@ -256,6 +256,63 @@ const { chromium } = requirePlaywright();
   an.bad.forEach(x => bad.push(x));
   note.analyticsSections = an.out;
 
+  /* ═══ 1b. AND THE CONTRACT SECTIONS ══════════════════════════════════════
+     "RAID & SOW" was three cards deep — the risk log, then pricing, then the
+     document — so the margin calculation sat between the risks and the SOW
+     that both of them feed. Same split, same failure mode, same three
+     questions asked of it: a button for every section, content behind every
+     button, and no two sections painting the same thing. */
+  const cs = await page.evaluate(() => {
+    const bad = [], out = {}, seen = {};
+    switchTab('raid');
+    if (typeof CS_TABS === 'undefined') return { bad: ['the contract sub-tabs are gone entirely'], out };
+    CS_TABS.forEach(t => {
+      setCsTab(t.k);
+      const view = document.getElementById('view-raid');
+      const vis = [...view.querySelectorAll('[data-cs]')].filter(e => e.offsetHeight > 0);
+      const txt = vis.map(e => (e.textContent || '')).join(' ').replace(/\s+/g, ' ').trim();
+      seen[t.k] = txt;
+      const btn = [...document.querySelectorAll('#csTabBar .stab')]
+        .find(b => (b.textContent || '').indexOf(t.lbl) === 0);
+      if (!btn) bad.push('Contract :: "' + t.lbl + '" is a section with no button that reaches it');
+      else if (btn.getAttribute('aria-selected') !== 'true')
+        bad.push('Contract :: selecting "' + t.lbl + '" left a different button marked as the current one');
+      if (!vis.length) bad.push('Contract :: "' + t.lbl + '" shows no card at all');
+      if (txt.length < 40)
+        bad.push('Contract :: "' + t.lbl + '" paints ' + txt.length + ' characters — the section is a dead end');
+      const leaked = vis.filter(e => e.getAttribute('data-cs') !== t.k).map(e => e.getAttribute('data-cs'));
+      if (leaked.length)
+        bad.push('Contract :: "' + t.lbl + '" also shows the ' + [...new Set(leaked)].join(', ') + ' section');
+    });
+    const keys = Object.keys(seen);
+    for (let i = 0; i < keys.length; i++)
+      for (let j = i + 1; j < keys.length; j++)
+        if (seen[keys[i]] && seen[keys[i]] === seen[keys[j]])
+          bad.push('Contract :: "' + keys[i] + '" and "' + keys[j] + '" paint exactly the same thing');
+    /* The badge counts things to DEAL WITH. An exclusion is not one, and a
+       badge counting the whole log would say the log is busy rather than that
+       it needs you — which is how a badge stops being read. */
+    if (typeof csTabCount === 'function' && typeof raid !== 'undefined') {
+      const c = csTabCount('raid');
+      const open = (raid || []).filter(r => (r.type === 'Risk' || r.type === 'Issue')
+        && String(r.status || '') !== 'Closed').length;
+      out.raidBadge = c ? c.n : 0; out.openRaid = open;
+      if ((c ? c.n : 0) !== open)
+        bad.push('Contract :: the RAID badge says ' + (c ? c.n : 0) + ' and an independent count of open '
+          + 'risks and issues finds ' + open);
+      const all = (raid || []).length;
+      if (c && all !== open && c.n === all)
+        bad.push('Contract :: the RAID badge is counting the whole log (' + all + ') rather than what is '
+          + 'open — an exclusion is not an action, and a badge that counts everything stops being read');
+    }
+    out.sections = keys.length;
+    out.sizes = keys.map(k => k + ':' + seen[k].length);
+    setCsTab('raid');
+    return { bad, out };
+  });
+  cs.bad.forEach(x => bad.push(x));
+  note.contractSections = cs.out;
+
   /* ═══ 1b. A READING YOU CAN REACH ═══════════════════════════════════════
      The spend curve's readout names the activities behind the day you point at,
      each as a button that opens it. The buttons sit BELOW the chart, so moving
