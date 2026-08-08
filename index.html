@@ -1088,19 +1088,43 @@
        reading into a three-line block in the WBS dictionary, whose name column
        is 186px against the 195px this needs — a 9px shortfall that tripled the
        row height. Measured rather than guessed, the same way the roster was. */
-    .ms-reach { display: flex; align-items: center; gap: 0.3rem; flex-wrap: nowrap; white-space: nowrap;
+    /* ═══ THE GATE CLUSTER ═══════════════════════════════════════════════
+       A bounded object with its own ground, so it reads as an instrument
+       attached to the row rather than as the row's subtitle. It sat in the same
+       grey at the same size as the name above it, which is exactly what made it
+       look like trailing text. */
+    .ms-reach { display: inline-flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;
       font-size: var(--t-xs); color: var(--muted); cursor: help;
-      margin: 2px 0 0; padding-left: 1.05rem; width: fit-content; }
-    /* The bar IS the progress of everything behind the gate. A bar and not a
-       fourth number, because the status column on the same row already prints a
-       percentage about this row, and two percentages side by side measuring
-       different things is worse than one of them being a shape. */
-    .ms-meter { display: block; width: 26px; height: 5px; border-radius: 3px; flex: none;
-      background: #e2e8f0; overflow: hidden; cursor: help; }
-    .ms-meter > i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
-    .ms-f { display: inline-flex; align-items: baseline; gap: 0.16rem; white-space: nowrap; }
-    .ms-f > i { font-style: normal; opacity: 0.5; font-size: 0.92em; }
-    .ms-f > b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+      margin: 3px 0 1px 1.05rem; width: fit-content;
+      background: linear-gradient(180deg, #fbfcfe, #f1f5f9);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 1px 0.5rem 1px 0.28rem; gap: 0.42rem;
+      box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgb(15 23 42 / .04); }
+    .ms-reach:hover { border-color: #cbd5e1; }
+    /* A DONUT, not a bar. At this size a bar is ambiguous with a rule or an
+       underline; a ring is unmistakably a gauge. Same conic-gradient trick the
+       status chip uses, so the two progress marks in this app are drawn the
+       same way and mean the same thing. */
+    .ms-ring { width: 15px; height: 15px; border-radius: 50%; flex: none; position: relative;
+      background: conic-gradient(var(--primary) calc(var(--p, 0) * 1%), #dbe3ec 0);
+      box-shadow: 0 0 0 1px rgb(15 23 42 / .06); cursor: help; }
+    .ms-ring::after { content: ''; position: absolute; inset: 4px; border-radius: 50%;
+      background: #fbfcfe; }
+    /* Hairline rules, so three quantities read as three dials rather than one
+       run-on string. The first has no rule because there is nothing to its left
+       but the gauge. */
+    .ms-f { display: inline-flex; align-items: baseline; gap: 0.18rem; white-space: nowrap; }
+    .ms-f + .ms-f { border-left: 1px solid #e2e8f0; padding-left: 0.42rem; }
+    .ms-f > i { font-style: normal; opacity: 0.45; font-size: 0.9em; }
+    .ms-f > b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em; }
+    /* Everything behind the gate is done, so the gate is reachable today. That
+       is worth a colour: it is the one state where the reader can act. */
+    .ms-reach.is-clear { background: linear-gradient(180deg, #f6fef9, #ecfdf5);
+      border-color: #a7f3d0; }
+    .ms-reach.is-clear .ms-ring { background: #059669; }
+    .ms-reach.is-clear .ms-ring::after { background: #f6fef9; }
+    .ms-reach.is-clear .ms-f + .ms-f { border-left-color: #bbf7d0; }
     .ms-reach-none { display: block; font-style: italic; padding-left: 1.35rem;
       font-size: var(--t-xs); color: var(--muted); margin-top: 2px; }
     /* A milestone's own estimate columns. Recessive, because "there is nothing
@@ -4384,7 +4408,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1729</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1738</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -11751,15 +11775,46 @@ Or say what you want, in your own words:
          side by side is the confusion #84 exists to prevent. They are told
          apart by their marks now rather than by the words, and both are spelled
          out in full on hover. */
+      /* ═══ AN INSTRUMENT, NOT A CAPTION ═══════════════════════════════════
+         The line read as three grey facts trailing off the row title, and it
+         was the same grey and the same size as the name above it, so it looked
+         like the activity's subtitle rather than a reading about it. Reported
+         exactly that way: not separate enough from the text, and not good
+         enough to look at.
+
+         So it becomes a cluster — one bounded object the eye takes in as a
+         unit, the way a dashboard reads. A recessed capsule with its own
+         ground, hairline rules between the three quantities so they are read
+         as separate dials rather than a run-on, and the progress as a DONUT
+         rather than a bar: a ring is unmistakably an instrument, a bar of that
+         size is ambiguous with a rule or an underline.
+
+         Still one line and still the same three numbers. Nothing was added to
+         make it look busier — the fanciness has to come from the arrangement,
+         because a gate readout that costs a second line is a worse readout. */
       const pct = Math.max(0, Math.min(100, r.pct));
       const f = (mark, val, tip) => '<span class="ms-f" title="' + escapeHtml(tip) + '">'
         + '<i>' + mark + '</i><b>' + escapeHtml(val) + '</b></span>';
-      return '<span class="ms-reach" title="' + escapeHtml(milestoneReachTip(t)) + '">'
-        + '<span class="ms-meter" title="' + escapeHtml(pct + '% of the work behind this gate is finished — '
-            + r.done + ' of ' + r.n + ' activities') + '"><i style="width:' + pct + '%"></i></span>'
+      const ringTip = pct + '% of the work behind this gate is finished — '
+        + r.done + ' of ' + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies');
+      return '<span class="ms-reach' + (pct >= 100 ? ' is-clear' : '') + '" title="'
+          + escapeHtml(milestoneReachTip(t)) + '">'
+        + '<span class="ms-ring" style="--p:' + pct + '" title="' + escapeHtml(ringTip) + '"'
+          + ' role="img" aria-label="' + escapeHtml(ringTip) + '"></span>'
         + (r.span != null ? f('⏱', r.span + 'd', r.span + ' calendar days from the first thing upstream '
             + 'starting to this gate') : '')
-        + f('▪', fmtDurCell(r.effort), fmtDurCell(r.effort) + ' of work behind this gate, across '
+        /* Sigma, not a grey square. The clock and the dollar sign say what their
+           numbers are; the third mark was an arbitrary bullet that said nothing,
+           and a mark carrying no meaning is worse than no mark, because the
+           reader spends a moment deciding it is decoration. A sum sign is
+           exactly what this is: the work behind the gate, added up.
+
+           A plain comment, not ${…}. This function builds its HTML by string
+           concatenation, and the template-literal idiom used everywhere else in
+           this file is a syntax error here — which is the second time that has
+           happened, the first having printed itself at the reader on the
+           Requirements page. */
+        + f('\u03a3', fmtDurCell(r.effort), fmtDurCell(r.effort) + ' of work behind this gate, across '
             + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies'))
         + f('$', fmtMoney(r.cost).replace(/^\$/, ''), fmtMoney(r.cost) + ' of planned cost behind this gate')
         + '</span>';
