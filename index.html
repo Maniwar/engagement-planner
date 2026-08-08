@@ -1130,6 +1130,29 @@
     /* A milestone's own estimate columns. Recessive, because "there is nothing
        here" is the answer, and it is the same answer five times across one row. */
     .ms-na { color: var(--slack); cursor: help; }
+    /* ═══ PORTFOLIO ═══════════════════════════════════════════════════════ */
+    .pf-h { font-size: var(--t-sm); font-weight: 700; margin: 1rem 0 0.35rem; }
+    .pf-h:first-of-type { margin-top: 0.2rem; }
+    .pf-t { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+    .pf-t th { text-align: left; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .04em;
+      color: var(--muted); font-weight: 700; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); }
+    .pf-t td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .pf-t tbody tr:last-child td { border-bottom: none; }
+    .pf-n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .pf-hot { color: var(--critical); }
+    .pf-cap { color: var(--muted); font-size: var(--t-xs); }
+    .pf-p { display: inline-block; background: #f1f5f9; border: 1px solid var(--border); border-radius: 999px;
+      padding: 0 0.4rem; margin: 1px 3px 1px 0; font-size: var(--t-xs); white-space: nowrap; }
+    .pf-day { font-size: var(--t-xs); }
+    .pf-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; border-radius: 8px;
+      padding: 0.55rem 0.75rem; font-size: var(--t-sm); margin: 0.2rem 0 0; }
+    .pf-open { background: none; border: none; padding: 0; font: inherit; font-weight: 700;
+      color: var(--primary); cursor: pointer; text-align: left; }
+    .pf-open:hover { text-decoration: underline; }
+    .pf-cur { background: #f8fafc; }
+    .pf-cur-t { margin-left: 0.35rem; font-size: var(--t-xs); color: var(--muted); }
+    .pf-warn { display: inline-block; margin-left: 0.35rem; font-size: var(--t-xs); cursor: help;
+      background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 999px; padding: 0 0.4rem; }
     /* Only the milestone rows claim it, so an ordinary activity's name column
        is not widened to reserve room for something it never shows. */
     #wbsContainer td.wbs-ms-name { min-width: 210px; }
@@ -3216,6 +3239,7 @@
         <div class="export-panel">
           <div class="grp">Saved projects</div>
           <div id="projMenuList"></div>
+          <button class="btn-ghost btn-sm" onclick="openPortfolio()" style="border:none;color:var(--text)" title="Every project in this browser on one screen — and the one reading no single plan can produce: who is committed past their capacity once all of them are added together."><span class="ico" aria-hidden="true">📊</span> Portfolio…</button>
           <div class="grp">Actions</div>
           <button onclick="loadSample()">Load sample engagement</button>
           <button class="btn-ghost btn-sm" id="diskAutoBtn" onclick="setupDiskAutosave()" title="Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true"></span> Auto-save to file</button>
@@ -3571,6 +3595,18 @@
          necessity (seven have to fit on a screen); this is where "show me
          everything L. Chen has to do" is answered, uncapped and including
          finished work. -->
+    <!-- PORTFOLIO. A modal and not a tab: the question spans projects, so it
+         does not belong inside any one project's tab structure — and the top
+         bar is already nine wide, where curing a crowded page by crowding the
+         navigation is the same disease moved up a level. -->
+    <div class="modal-overlay" id="portfolioModal" style="z-index:129">
+      <div class="modal" style="max-width:1100px" role="dialog" aria-modal="true" aria-labelledby="pfTitle">
+        <div class="modal-header"><h3 id="pfTitle">📊 Portfolio — every project in this browser</h3>
+          <button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeOverlay('portfolioModal')" aria-label="Close portfolio">✕</button>
+        </div>
+        <div class="modal-body" id="portfolioBody"></div>
+      </div>
+    </div>
     <div class="modal-overlay" id="wlModal" style="z-index:128">
       <div class="modal" style="max-width:1040px" role="dialog" aria-modal="true" aria-labelledby="wlModalTitle">
         <div class="modal-header"><h3 id="wlModalTitle">Worklist</h3>
@@ -4408,7 +4444,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1738</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.1747</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5065,6 +5101,172 @@ Or say what you want, in your own words:
       const projects = Object.entries(other.projects).sort((a, b) => b[1] - a[1]).map(x => x[0]);
       return { elsewherePeak: elsewherePeak, projects: projects, hiddenDays: hidden,
                combinedPeak: combinedPeak, cap: cap };
+    }
+    /* ═══ THE BOOK, NOT THE PROJECT ══════════════════════════════════════════
+       Every panel in this file answers a question about ONE engagement. The
+       one question none of them can answer is the one a person running three
+       of them actually has: is anybody committed past what they have, across
+       all of it. combinedLoad already computes that for a single person on the
+       roster, one row at a time, which means the fact exists and the only way
+       to find it is to go looking person by person and remember what you saw.
+
+       So this reads the index the projects already publish to. Nothing new is
+       stored beyond the capacities added beside the loads, and nothing is
+       recomputed — a portfolio that re-derived the numbers would be a second
+       arithmetic that can disagree with the roster, which is the failure this
+       codebase spends most of its comments avoiding.
+
+       CAPACITIES ARE NOT ASSUMED TO AGREE. The same person can be 100% in one
+       plan and 300% in another (a pooled team named like a person, usually),
+       and a portfolio that silently picks one has invented a denominator. Where
+       they disagree it says so and uses the SMALLEST, because that is the one
+       that makes the strongest claim about being over — and a warning you can
+       dismiss by checking is better than a reassurance you cannot. */
+    function portfolioData() {
+      const idx = projIndex(), act = activeProjectId();
+      const projects = Object.entries(idx).map(([pid, m]) => ({
+        id: pid, active: pid === act, name: (m && m.name) || 'Untitled',
+        updatedAt: (m && m.updatedAt) || '', metrics: (m && m.metrics) || null,
+        people: m && m.load ? Object.keys(m.load).length : 0
+      })).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+
+      /* One person's whole book: which projects claim them, on which days, and
+         what those days add up to against the capacity anybody recorded. */
+      const per = new Map();
+      Object.entries(idx).forEach(([pid, m]) => {
+        if (!m) return;
+        const pname = (m.name || 'Untitled');
+        Object.entries(m.caps || {}).forEach(([who, c]) => {
+          const e = per.get(who) || per.set(who, { name: who, days: {}, projects: {}, caps: {} }).get(who);
+          e.caps[pname] = Number(c) || 0;
+        });
+        Object.entries(m.load || {}).forEach(([who, days]) => {
+          const e = per.get(who) || per.set(who, { name: who, days: {}, projects: {}, caps: {} }).get(who);
+          Object.entries(days).forEach(([iso, v]) => {
+            const n = Number(v) || 0; if (!(n > 0)) return;
+            const d = e.days[iso] || (e.days[iso] = { total: 0, from: {} });
+            d.total += n; d.from[pname] = (d.from[pname] || 0) + n;
+            e.projects[pname] = Math.max(e.projects[pname] || 0, n);
+          });
+        });
+      });
+
+      const people = [...per.values()].map(e => {
+        const capVals = Object.values(e.caps).filter(x => x > 0);
+        const cap = capVals.length ? Math.min.apply(null, capVals) : 100;
+        const capDisagree = capVals.length > 1 && Math.max.apply(null, capVals) !== cap;
+        let peak = 0, peakDay = null;
+        const over = [];
+        Object.entries(e.days).forEach(([iso, d]) => {
+          if (d.total > peak) { peak = d.total; peakDay = iso; }
+          if (d.total > cap + 1e-6) over.push({ iso: iso, total: d.total, from: d.from });
+        });
+        over.sort((a, b) => a.iso.localeCompare(b.iso));
+        const names = Object.keys(e.projects).sort((a, b) => e.projects[b] - e.projects[a]);
+        return { name: e.name, cap: cap, capDisagree: capDisagree, caps: e.caps,
+          peak: peak, peakDay: peakDay, overDays: over, projects: names,
+          spread: names.length };
+      }).sort((a, b) => b.overDays.length - a.overDays.length
+        || (b.peak / Math.max(1, b.cap)) - (a.peak / Math.max(1, a.cap))
+        || String(a.name).localeCompare(String(b.name)));
+
+      const totals = {
+        projects: projects.length,
+        cost: projects.reduce((n, p) => n + ((p.metrics && p.metrics.cost) || 0), 0),
+        people: people.length,
+        shared: people.filter(p => p.spread > 1).length,
+        overPeople: people.filter(p => p.overDays.length).length,
+        overDays: people.reduce((n, p) => n + p.overDays.length, 0),
+        /* Projects with no published metrics have never been calculated, so
+           every total above understates the book by however many they are.
+           Counted rather than hidden: a total that quietly omits things is
+           worse than one that says what it is missing. */
+        unscheduled: projects.filter(p => !p.metrics).length
+      };
+      return { projects: projects, people: people, totals: totals };
+    }
+    function portfolioHtml() {
+      const d = portfolioData();
+      const T = d.totals;
+      if (!d.projects.length) return '<div class="empty-state"><h3>No projects yet</h3></div>';
+      const tile = (v, l, sub, bad) => '<div class="stat-card' + (bad ? ' critical' : '') + '">'
+        + '<div class="value" style="font-size:1.05rem">' + v + '</div><div class="label">' + l + '</div>'
+        + (sub ? '<div class="help-text" style="font-size:0.65rem">' + sub + '</div>' : '') + '</div>';
+      const head = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.6rem;margin-bottom:0.9rem">'
+        + tile(T.projects, 'Projects', T.unscheduled ? T.unscheduled + ' never calculated' : 'all calculated', false)
+        + tile(fmtMoney(T.cost), 'Committed cost',
+            T.unscheduled ? 'excludes ' + T.unscheduled + ' uncalculated' : 'planned across the book', false)
+        + tile(T.people, 'People', T.shared + ' on more than one', false)
+        + tile(T.overPeople, 'Over across the book',
+            T.overDays ? T.overDays + ' person-days' : 'nobody is double-booked', T.overPeople > 0)
+        + '</div>';
+
+      /* ═══ THE ONE THING NO SINGLE PLAN CAN SEE ═════════════════════════
+         Leads, because it is the only reading here that is not already
+         available inside a project. Everything else on this panel is a
+         convenience; this is the answer to the question the portfolio exists
+         for, and it is invisible from every other surface in the product. */
+      const over = d.people.filter(p => p.overDays.length);
+      const clash = over.length ? '<h4 class="pf-h">Committed past capacity across the book</h4>'
+        + '<table class="pf-t"><thead><tr><th>Person</th><th>Across</th>'
+        + '<th class="pf-n">Peak</th><th class="pf-n">Days over</th><th>Worst day</th></tr></thead><tbody>'
+        + over.map(p => {
+            const w = p.overDays.slice().sort((a, b) => b.total - a.total)[0];
+            const froms = Object.entries(w.from).sort((a, b) => b[1] - a[1])
+              .map(x => escapeHtml(x[0]) + ' ' + Math.round(x[1]) + '%').join(' + ');
+            return '<tr><td>' + personCell(p.name)
+              + (p.capDisagree ? '<span class="pf-warn" title="'
+                  + escapeHtml('These plans disagree about this person\'s capacity: '
+                    + Object.entries(p.caps).map(x => x[0] + ' says ' + x[1] + '%').join(', ')
+                    + '. The smallest is used, because it makes the strongest claim about being over — '
+                    + 'check it rather than trust it.') + '">capacity disputed</span>' : '')
+              + '</td>'
+              + '<td>' + p.projects.map(n => '<span class="pf-p">' + escapeHtml(n) + '</span>').join('') + '</td>'
+              + '<td class="pf-n"><b class="pf-hot">' + Math.round(p.peak) + '%</b>'
+                + '<span class="pf-cap"> of ' + Math.round(p.cap) + '</span></td>'
+              + '<td class="pf-n"><b>' + p.overDays.length + '</b></td>'
+              + '<td class="pf-day" title="' + escapeHtml(froms) + '">' + escapeHtml(fmtNice(new Date(w.iso + 'T00:00:00')))
+                + ' <span class="help-text">' + froms + '</span></td></tr>';
+          }).join('') + '</tbody></table>'
+        : '<p class="pf-ok">✓ Nobody is committed past their capacity once every project is added together.'
+          + (T.shared ? ' ' + T.shared + ' ' + (T.shared === 1 ? 'person works' : 'people work')
+              + ' on more than one, and ' + (T.shared === 1 ? 'their' : 'their') + ' combined load still fits.'
+              : ' Nobody appears on more than one project, so there is nothing to combine.') + '</p>';
+
+      const rows = d.projects.map(p => {
+        const m = p.metrics;
+        return '<tr' + (p.active ? ' class="pf-cur"' : '') + '>'
+          + '<td><button type="button" class="pf-open" onclick="portfolioOpen(' + ekJs2(p.id) + ')" title="'
+            + escapeHtml(p.active ? 'This is the project you have open' : 'Switch to this project')
+            + '">' + escapeHtml(p.name) + '</button>'
+            + (p.active ? '<span class="pf-cur-t">open</span>' : '') + '</td>'
+          + '<td>' + (m ? escapeHtml(fmtNice(new Date(m.finish + 'T00:00:00'))) : '<span class="help-text">not calculated</span>') + '</td>'
+          + '<td class="pf-n">' + (m ? m.dur + ' ' + escapeHtml(unitLabel()) : '—') + '</td>'
+          + '<td class="pf-n">' + (m ? m.pct + '%' : '—') + '</td>'
+          + '<td class="pf-n">' + (m ? escapeHtml(fmtMoney(m.cost)) : '—') + '</td>'
+          + '<td class="pf-n">' + (m && m.over ? '<b class="pf-hot">' + m.over + '</b>' : (m ? '0' : '—')) + '</td>'
+          + '<td class="pf-n">' + p.people + '</td>'
+          + '<td class="help-text">' + escapeHtml(p.updatedAt ? fmtNice(new Date(p.updatedAt)) : '—') + '</td>'
+          + '</tr>';
+      }).join('');
+      return head + clash
+        + '<h4 class="pf-h">Every project in this browser</h4>'
+        + '<table class="pf-t"><thead><tr><th>Project</th><th>Finish</th><th class="pf-n">Duration</th>'
+        + '<th class="pf-n">Done</th><th class="pf-n">Cost</th><th class="pf-n" title="Days this project alone books somebody past their capacity">Over</th>'
+        + '<th class="pf-n">People</th><th>Saved</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        + '<p class="help-text" style="margin-top:0.7rem">Read from what each project publishes when it is '
+        + 'saved, so a project that has never been calculated has no numbers to contribute and says so rather '
+        + 'than counting as zero. Everything here lives in this browser only.</p>';
+    }
+    async function portfolioOpen(pid) {
+      if (pid === activeProjectId()) { closeOverlay('portfolioModal'); return; }
+      closeOverlay('portfolioModal');
+      await switchProjectForce(pid);
+    }
+    function openPortfolio() {
+      const host = document.getElementById('portfolioBody');
+      if (host) host.innerHTML = portfolioHtml();
+      openOverlay(document.getElementById('portfolioModal'));
     }
     function activeProjectId() {
       let id = localStorage.getItem(PROJ_ACTIVE_KEY);
@@ -6182,6 +6384,25 @@ Or say what you want, in your own words:
               if (Object.keys(days).length) out[R.name] = days;
             });
             return Object.keys(out).length ? out : null;
+          })(),
+          /* ═══ AND WHAT THIS PROJECT BELIEVES THEIR CAPACITY IS ══════════
+             The load above says what each project TAKES. Without the capacity
+             it was taken against, a portfolio adding two projects together has
+             no denominator and cannot say "over" about anything — it can only
+             say "a lot", which is not a claim anybody can act on.
+
+             The comment above already noticed capacities disagree between
+             plans (300 here, 100 there) and told each project to use its own.
+             A portfolio has no own, so it has to see all of them and say when
+             they conflict, rather than silently picking one. Kept per project
+             for exactly that reason. */
+          caps: (() => {
+            const out = {};
+            Object.keys(resources || {}).forEach(n => {
+              const c = Number((resources[n] || {}).capacity);
+              if (c > 0) out[n] = c;
+            });
+            return Object.keys(out).length ? out : ((idx[id] && idx[id].caps) || null);
           })() };
         saveProjIndex(idx);
         renderProjectMenu();
