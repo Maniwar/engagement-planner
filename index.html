@@ -1715,6 +1715,12 @@
     #taskTable td:nth-child(4) { min-width: 220px; }
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
+    /* Work from other engagements, on the same track as this project's — one
+       bar answering "how much of this person is spoken for", with the part you
+       can do something about drawn first. */
+    .pk-away { font-size: var(--t-xs); font-weight: 700; color: var(--milestone); font-variant-numeric: tabular-nums; }
+    .pk-bar { display: inline-flex; }
+    .pk-away-seg { background: var(--milestone); opacity: .55; }
     /* The gap-marker is a button now, so it has to look like one on hover
        without becoming another chip competing with the real mitigations. */
     .rd-plan { border: 0; font: inherit; font-size: var(--t-sm); cursor: pointer; box-shadow: none; padding: 0 4px; }
@@ -4181,7 +4187,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0205</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0350</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -4784,6 +4790,58 @@ Or say what you want, in your own words:
       try { return JSON.parse(localStorage.getItem(PROJ_INDEX_KEY) || '{}'); } catch (e) { return {}; }
     }
     function saveProjIndex(idx) { try { localStorage.setItem(PROJ_INDEX_KEY, JSON.stringify(idx)); } catch (e) {} }
+    /* Every OTHER project's claim on each person, per day, with the projects
+       named — because "you are over" is a fact and "you are over because of
+       the Halo rollout" is the beginning of a conversation. Memoised per
+       render pass: the roster, the heatmap and the mend panel all ask. */
+    function otherProjectLoad(force) {
+      const act = activeProjectId();
+      if (!force && otherProjectLoad._c && otherProjectLoad._for === act) return otherProjectLoad._c;
+      const out = {};
+      const idx = projIndex();
+      Object.entries(idx).forEach(([pid, meta]) => {
+        if (pid === act || !meta || !meta.load) return;
+        const pname = meta.name || 'Untitled';
+        Object.entries(meta.load).forEach(([who, days]) => {
+          const m = out[who] || (out[who] = { days: {}, projects: {} });
+          Object.entries(days).forEach(([iso, v]) => {
+            const n = Number(v) || 0; if (!(n > 0)) return;
+            const d = m.days[iso] || (m.days[iso] = { units: 0, from: [] });
+            d.units += n;
+            if (d.from.indexOf(pname) < 0) d.from.push(pname);
+            m.projects[pname] = (m.projects[pname] || 0) + n;
+          });
+        });
+      });
+      otherProjectLoad._c = out; otherProjectLoad._for = act;
+      return out;
+    }
+    /* The combined reading for one person: what this plan takes, what the rest
+       of the book takes, and whether the TOTAL breaks their capacity on a day
+       where this plan alone looks innocent. That last case is the whole point —
+       it is the conflict no single project can see. */
+    function combinedLoad(name) {
+      const other = otherProjectLoad()[name];
+      const R = (resourceLoad && resourceLoad.perResource) ? resourceLoad.perResource[name] : null;
+      const cap = R ? R.capacity : ((resources[name] || {}).capacity || 100);
+      if (!other) return { elsewherePeak: 0, projects: [], hiddenDays: [], combinedPeak: R ? R.peak : 0, cap: cap };
+      let elsewherePeak = 0, combinedPeak = 0;
+      const hidden = [];
+      const isos = new Set(Object.keys(other.days).concat(R ? Object.keys(R.days || {}) : []));
+      isos.forEach(iso => {
+        const here = (R && R.days[iso]) ? R.days[iso].load : 0;
+        const away = other.days[iso] ? other.days[iso].units : 0;
+        if (away > elsewherePeak) elsewherePeak = away;
+        if (here + away > combinedPeak) combinedPeak = here + away;
+        // over only once the two are added — invisible from inside either plan
+        if (away > 0 && here + away > cap + 1e-6 && here <= cap + 1e-6)
+          hidden.push({ iso: iso, here: here, away: away, from: (other.days[iso] || {}).from || [] });
+      });
+      hidden.sort((a, b) => a.iso.localeCompare(b.iso));
+      const projects = Object.entries(other.projects).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+      return { elsewherePeak: elsewherePeak, projects: projects, hiddenDays: hidden,
+               combinedPeak: combinedPeak, cap: cap };
+    }
     function activeProjectId() {
       let id = localStorage.getItem(PROJ_ACTIVE_KEY);
       if (!id) { id = 'p' + Date.now().toString(36); localStorage.setItem(PROJ_ACTIVE_KEY, id); }
@@ -5500,7 +5558,38 @@ Or say what you want, in your own words:
             dur: +Math.max(0, ...leafTasks().map(t => t.ef), 0).toFixed(1),
             pct: Math.round(overallProgress()), cost: Math.round(projectCost()),
             over: resourceLoad ? resourceLoad.overResourceDays : 0, tasks: tasks.length
-          } : (idx[id] && idx[id].metrics) || null };
+          } : (idx[id] && idx[id].metrics) || null,
+          /* ═══ WHAT THIS PROJECT IS TAKING OF EACH PERSON ═══════════════
+             Over-allocation was computed per FILE, so somebody booked full
+             time on two engagements read as "OK" on both — the one number a
+             resourcing view exists to protect was blind across the book, and
+             silently so. Nothing warns you, because from inside one plan
+             there is nothing to see.
+
+             So each project publishes its own claim on each person, per day,
+             and any project can read what the others are taking. Units, not
+             percent-of-capacity: capacity is a per-project fact (a pooled team
+             is 300 here and 100 there), so the reading project has to compare
+             against ITS OWN capacity or the arithmetic is meaningless.
+
+             In the index rather than the record because the render path is
+             synchronous — reading N project files from IndexedDB to draw one
+             roster would make every repaint async. Zero days are dropped and
+             loads are rounded, which is what keeps this a few KB per project
+             rather than a reason to blow the localStorage quota. */
+          load: (() => {
+            if (!calculated || !resourceLoad || !resourceLoad.perResource) return (idx[id] && idx[id].load) || null;
+            const out = {};
+            Object.values(resourceLoad.perResource).forEach(R => {
+              const days = {};
+              Object.keys(R.days || {}).forEach(iso => {
+                const v = Math.round(R.days[iso].load || 0);
+                if (v > 0) days[iso] = v;
+              });
+              if (Object.keys(days).length) out[R.name] = days;
+            });
+            return Object.keys(out).length ? out : null;
+          })() };
         saveProjIndex(idx);
         renderProjectMenu();
         const el = document.getElementById('savedIndicator');
@@ -16775,17 +16864,46 @@ Or say what you want, in your own words:
                 which is the same threshold the status badge beside it uses. */''}
           <td>${(() => {
             const cap = Math.max(1, R.capacity || 100), pk = Math.round(R.peak);
-            const ratio = Math.min(1, (R.peak || 0) / cap);
             const hot = R.peak > cap + 1e-6;
-            return `<span class="pk"><span class="pk-n${hot ? ' hot' : ''}">${pk}%</span>`
-              + `<span class="pk-bar" title="${escapeHtml(pk + '% of a ' + Math.round(cap) + '% capacity')}">`
-              + `<i style="width:${Math.round(ratio * 100)}%${hot ? ';background:var(--critical)' : ''}"></i></span></span>`;
+            const x = combinedLoad(R.name);
+            const away = Math.round(x.elsewherePeak || 0);
+            const both = Math.round(x.combinedPeak || R.peak);
+            const hiddenOnly = !hot && both > cap + 1e-6;   // only the SUM breaks it
+            /* The bar is scaled to whichever is bigger, this plan's peak or the
+               combined one, so the elsewhere segment cannot be drawn off the end
+               of its own track. */
+            const span = Math.max(cap, both, 1);
+            const w = v => Math.round(Math.min(100, (v / span) * 100));
+            const tip = pk + '% of a ' + Math.round(cap) + '% capacity on this project'
+              + (away ? '. A further ' + away + '% at peak on ' + x.projects.join(', ')
+                      + ' — ' + both + '% combined' + (both > cap ? ', which is over' : '') : '');
+            return `<span class="pk"><span class="pk-n${hot || hiddenOnly ? ' hot' : ''}">${pk}%</span>`
+              + (away ? `<span class="pk-away" title="${escapeHtml(tip)}">+${away}%</span>` : '')
+              + `<span class="pk-bar" title="${escapeHtml(tip)}">`
+              + `<i style="width:${w(R.peak)}%${hot ? ';background:var(--critical)' : ''}"></i>`
+              + (away ? `<i class="pk-away-seg" style="width:${w(x.elsewherePeak)}%${hiddenOnly ? ';background:var(--critical)' : ''}"></i>` : '')
+              + `</span></span>`;
           })()}</td>
           ${/* "Peak load 200%" beside a green OK is the same collision the heatmap
                 had: the peak is raw and the badge applies the finished-work rule,
                 both true and reading as a contradiction. The badge says which
                 rule it used when the two disagree. */''}
-          <td>${over ? `<span class="badge badge-critical">over ×${over}d</span>`
+          ${/* "OK" is a claim about this person, not about this file. A row that
+                is clean here and broken once the other engagements are added
+                said OK, which is the precise lie this whole change exists to
+                stop. */''}
+          <td>${(() => {
+            const xx = combinedLoad(R.name);
+            if (!over && xx.hiddenDays.length) {
+              const d = xx.hiddenDays[0];
+              return `<span class="badge badge-warn" title="${escapeHtml('Clear on this project, over once the rest of the book is added: '
+                + xx.hiddenDays.length + ' day' + (xx.hiddenDays.length === 1 ? '' : 's') + ' where ' + R.name
+                + ' is booked past ' + Math.round(xx.cap) + '%. First is ' + d.iso + ' — ' + Math.round(d.here)
+                + '% here plus ' + Math.round(d.away) + '% on ' + d.from.join(', ')
+                + '. Nothing in THIS plan can fix it; it is a conversation with the other engagement.')}">across projects ×${xx.hiddenDays.length}d</span>`;
+            }
+            return '';
+          })()}${over ? `<span class="badge badge-critical">over ×${over}d</span>`
             : R.peak > R.capacity + 1e-6
               ? `<span class="badge badge-ok" title="The ${Math.round(R.peak)}% peak is on days where every overlapping activity is already finished. A double-booking you have lived through is history rather than an action item, so it is not counted and there is nothing to mend — it would count again the moment one of them went back to unfinished.">OK — peak already worked</span>`
               : '<span class="badge badge-ok">OK</span>'}</td>
