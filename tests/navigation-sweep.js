@@ -313,6 +313,136 @@ const { chromium } = requirePlaywright();
   cs.bad.forEach(x => bad.push(x));
   note.contractSections = cs.out;
 
+  /* ═══ 1d. A CONTROL'S REACHABILITY MUST NOT DEPEND ON HOW MUCH DATA YOU HAVE
+     Reported as "i clicked on duplicate current, but i don't see how to make a
+     team trunk", and the two halves are one bug. The Projects menu scrolled as
+     a whole, with the saved-project list ABOVE the Team group — so every
+     project pushed the collaboration controls further past the fold, and
+     duplicating one is precisely what makes the list longer. The feature got
+     harder to find the more the product was used, which is the worst shape a
+     feature can have and is invisible to anybody testing with one project.
+
+     So it is checked at one project and at eleven. Only the part that GROWS is
+     allowed to scroll; anything below it has to stay put. */
+  const menu = await page.evaluate(() => {
+    const bad = [], out = {};
+    const prev = localStorage.getItem('pertGantt.projIndex');
+    const act = activeProjectId();
+    const measure = count => {
+      const idx = {};
+      idx[act] = { name: 'Current', updatedAt: '2026-08-01T00:00:00Z' };
+      for (let i = 1; i <= count; i++) idx['zz' + i] = { name: 'Copy ' + i, updatedAt: '2026-08-01T00:00:00Z' };
+      localStorage.setItem('pertGantt.projIndex', JSON.stringify(idx));
+      renderProjectMenu(); if (typeof updateTrunkBtn === 'function') updateTrunkBtn();
+      const m = document.querySelector('.export-menu');
+      if (!m) return null;
+      m.setAttribute('open', '');
+      const t = document.getElementById('trunkBtn'), w = document.getElementById('whoBtn');
+      const p = document.querySelector('.export-panel');
+      if (!t || !w || !p) return null;
+      const pr = p.getBoundingClientRect();
+      const inView = el => { const r = el.getBoundingClientRect();
+        return r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1 && r.height > 0; };
+      const r = { trunk: inView(t), who: inView(w) };
+      m.removeAttribute('open');
+      return r;
+    };
+    const few = measure(1), many = measure(10);
+    out.withOneProject = few; out.withElevenProjects = many;
+    if (!few || !many) bad.push('Projects menu :: the team controls are not in the menu at all');
+    else {
+      if (!few.trunk || !few.who)
+        bad.push('Projects menu :: the team controls are already out of view with two projects saved');
+      if (few.trunk && !many.trunk)
+        bad.push('Projects menu :: "Team trunk" is reachable with two projects and NOT with eleven — the '
+          + 'saved-project list is pushing it past the fold, so the feature gets harder to find the more the '
+          + 'product is used, and duplicating a project is what makes the list longer');
+      if (few.who && !many.who)
+        bad.push('Projects menu :: "Signing as" falls out of view as projects accumulate, so the name that '
+          + 'stamps every version becomes unreachable exactly when a team is large enough to need it');
+    }
+    if (prev == null) localStorage.removeItem('pertGantt.projIndex');
+    else localStorage.setItem('pertGantt.projIndex', prev);
+    renderProjectMenu();
+    return { bad, out };
+  });
+  menu.bad.forEach(x => bad.push(x));
+  note.projectMenu = menu.out;
+
+  /* ═══ 1e. THE BUTTON THAT STARTS SOMETHING HAS TO BE ABLE TO CREATE IT ═════
+     "after team trunk i don't see the json file thing, it just open a menu and
+     not one to save a new file but to pick one."
+
+     One button called showOpenFilePicker, and an OPEN picker can only choose a
+     file that already exists. So the first person on a team was shown a dialog
+     with nothing in it to pick — the trunk could only ever be joined, never
+     started, which made the whole feature unreachable until somebody had
+     already done the thing nobody could do.
+
+     Checked by which BROWSER API each button reaches for, because that is where
+     the defect lives. Label text would not have caught it: the old button said
+     "Team trunk…", which is true of both halves and wrong about neither. The
+     pickers are stubbed rather than opened — a real picker needs a person, and
+     the question here is only which of the two the product asked for. */
+  const picker = await page.evaluate(async () => {
+    const bad = [], out = {};
+    const who = localStorage.getItem('pertGantt.whoAmI');
+    localStorage.setItem('pertGantt.whoAmI', 'Picker Probe');   // else it stops to ask who you are
+    const realOpen = window.showOpenFilePicker, realSave = window.showSaveFilePicker;
+    const calls = [];
+    /* Rejecting is what a CANCELLED picker does, and trunkConnect's catch reads
+       that as "changed my mind" — so no file is touched and no state moves,
+       while the call has still been recorded. */
+    window.showOpenFilePicker = o => { calls.push({ api: 'open', opts: o }); return Promise.reject(new DOMException('cancelled', 'AbortError')); };
+    window.showSaveFilePicker = o => { calls.push({ api: 'save', opts: o }); return Promise.reject(new DOMException('cancelled', 'AbortError')); };
+    if (typeof updateTrunkBtn === 'function') updateTrunkBtn();
+
+    const press = async id => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      calls.length = 0;
+      el.click();
+      await new Promise(r => setTimeout(r, 60));
+      return calls.length ? calls[0] : null;
+    };
+    const started = await press('trunkNewBtn');
+    const joined = await press('trunkBtn');
+    out.startUsed = started ? started.api : '(no button)';
+    out.joinUsed = joined ? joined.api : '(no button)';
+    out.suggested = started && started.opts ? String(started.opts.suggestedName || '') : '';
+
+    if (!started)
+      bad.push('Team trunk :: there is no control that STARTS a trunk. Every picker in the product opens a '
+        + 'file that already exists, so the first person on a team has nothing to click and the feature can '
+        + 'never come into being');
+    else if (started.api !== 'save')
+      bad.push('Team trunk :: the start-a-trunk button opened showOpenFilePicker, which can only choose a file '
+        + 'that ALREADY EXISTS — so the person creating the trunk is shown a dialog with nothing in it to pick. '
+        + 'Creating a file is showSaveFilePicker');
+    else if (!out.suggested)
+      bad.push('Team trunk :: the save picker offers no file name, so whoever starts a trunk has to invent one, '
+        + 'and it lands in a folder the whole team shares called whatever they typed in a hurry');
+
+    if (!joined)
+      bad.push('Team trunk :: there is no control that JOINS an existing trunk, so everybody after the first '
+        + 'person is stuck');
+    else if (joined.api !== 'open')
+      bad.push('Team trunk :: the join button reached for showSaveFilePicker rather than showOpenFilePicker — '
+        + 'a save picker aimed at a file that already holds the team\'s history is an overwrite prompt');
+
+    if (started && joined && started.api === joined.api)
+      bad.push('Team trunk :: starting a trunk and joining one both call ' + started.api + 'FilePicker. They are '
+        + 'different acts — one brings the file into being, the other finds it — and one picker cannot do both');
+
+    window.showOpenFilePicker = realOpen; window.showSaveFilePicker = realSave;
+    if (who == null) localStorage.removeItem('pertGantt.whoAmI');
+    else localStorage.setItem('pertGantt.whoAmI', who);
+    if (typeof updateTrunkBtn === 'function') updateTrunkBtn();
+    return { bad, out };
+  });
+  picker.bad.forEach(x => bad.push(x));
+  note.trunkPickers = picker.out;
+
   /* ═══ 1b. A READING YOU CAN REACH ═══════════════════════════════════════
      The spend curve's readout names the activities behind the day you point at,
      each as a button that opens it. The buttons sit BELOW the chart, so moving

@@ -358,6 +358,29 @@
         box-shadow: 0 20px 50px -10px rgb(0 0 0 / .45);
       }
     }
+    /* ═══ THE LIST SCROLLS, NOT THE MENU ═════════════════════════════════
+       Reported: "i clicked on duplicate current, but i don't see how to make a
+       team trunk". The whole panel scrolled, and the saved-project list sits
+       ABOVE the Team group — so every project you add pushes the collaboration
+       controls further past the fold, and duplicating one is exactly what makes
+       the list longer. A feature whose discoverability degrades the more you
+       use the product is the worst shape a feature can have.
+
+       Only the part that GROWS gets to scroll. The fixed groups below it —
+       Actions, Team — then sit at the same place on every visit, no matter how
+       many projects somebody keeps. */
+    #projMenuList { max-height: 190px; overflow-y: auto; overscroll-behavior: contain; }
+    .tt-how { margin: 0 0 0.3rem; }
+    .tt-how > summary { cursor: pointer; font-size: var(--t-xs); color: var(--primary); font-weight: 600;
+      padding: 0.2rem 0.35rem; list-style: none; }
+    .tt-how > summary::-webkit-details-marker { display: none; }
+    .tt-how > summary::before { content: '▸ '; }
+    .tt-how[open] > summary::before { content: '▾ '; }
+    .tt-how > summary:hover { text-decoration: underline; }
+    .tt-how ol { margin: 0.2rem 0 0.3rem; padding-left: 1.15rem; font-size: var(--t-xs);
+      color: var(--text); line-height: 1.5; }
+    .tt-how li { margin-bottom: 0.28rem; }
+    .tt-how p { font-size: var(--t-xs); color: var(--muted); margin: 0 0 0.2rem; line-height: 1.45; }
     .export-panel button { width: 100%; justify-content: flex-start; background: transparent; color: var(--text); font-weight: 500; }
     .export-panel button:hover { background: #f1f5f9; }
     .export-panel .grp { font-size: var(--t-sm); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0.4rem 0.6rem 0.15rem; font-weight: 600; }
@@ -3228,8 +3251,13 @@
          fourth inline accordion in the header would have moved the problem
          rather than fixed it. Every input keeps its id, so nothing that reads
          or writes the plan had to change. -->
+    <!-- The chip carries the project's NAME, and "where do I rename this" was
+         asked while looking straight at it: it read as a label with a gear
+         glued on. The pencil says the text itself is editable, which is the
+         thing being asked about, and the tooltip leads with renaming rather
+         than burying it fourth in a list of settings. -->
     <button id="projChip" class="proj-chip" onclick="openProjSettings()"
-      title="Project name, start date, duration unit and working calendar — click to edit">⚙</button>
+      title="Rename this project — and set its start date, duration unit and working calendar. A copy arrives called &quot;… (copy)&quot;; this is where you give it its real name.">✎</button>
     <div class="header-actions">
       <span id="savedIndicator" class="saved-dot"></span>
       <button id="undoBtn" class="btn-ghost btn-sm" onclick="doUndo()" disabled aria-label="Undo" title="Undo the last change (Ctrl/Cmd+Z outside a text box). Covers every plan edit: tasks, estimates, %s, resources, stories, reserves…">↶</button>
@@ -3244,8 +3272,35 @@
           <button onclick="loadSample()">Load sample engagement</button>
           <button class="btn-ghost btn-sm" id="diskAutoBtn" onclick="setupDiskAutosave()" title="Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true"></span> Auto-save to file</button>
           <div class="grp">Team</div>
+          <!-- The workflow, where somebody is standing when they need it. Every
+               control here had a good tooltip and nothing said how the three of
+               them fit together, so a person had to infer the protocol from
+               three hover texts. Closed by default: it is instructions, and
+               instructions that are always open become furniture. -->
+          <details class="tt-how">
+            <summary>How working as a team works</summary>
+            <ol>
+              <li><b>Put your name on it.</b> Signing as… below. It is stamped on every version you
+                  create so the others can see whose work is whose. Nothing verifies it — there is no login
+                  and no server.</li>
+              <li><b>One person starts the trunk.</b> Start a team trunk… → type a file name and choose a
+                  folder everybody syncs (Drive, Dropbox, OneDrive). It creates the file; that file is the
+                  shared history. Nothing is uploaded anywhere by this page — the folder is what carries it.</li>
+              <li><b>Everyone else joins that same file.</b> Join a team trunk… → pick the file that is
+                  already sitting in the synced folder.</li>
+              <li><b>Pull before you start, push when you stop.</b> Pull takes anything newer. If you have
+                  changed nothing it applies straight through; if you have both moved but not on the same
+                  fields, it still applies and tells you who moved. Only a genuine disagreement about the
+                  same field opens a review.</li>
+              <li><b>Push is refused if you are behind.</b> That is deliberate: pull first, so your work
+                  lands on top of theirs instead of beside it.</li>
+            </ol>
+            <p>No server and no account — the file is the whole mechanism, so whatever can reach the file
+               can reach the plan. Chrome or Edge only, and not from a page opened with file://.</p>
+          </details>
           <button class="btn-ghost btn-sm" id="whoBtn" onclick="editIdentity()" style="border:none;color:var(--text)" title="The name stamped on every version you create. Self-declared — there is no login here and nothing verifies it."><span class="ico" aria-hidden="true">👤</span> Signing as…</button>
-          <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect()" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🌳</span> Team trunk…</button>
+          <button class="btn-ghost btn-sm" id="trunkNewBtn" onclick="trunkConnect('new')" style="border:none;color:var(--text)" title="Creates a NEW .json file — type a name and pick a folder everybody syncs. That file becomes the shared history; you are the first one in it."><span class="ico" aria-hidden="true">🌳</span> Start a team trunk…</button>
+          <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect('join')" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🔗</span> Join a team trunk…</button>
           <div id="trunkOps" style="display:none">
             <button class="btn-ghost btn-sm" onclick="trunkPull()" style="border:none;color:var(--text)" title="Read the shared file and take anything newer. If you have changed nothing since you last shared, it applies straight through — nothing of yours can be lost."><span class="ico" aria-hidden="true">⬇</span> Pull latest</button>
             <button class="btn-ghost btn-sm" onclick="trunkPush()" style="border:none;color:var(--text)" title="Append your versions to the shared file. Refuses if the trunk has moved since you last pulled, because appending onto a history missing somebody else's work is what creates a gap."><span class="ico" aria-hidden="true">⬆</span> Push mine</button>
@@ -4457,7 +4512,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.2023</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.2049</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5459,6 +5514,27 @@ Or say what you want, in your own words:
       saveLocal();
       repaintForProject(); renderProjectMenu();
       switchTab('tasks');
+      /* ═══ AN ACTION THAT SAYS NOTHING GETS DONE TWICE ══════════════════════
+         Reported: "it seems to have just duplicated it twice without me
+         noticing". Both halves of that are this function's fault. The menu is a
+         <details> and nothing closed it, so it was still open and still under
+         the pointer afterwards; and the only visible result of a successful
+         duplicate was a name gaining " (copy)" in a header chip nobody was
+         looking at. Silent plus still-clickable is a loop, and the person is
+         right to click again — from where they are sitting, nothing happened.
+
+         So: close the menu, and name what was made. */
+      closeMenus();
+      flashSaved(fromCurrent
+        ? '⧉ Copied to "' + (document.getElementById('projectName').value || 'Untitled')
+          + '" — you are now working in the copy; the original is unchanged in Projects ▾'
+        : '✚ New project started — the previous one is saved in Projects ▾');
+    }
+    /* Any <details> menu in the header. A menu that stays open after doing the
+       thing it was opened for is an invitation to do it again. */
+    function closeMenus() {
+      document.querySelectorAll('header details[open], .export-menu[open]')
+        .forEach(d => d.removeAttribute('open'));
     }
     async function deleteProject() {
       const idx = projIndex();
@@ -6018,11 +6094,33 @@ Or say what you want, in your own words:
       if (last && JSON.stringify(last.snap) === now) return last;
       return pushVersion('sync', 'shared with the team');
     }
-    async function trunkConnect() {
-      if (!window.showOpenFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download JSON and Merge a copy.'); return; }
+    /* ═══ STARTING A TRUNK AND JOINING ONE ARE DIFFERENT ACTS ═════════════════
+       This was one button calling showOpenFilePicker, and an open picker can
+       only ever choose a file that ALREADY EXISTS. So the very first person on a
+       team — the one who has to bring the trunk into being — was handed a dialog
+       with nothing in it to pick, and reported exactly that: "it just open a
+       menu and not one to save a new file but to pick one". The feature was
+       unreachable until somebody else had already used it, which nobody could.
+
+       Creating a file is showSaveFilePicker; opening one is showOpenFilePicker.
+       No amount of wording on a single button fixes that, because the wording is
+       not what is wrong — the browser needs to be told which of the two is
+       happening before it draws the dialog. Hence two buttons, named after the
+       two jobs.
+
+       `mode` only decides which picker opens. What happens next is decided by
+       what is actually IN the file, not by which button was pressed: pick an
+       existing trunk from the Start path and it connects rather than flattening
+       it, because a mis-click must not be able to erase a team's history. */
+    async function trunkConnect(mode) {
+      const creating = mode === 'new';
+      if (!window.showOpenFilePicker || !window.showSaveFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download JSON and Merge a copy.'); return; }
       if (!trunkIdentity().label) { editIdentity(); if (!trunkIdentity().label) return; }
       try {
-        const [h] = await showOpenFilePicker({ types: [{ description: 'Team trunk', accept: { 'application/json': ['.json'] } }] });
+        const kind = [{ description: 'Team trunk', accept: { 'application/json': ['.json'] } }];
+        const h = creating
+          ? await showSaveFilePicker({ suggestedName: safeName() + '-team-trunk.json', types: kind })
+          : (await showOpenFilePicker({ types: kind }))[0];
         if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted'
             && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Without write permission this can only be read.'); return; }
         let t = null;
@@ -6046,7 +6144,12 @@ Or say what you want, in your own words:
         trunkHandle = h;
         try { await idbSet('trunk.handle', h); } catch (e) {}
         updateTrunkBtn();
-        if (!t) { await trunkPush(true); flashSaved('🌳 Trunk started in "' + h.name + '" — everyone else Connects to this same file'); }
+        /* Branching on the FILE, not on the button. An empty file is a start
+           whichever picker opened it, and a file with a history is a join even
+           if Start was pressed — the second one is somebody about to overwrite
+           their team, and the safe reading is the only reading. */
+        if (!t) { await trunkPush(true); flashSaved('🌳 Trunk started in "' + h.name + '" — everyone else picks Join a team trunk and chooses this same file'); }
+        else if (creating) { flashSaved('🌳 "' + h.name + '" already has a history — connected to it instead of starting over'); await trunkPull(true); }
         else { flashSaved('🌳 Connected to "' + h.name + '"'); await trunkPull(true); }
       } catch (e) { /* picker cancelled */ }
     }
@@ -6193,11 +6296,39 @@ Or say what you want, in your own words:
         w.style.color = id.label ? 'var(--text)' : 'var(--warn)'; }
       const b = document.getElementById('trunkBtn');
       if (!b) return;
-      if (!window.showOpenFilePicker) { b.style.display = 'none'; return; }
-      b.textContent = trunkHandle ? '🌳 Trunk: on' : '🌳 Team trunk…';
+      /* DISABLED AND EXPLAINED, never hidden. A control that vanishes is
+         indistinguishable from a feature that does not exist, so somebody on
+         Safari concludes the product has no collaboration rather than that
+         their browser lacks one API — and there IS a route for them, which the
+         disabled state can name. */
+      const nb = document.getElementById('trunkNewBtn');
+      if (!window.showOpenFilePicker || !window.showSaveFilePicker) {
+        /* ONE disabled row, not two. The explanation is the same sentence for
+           both buttons, and printing it twice reads as two separate failures. */
+        if (nb) nb.style.display = 'none';
+        b.style.display = '';
+        b.disabled = true;
+        b.style.opacity = '0.55';
+        b.style.cursor = 'not-allowed';
+        b.textContent = '🌳 Team trunk — needs Chrome or Edge';
+        b.title = 'The shared team file uses the File System Access API, which today only Chrome and Edge '
+          + 'implement, and which is unavailable on a page opened from file:// even in those. Everyone can '
+          + 'still collaborate through Export ▸ Download JSON and Merge a copy — it is the same merge, '
+          + 'carried by hand instead of by a shared file.';
+        return;
+      }
+      b.disabled = false; b.style.opacity = ''; b.style.cursor = '';
+      /* Once you are IN a trunk there is nothing left to start, and offering it
+         anyway is offering a way to walk out of the shared history by accident.
+         Joining a DIFFERENT trunk stays available — that is switching engagements,
+         and it goes through the same relation check as any other join. */
+      if (nb) nb.style.display = trunkHandle ? 'none' : '';
+      b.textContent = trunkHandle ? '🌳 Trunk: on — ' + (trunkHandle.name || 'file') : '🔗 Join a team trunk…';
       b.title = trunkHandle
-        ? 'Sharing through "' + (trunkHandle.name || 'file') + '". Pull takes the latest; Push publishes yours.'
-        : 'One shared file the whole team appends to, so everybody can take the latest without handing copies around.';
+        ? 'Sharing through "' + (trunkHandle.name || 'file') + '". Pull takes the latest; Push publishes yours. '
+          + 'Click to point at a different file.'
+        : 'Opens a file that already exists — the trunk somebody on your team has already started. To make a '
+          + 'new one, use Start a team trunk above.';
       const g = document.getElementById('trunkOps');
       if (g) g.style.display = trunkHandle ? '' : 'none';
     }
