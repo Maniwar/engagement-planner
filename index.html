@@ -3046,6 +3046,7 @@
           <button onclick="loadSample()">Load sample engagement</button>
           <button class="btn-ghost btn-sm" id="diskAutoBtn" onclick="setupDiskAutosave()" title="Pick a .json file once — every change then auto-saves to it on your disk (Chrome/Edge)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true"></span> Auto-save to file</button>
           <div class="grp">Team</div>
+          <button class="btn-ghost btn-sm" id="whoBtn" onclick="editIdentity()" style="border:none;color:var(--text)" title="The name stamped on every version you create. Self-declared — there is no login here and nothing verifies it."><span class="ico" aria-hidden="true">👤</span> Signing as…</button>
           <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect()" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🌳</span> Team trunk…</button>
           <div id="trunkOps" style="display:none">
             <button class="btn-ghost btn-sm" onclick="trunkPull()" style="border:none;color:var(--text)" title="Read the shared file and take anything newer. If you have changed nothing since you last shared, it applies straight through — nothing of yours can be lost."><span class="ico" aria-hidden="true">⬇</span> Pull latest</button>
@@ -4193,7 +4194,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0537</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0549</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5435,14 +5436,50 @@ Or say what you want, in your own words:
 
     function trunkEntryFromVersion(v, doc) {
       return { vid: v.vid, pvid: v.pvid || null, at: v.at || fmtISO(new Date()),
-               by: diskWriterId(), byName: String(trunkWho() || ''), kind: v.kind || 'edit',
+               by: v.byKey || diskWriterId(), byName: String(v.by || trunkWho() || ''), kind: v.kind || 'edit',
                label: String(v.label || ''), doc: doc || null };
     }
+    /* ═══ WHO DID WHAT, AND HOW MUCH THAT IS WORTH ══════════════════════
+       There is no login here and no server, so there is nothing that could
+       verify an identity — this is the git model: you state who you are, it is
+       recorded on everything you write, and nobody checks. For colleagues
+       sharing a file that is the right level and it is how every developer
+       already works.
+
+       It is NOT an audit trail and the UI says so where it matters. A name
+       somebody typed cannot prove authorship to a client or in a dispute; what
+       it does is answer "who changed this" among people who trust each other,
+       which is the actual question being asked.
+
+       The email is here for the reason git has one: two people called Chris,
+       and a stable key that survives somebody retyping their name. */
     function trunkWho() {
       try { return localStorage.getItem('pertGantt.whoAmI') || ''; } catch (e) { return ''; }
     }
-    function trunkSetWho(n) {
-      try { localStorage.setItem('pertGantt.whoAmI', String(n || '').trim()); } catch (e) {}
+    function trunkWhoEmail() {
+      try { return localStorage.getItem('pertGantt.whoAmIEmail') || ''; } catch (e) { return ''; }
+    }
+    function trunkSetWho(n, em) {
+      try {
+        localStorage.setItem('pertGantt.whoAmI', String(n || '').trim());
+        if (em !== undefined) localStorage.setItem('pertGantt.whoAmIEmail', String(em || '').trim());
+      } catch (e) {}
+      updateTrunkBtn();
+    }
+    function trunkIdentity() {
+      const n = trunkWho(), e = trunkWhoEmail();
+      return { name: n, email: e, label: n || e || '', key: (e || n || diskWriterId()).toLowerCase() };
+    }
+    function editIdentity() {
+      const cur = trunkIdentity();
+      const n = prompt('Your name — stamped on every version you create, so the rest of the team can see whose work is whose.\n\n'
+        + 'Nothing verifies this: there is no login and no server. It answers "who changed this" among people who trust '
+        + 'each other; it is not proof of authorship.', cur.name || '');
+      if (n === null) return;
+      const e = prompt('Your email (optional) — a stable key, so two people with the same name stay distinct and a '
+        + 'rename does not orphan your history.', cur.email || '');
+      trunkSetWho(n, e === null ? cur.email : e);
+      flashSaved('👤 Signing versions as ' + (trunkIdentity().label || 'nobody'));
     }
     /* Every pvid must resolve to the base or to an entry EARLIER in the log.
        One that does not is work somebody wrote and something ate. */
@@ -5523,11 +5560,7 @@ Or say what you want, in your own words:
     }
     async function trunkConnect() {
       if (!window.showOpenFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download JSON and Merge a copy.'); return; }
-      if (!trunkWho()) {
-        const n = prompt('Your name, so the others can see whose work is whose in the shared file:', '');
-        if (n === null) return;
-        trunkSetWho(n);
-      }
+      if (!trunkIdentity().label) { editIdentity(); if (!trunkIdentity().label) return; }
       try {
         const [h] = await showOpenFilePicker({ types: [{ description: 'Team trunk', accept: { 'application/json': ['.json'] } }] });
         if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted'
@@ -5629,6 +5662,10 @@ Or say what you want, in your own words:
       finally { trunkBusy = false; }
     }
     function updateTrunkBtn() {
+      const w = document.getElementById('whoBtn');
+      if (w) { const id = trunkIdentity();
+        w.textContent = id.label ? '👤 ' + id.label : '👤 Signing as…';
+        w.style.color = id.label ? 'var(--text)' : 'var(--warn)'; }
       const b = document.getElementById('trunkBtn');
       if (!b) return;
       if (!window.showOpenFilePicker) { b.style.display = 'none'; return; }
@@ -31049,6 +31086,12 @@ Do not write payment terms or exclusions — both are generated from the project
       const v = { v: nextVersionNo++, at: fmtISO(new Date()), kind: kind, label: String(label || ''),
                   parent: prev ? prev.v : null,
                   vid: newVid(), pvid: prev ? (prev.vid || null) : null, lineage: planLineageId(),
+                  /* Stamped HERE rather than only when a version reaches the
+                     trunk, so authorship survives export, import and a merge —
+                     a version that arrives from somebody else keeps their name
+                     instead of picking up whoever imported it. */
+                  by: (typeof trunkIdentity === 'function' ? trunkIdentity().label : ''),
+                  byKey: (typeof trunkIdentity === 'function' ? trunkIdentity().key : ''),
                   snap: JSON.parse(JSON.stringify(snapshotPlan())) };
       planVersions.push(v);
       trimVersions();
@@ -32651,6 +32694,10 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
           + '<td style="white-space:nowrap">' + k[0] + ' ' + escapeHtml(k[1]) + '</td>'
           + '<td style="font-size:0.8rem">' + escapeHtml(v.label || '') + '</td>'
           + '<td style="white-space:nowrap;font-size:0.78rem">' + escapeHtml(v.at) + '</td>'
+          /* Recorded since the trunk shipped and displayed nowhere, which is
+             the same as not recording it. */
+          + '<td style="white-space:nowrap;font-size:0.78rem">'
+              + (v.by ? escapeHtml(v.by) : '<span class="help-text">—</span>') + '</td>'
           + '<td style="white-space:nowrap;font-size:0.78rem">' + (v.snap.tasks || []).length + ' activities · '
               + fmtMoney(v.snap.price || 0) + '</td>'
           + '<td style="white-space:nowrap;font-size:0.78rem"' + (n ? '' : ' class="help-text"') + '>'
@@ -32675,7 +32722,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
          the thing they were about. Both now render inside one history region,
          as tabs, and this returns the contents rather than the container. */
       const body = `<div class="table-wrap" style="margin-top:0.5rem"><table>
-          <thead><tr><th>Version</th><th>Kind</th><th>Label</th><th>Taken</th><th>Held</th><th title="Structured diff against the plan as it stands right now — by activity id, across every input field, so a rename is a rename rather than an add and a delete">vs today</th><th></th></tr></thead>
+          <thead><tr><th>Version</th><th>Kind</th><th>Label</th><th>Taken</th><th title="Whoever the app was signing as when this version was made. Self-declared — there is no login and nothing verifies it.">By</th><th>Held</th><th title="Structured diff against the plan as it stands right now — by activity id, across every input field, so a rename is a rename rather than an add and a delete">vs today</th><th></th></tr></thead>
           <tbody>${rows}</tbody></table></div>
         ${planVersions[0] && planVersions[0].trimmed ? `<p class="help-text">⋯ <b>${planVersions[0].trimmed}</b> working snapshot${planVersions[0].trimmed === 1 ? '' : 's'} between the oldest and newest rows were dropped to keep this history bounded — each one is a full copy of the plan. Nothing load-bearing is ever dropped: the contract baseline, every accepted change order, every version a sign-off was taken against, and the first and last are all kept, so no change order or sign-off can end up pointing at a version that is not in the file. The version numbers will therefore have gaps.</p>` : ''}
         <p class="help-text" style="margin-top:0.4rem">A version is the whole plan keyed by activity <b>id</b>, not by name, and versions form a chain rather than one mutable baseline that each approval overwrote. That is what makes “show me the plan as we agreed it”, “diff any two” and “what if they reject this one” answerable.</p>
