@@ -4187,7 +4187,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0350</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0403</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -4476,6 +4476,9 @@ Or say what you want, in your own words:
     let calculated = false;
     let mcResult = null; // Monte Carlo output
     let resources = {};  // name -> { capacity: percent }  (100 = 1 FTE)
+    /* Minted once per plan and copied with it, so two files can be known to be
+       two copies of the same engagement rather than two unrelated projects. */
+    let planLineage = '';
     let resourceLoad = null; // computed per-day allocation / over-allocation
     // reserves/buffers: value + unit ('percent' of CPM duration, or a duration unit)
     let reserves = {
@@ -4904,6 +4907,7 @@ Or say what you want, in your own words:
       healthFindings = null;
       mcResult = null;
       resourceLoad = null;
+      planLineage = '';   // belongs to the plan we are leaving
       unleveledDuration = null;
       projectSpanUp = null;
       coDraft = '';
@@ -5622,7 +5626,7 @@ Or say what you want, in your own words:
         // the version chain travels with the plan. A history that lives only in
         // one browser session is not a history — the whole point of parenting
         // versions is that a later reader can walk back through them.
-        planVersions, nextVersionNo, signoffs, nextSignoffNo,
+        planVersions, nextVersionNo, planLineage: planLineageId(), signoffs, nextSignoffNo,
         collapsedIds: [...collapsedIds],
         tasks: tasks.map(t => ({
           id: t.id, name: t.name, o: t.o, m: t.m, p: t.p, milestone: t.milestone,
@@ -5834,6 +5838,13 @@ Or say what you want, in your own words:
          counter: a file hand-edited or merged from two sources can carry a
          counter behind its own history, and a repeated version number turns a
          parent pointer into a cycle. Same reasoning for the sign-off numbers. */
+      /* A COPY INHERITS THE LINEAGE, A NEW PLAN DOES NOT. This is what makes
+         "is this the same engagement as mine" answerable: two files that came
+         from one plan carry one lineage id however far they have drifted, and
+         a plan started from scratch carries a different one and can never be
+         offered as a merge. Files written before this simply have none, and
+         the relation reports 'unknown' rather than guessing. */
+      planLineage = String(data.planLineage || '');
       planVersions = Array.isArray(data.planVersions)
         ? data.planVersions.filter(x => x && x.snap && Number.isFinite(+x.v))
             .map(x => ({ v: +x.v, at: String(x.at || ''), kind: String(x.kind || 'snapshot'),
@@ -30771,10 +30782,32 @@ Do not write payment terms or exclusions — both are generated from the project
        task array is not a record of the past — it is the present, wearing a
        date. Cheap here (a few hundred small objects) and the alternative is a
        history that silently rewrites itself. */
+    /* ═══ A VERSION NUMBER IS NOT AN IDENTITY ═══════════════════════════
+       `v` counts up from a per-DOCUMENT counter, so two people working from one
+       plan both mint v5 and v6 and the numbers say nothing about whether they
+       are the same version. Ancestry needs an id that is minted once and copied
+       forward — then "do we share this point in history" is an id match rather
+       than a deep comparison of serialized task arrays, which is what the merge
+       had to do and which breaks on any incidental difference in field order.
+
+       `v` stays: it is what a person reads, and every existing reference to it
+       keeps working. `vid` is what the machine matches on. */
+    function newVid() {
+      return 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+    /* The lineage says two FILES are copies of one plan. Without it, a merge
+       cannot distinguish "we diverged" from "this is somebody else's project
+       entirely", and the second one must never be offered as a merge. */
+    function planLineageId() {
+      if (!planLineage) { planLineage = 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+      return planLineage;
+    }
     function pushVersion(kind, label) {
       const prev = planVersions.length ? planVersions[planVersions.length - 1] : null;
       const v = { v: nextVersionNo++, at: fmtISO(new Date()), kind: kind, label: String(label || ''),
-                  parent: prev ? prev.v : null, snap: JSON.parse(JSON.stringify(snapshotPlan())) };
+                  parent: prev ? prev.v : null,
+                  vid: newVid(), pvid: prev ? (prev.vid || null) : null, lineage: planLineageId(),
+                  snap: JSON.parse(JSON.stringify(snapshotPlan())) };
       planVersions.push(v);
       trimVersions();
       return v;
@@ -30952,7 +30985,65 @@ Do not write payment terms or exclusions — both are generated from the project
       return String(v);
     }
     // the newest version whose snapshot is byte-identical in both files
+    /* ═══ AHEAD, BEHIND, DIVERGED, OR NOT THE SAME PLAN AT ALL ══════════
+       The merge could find a common ancestor and nothing else — so it proposed
+       the same field-by-field review whether the other copy was three saves
+       ahead of yours with nothing of yours to lose, or genuinely divergent. Two
+       completely different situations, one dialog, and the reader had no way to
+       tell which they were in.
+
+       Read as ancestry: if their history CONTAINS my newest version, I am
+       simply behind and this is a fast-forward — nothing of mine can be lost
+       because I have made nothing they do not have. If mine contains their
+       newest, I am ahead and there is nothing to take. If neither contains the
+       other, we split at the last id we share, and only the work since that
+       point is in question. */
+    function versionRelation(theirDoc) {
+      const theirs = (theirDoc && Array.isArray(theirDoc.planVersions)) ? theirDoc.planVersions : [];
+      const mine = planVersions || [];
+      const theirLin = theirDoc && theirDoc.planLineage;
+      const myLin = planLineage;
+      if (myLin && theirLin && myLin !== theirLin) return { relation: 'unrelated' };
+      const myVids = mine.map(v => v.vid).filter(Boolean);
+      const theirVids = theirs.map(v => v.vid).filter(Boolean);
+      // pre-identity files: no vids to compare, fall back to the old behaviour
+      if (!myVids.length || !theirVids.length) return { relation: 'unknown' };
+      const mySet = new Set(myVids), theirSet = new Set(theirVids);
+      const myTip = myVids[myVids.length - 1], theirTip = theirVids[theirVids.length - 1];
+      if (myTip === theirTip) return { relation: 'same', ahead: 0, behind: 0 };
+      if (theirSet.has(myTip)) {
+        // my newest is somewhere in their history: I am strictly behind
+        return { relation: 'behind', behind: theirVids.length - 1 - theirVids.indexOf(myTip), ahead: 0, baseVid: myTip };
+      }
+      if (mySet.has(theirTip)) {
+        return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTip), behind: 0, baseVid: theirTip };
+      }
+      // last id we both hold is where the two histories parted
+      let baseVid = null;
+      for (let i = myVids.length - 1; i >= 0; i--) { if (theirSet.has(myVids[i])) { baseVid = myVids[i]; break; } }
+      if (!baseVid) return { relation: 'unrelated' };
+      return { relation: 'diverged', baseVid: baseVid,
+               ahead: myVids.length - 1 - myVids.indexOf(baseVid),
+               behind: theirVids.length - 1 - theirVids.indexOf(baseVid) };
+    }
     function mergeFindBase(theirDoc) {
+      /* PREFER THE ID. The scan below compares serialized task arrays, which is
+         what had to be done before versions carried identity — it is O(n*m)
+         stringify calls and it misses a real ancestor over any incidental
+         difference. Kept as the fallback for files written before this. */
+      const rel = versionRelation(theirDoc);
+      if (rel.baseVid) {
+        const m = (planVersions || []).find(v => v.vid === rel.baseVid);
+        const t = ((theirDoc.planVersions) || []).find(v => v.vid === rel.baseVid);
+        if (m && t) return { mine: m, theirs: t, snap: m.snap, rel: rel };
+      }
+      if (rel.relation === 'same') {
+        const m = planVersions[planVersions.length - 1];
+        return { mine: m, theirs: m, snap: m.snap, rel: rel };
+      }
+      return mergeFindBaseByScan(theirDoc);
+    }
+    function mergeFindBaseByScan(theirDoc) {
       const theirs = (theirDoc && Array.isArray(theirDoc.planVersions)) ? theirDoc.planVersions : [];
       if (!theirs.length || !planVersions.length) return null;
       const key = v => JSON.stringify((v && v.snap && v.snap.tasks) || []);
@@ -30966,7 +31057,7 @@ Do not write payment terms or exclusions — both are generated from the project
     }
     function mergeCompute(theirDoc) {
       const found = mergeFindBase(theirDoc);
-      if (!found) return { noBase: true };
+      if (!found) return { noBase: true, rel: versionRelation(theirDoc) };
       const baseT = new Map(((found.snap && found.snap.tasks) || []).map(t => [t.id, t]));
       const mineT = new Map(leafTasks().map(t => [t.id, t]));
       /* isSummary is COMPUTED by calculate() and is not in the file, so trusting
@@ -30977,6 +31068,7 @@ Do not write payment terms or exclusions — both are generated from the project
         .map(t => t.parentId).filter(x => x != null).map(Number));
       const theirT = new Map((theirDoc.tasks || [])
         .filter(t => !theirParents.has(Number(t.id))).map(t => [t.id, t]));
+      const rel = found.rel || versionRelation(theirDoc);
       const auto = [], conflicts = [], theirAdds = [], myAdds = [], theirDeletes = [], deleteEdits = [];
       // ids added on BOTH sides since the ancestor are two different activities
       // that happened to draw the same number from the counter
@@ -31266,10 +31358,30 @@ Do not write payment terms or exclusions — both are generated from the project
       if (!doc || !Array.isArray(doc.tasks)) { alert('That file has no plan in it.'); return; }
       const r = mergeCompute(doc);
       if (r.noBase) {
+        const un = r.rel && r.rel.relation === 'unrelated' && r.rel.lineageMismatch !== false;
         alert('No shared history.\n\nThis file and yours have no plan version in common, so there is nothing '
           + 'to merge ONTO — every activity would look like an addition. It was probably started separately '
           + 'rather than from a copy of this plan.\n\nUse Import to open it as its own project instead.');
         return;
+      }
+      /* ═══ SAY WHICH SITUATION THIS IS, BEFORE ASKING ANYTHING ═══════════
+         "Their copy is three saves ahead and you have changed nothing" and "you
+         have both been working since Tuesday" are completely different events,
+         and the merge asked the same field-by-field question for both. Where I
+         am strictly behind, there is nothing of mine to weigh: it is a
+         fast-forward, and offering a conflict review implies a risk that does
+         not exist. Where I am strictly ahead, taking their file would move the
+         plan BACKWARDS, which is the one outcome nobody wants and which the old
+         dialog would happily have walked somebody into. */
+      const rel = r.rel || { relation: 'unknown' };
+      if (rel.relation === 'same') {
+        alert('Already in step.\n\nThat copy and yours are at the same version — there is nothing to bring across.');
+        return;
+      }
+      if (rel.relation === 'ahead') {
+        if (!confirm('Your copy is ' + rel.ahead + ' version' + (rel.ahead === 1 ? '' : 's') + ' AHEAD of that one.\n\n'
+          + 'Everything in their file is already in your history, and they have added nothing since. '
+          + 'Merging can only move your plan backwards.\n\nOpen the review anyway?')) return;
       }
       mergePlanState = { doc: doc, name: fname || 'their copy', r: r };
       renderMergePanel();
@@ -31291,7 +31403,23 @@ Do not write payment terms or exclusions — both are generated from the project
       const r = st.r;
       const esc = escapeHtml;
       const sub = document.getElementById('mergeSub');
-      if (sub) sub.innerHTML = 'Merging <b>' + esc(st.name) + '</b> onto your plan. '
+      const rl = r.rel || { relation: 'unknown' };
+      const relLine = rl.relation === 'behind'
+          ? '<b style="color:var(--success)">Fast-forward.</b> Their copy is <b>' + rl.behind + '</b> version'
+            + (rl.behind === 1 ? '' : 's') + ' ahead of yours and you have changed nothing since you last shared a '
+            + 'version — nothing of yours can be lost here. '
+        : rl.relation === 'diverged'
+          ? '<b style="color:var(--warn)">You have both been working.</b> Since the last version you shared, you '
+            + 'have made <b>' + rl.ahead + '</b> and they have made <b>' + rl.behind + '</b>. Only that work is in '
+            + 'question; everything before it you already agree on. '
+        : rl.relation === 'ahead'
+          ? '<b style="color:var(--warn)">You are ' + rl.ahead + ' version' + (rl.ahead === 1 ? '' : 's')
+            + ' ahead.</b> There is nothing in their file you do not already have. '
+        : rl.relation === 'unknown'
+          ? '<span class="help-text">One of these files predates version identity, so the shared point was found by '
+            + 'comparing the plans rather than by history. The review below is still accurate.</span> '
+          : '';
+      if (sub) sub.innerHTML = relLine + 'Merging <b>' + esc(st.name) + '</b> onto your plan. '
         + 'Last shared version: <b>v' + esc(String(r.base.mine.v)) + '</b>, taken ' + esc(r.base.mine.at) + '. '
         + '<b>Nothing changes until you press Merge.</b>';
       const box = document.getElementById('mergeBody');
