@@ -1090,6 +1090,45 @@
     .ms-reach b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
     .ms-reach:hover { border-bottom-color: var(--border); }
     .ms-reach-none { font-style: italic; }
+    /* ═══ THE CHAIN ═══════════════════════════════════════════════════════
+       A table, not a diagram. The relation is many-to-many — three people can
+       wait on one, and one can wait on three — and a node-and-arrow picture of
+       that on seven people is a hairball that takes longer to read than the
+       seven cards it replaced. A row per person, sorted, is scannable at a
+       glance and stays scannable at thirty people, which a graph does not. */
+    .wc { border: 1px solid var(--border); border-radius: 10px; background: #fff;
+      margin: 0 0 0.85rem; overflow: hidden; }
+    .wc-h { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+      padding: 0.5rem 0.75rem; background: var(--panel, #f8fafc); border-bottom: 1px solid var(--border);
+      font-size: var(--t-sm); font-weight: 700; }
+    .wc-t { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+    .wc-t th { text-align: left; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .04em;
+      color: var(--muted); font-weight: 700; padding: 0.35rem 0.75rem; border-bottom: 1px solid var(--border); }
+    .wc-t td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .wc-t tbody tr:last-child td { border-bottom: none; }
+    /* The people who are holding somebody up are the reason to open this view,
+       so they carry a mark. Everyone else stays quiet. */
+    .wc-key td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+    .wc-n { text-align: right; width: 1%; white-space: nowrap; }
+    .wc-bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; min-width: 28px;
+      background: #f1f5f9; }
+    .wc-s { display: block; min-width: 2px; }
+    .wc-go { background: #22c55e; } .wc-bl { background: #f87171; }
+    .wc-so { background: #cbd5e1; } .wc-dn { background: #bbf7d0; }
+    .wc-k { font-size: var(--t-xs); color: var(--muted); margin-top: 2px; white-space: nowrap; }
+    .wc-gon { color: #15803d; }
+    .wc-none { color: var(--slack); }
+    .wc-w { display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--t-xs);
+      background: #f8fafc; border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.05rem 0.45rem 0.05rem 0.1rem; margin: 1px 3px 1px 0; white-space: nowrap; }
+    .wc-av { width: 16px; height: 16px; border-radius: 50%; color: #fff; font-size: 8px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center; flex: none; }
+    .wc-more { padding-left: 0.45rem; color: var(--muted); }
+    .wc-hb { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; font-weight: 700;
+      border-radius: 6px; padding: 0.05rem 0.45rem; cursor: pointer; font-size: var(--t-sm);
+      font-variant-numeric: tabular-nums; }
+    .wc-hb:hover { background: #fef3c7; }
+    @media (max-width: 900px) { .wc-t th:nth-child(3), .wc-t td:nth-child(3) { display: none; } }
     /* .wl-crit is gone: "critical path" was a second line under the status
        sentence, and is now the red left edge on the one status chip — the same
        treatment the activity list uses, for the same reason. */
@@ -4276,7 +4315,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0727</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0738</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -35511,6 +35550,91 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         + ' onchange="wlSetView(' + ekJs2('all') + ', this.checked)"> Show every row</label>'
         + '</div>';
     }
+    /* ═══ WHO IS WAITING ON WHOM ═════════════════════════════════════════════
+       Seven boxes, each reading "0 to pick up · N blocked · nothing they can
+       start until somebody else moves". That is what this tab looked like on a
+       dependency-chained plan, which is most consulting plans for their first
+       third — and boxes are the right shape only when the people in them have
+       DIFFERENT answers. When everyone's answer is the same, a grid of cards is
+       seven restatements of one fact, and the reader has to hold all seven in
+       their head and compare them to find the one that matters.
+
+       The question they actually have is "who do I chase". This tab already
+       computed that and printed it as a clause in a sentence above the grid. So:
+       one row per person, sorted by how many OTHER PEOPLE they are holding up.
+       People, not activities — an activity count says how much is stuck; the
+       number that decides who you ring is how many colleagues cannot move until
+       this person does.
+
+       Both directions are read off the same blocker lists the cards below use,
+       so the chain and the cards cannot disagree about who is waiting on whom. */
+    function wlChain(people) {
+      const idx = new Map(people.map(p => [p.name, p]));
+      const waitingOn = new Map(), holdingUp = new Map();
+      const add = (m, k, v) => { if (!m.has(k)) m.set(k, new Set()); if (v !== k) m.get(k).add(v); };
+      people.forEach(p => { waitingOn.set(p.name, new Set()); holdingUp.set(p.name, new Set()); });
+      people.forEach(p => p.blocked.forEach(r => (r.blockers || []).forEach(b => {
+        const owners = (b.owners && b.owners.length) ? b.owners : [WL_NOBODY];
+        owners.forEach(o => { add(waitingOn, p.name, o); if (idx.has(o)) add(holdingUp, o, p.name); });
+      })));
+      return people.map(p => ({ name: p.name,
+        waitingOn: [...(waitingOn.get(p.name) || [])], holdingUp: [...(holdingUp.get(p.name) || [])],
+        now: p.now.length, blocked: p.blocked.length, soon: p.soon.length, done: p.doneRows.length,
+        total: p.now.length + p.blocked.length + p.soon.length + p.doneRows.length }))
+        .sort((a, b) => b.holdingUp.length - a.holdingUp.length
+          || b.now - a.now || b.blocked - a.blocked || String(a.name).localeCompare(String(b.name)));
+    }
+    function wlChainHtml(people) {
+      const rows = wlChain(people);
+      if (rows.length < 2) return '';   // a chain of one is a sentence, not a picture
+      const anyHold = rows.some(r => r.holdingUp.length);
+      /* The bar is proportional to the BIGGEST person's workload, not to each
+         person's own total. Normalised per row, every bar is full width and the
+         picture says nothing about who is carrying what — which is the second
+         question anybody brings to this tab. */
+      const max = Math.max(1, ...rows.map(r => r.total));
+      const seg = (n, cls, lbl) => n ? '<span class="wc-s ' + cls + '" style="flex:' + n
+        + '" title="' + escapeHtml(n + ' ' + lbl) + '"></span>' : '';
+      const who = names => names.length
+        ? names.slice(0, 3).map(n => '<span class="wc-w" title="' + escapeHtml(roleText(n))
+            + '"><span class="wc-av" style="background:' + ownerColor(n) + '">'
+            + escapeHtml(ownerInitials(n) || '?') + '</span>' + escapeHtml(n) + '</span>').join('')
+          + (names.length > 3 ? '<span class="wc-w wc-more">+' + (names.length - 3) + '</span>' : '')
+        : '<span class="help-text">—</span>';
+      return '<div class="wc">'
+        + '<div class="wc-h"><span>Who is waiting on whom</span>'
+        + '<span class="help-text">' + (anyHold
+            ? 'sorted by how many people cannot move until this one does'
+            : 'nobody here is blocking anybody — every list below is independent') + '</span></div>'
+        + '<table class="wc-t"><thead><tr>'
+        /* "People held up", not "Holding up". The card below already carries a
+           chip reading "26 holding others up" and that one counts ACTIVITIES —
+           two numbers with the same words, in the same units-free form, a few
+           inches apart, saying 26 and 3 about the same person. Whichever is
+           read second makes the first look wrong. The unit goes in the header. */
+        + '<th>Person</th><th>Their work</th><th>Waiting on</th><th class="wc-n">People held up</th>'
+        + '</tr></thead><tbody>'
+        + rows.map(r => '<tr' + (r.holdingUp.length ? ' class="wc-key"' : '') + '>'
+            + '<td>' + personCell(r.name) + '</td>'
+            + '<td><div class="wc-bar" style="width:' + Math.max(6, Math.round(r.total / max * 100)) + '%"'
+              + ' title="' + escapeHtml(r.now + ' can start, ' + r.blocked + ' blocked, ' + r.soon
+                + ' not due yet, ' + r.done + ' finished') + '">'
+              + seg(r.now, 'wc-go', 'can start now') + seg(r.blocked, 'wc-bl', 'blocked')
+              + seg(r.soon, 'wc-so', 'not due yet') + seg(r.done, 'wc-dn', 'finished')
+            + '</div>'
+            + '<div class="wc-k">' + (r.now ? '<b class="wc-gon">' + r.now + '</b> to start'
+                : '<span class="wc-none">nothing to start</span>')
+              + (r.blocked ? ' · ' + r.blocked + ' blocked' : '') + '</div></td>'
+            + '<td>' + who(r.waitingOn) + '</td>'
+            + '<td class="wc-n">' + (r.holdingUp.length
+                ? '<button type="button" class="wc-hb no-print" onclick="wlOpenPerson(' + ekJs2(r.name) + ')"'
+                  + ' title="' + escapeHtml(r.holdingUp.length + ' cannot move until ' + r.name + ' does: '
+                    + r.holdingUp.join(', ') + '. Opens their full breakdown.')
+                  + '">' + r.holdingUp.length + '</button>'
+                : '<span class="help-text">—</span>') + '</td>'
+          + '</tr>').join('')
+        + '</tbody></table></div>';
+    }
     function worklistHtml(inner) {
       const people = worklistData();
       if (!people.length) return '';
@@ -35566,7 +35690,12 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         bits.push(chip(p.now.length, 'to pick up', p.now.length ? 'wl-k-go' : 'wl-k-none'));
         if (p.blocked.length) bits.push(chip(p.blocked.length, 'blocked'));
         if (p.overdue) bits.push(chip(p.overdue, 'overdue', 'wl-k-late'));
-        if (p.blocking) bits.push(chip(p.blocking, 'holding others up', 'wl-k-warn'));
+        /* "activities held up", not "holding others up". The chain above counts
+           PEOPLE under a nearly identical phrase, and the two numbers differ by
+           an order of magnitude on the same person — 26 against 3 — because they
+           count different things. Both are useful; neither is readable without
+           its unit. */
+        if (p.blocking) bits.push(chip(p.blocking, 'activities held up', 'wl-k-warn'));
         if (p.risks) bits.push(chip(p.risks, 'open RAID'));
         /* A hidden group still announces itself — a heading that simply is not
            there is an activity that has disappeared from the plan as far as the
@@ -35632,7 +35761,12 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
           + (hidden.length ? '<p class="wl-hid">Hidden by the filter: ' + escapeHtml(hidden.join(' · ')) + '</p>' : '')
           + '</div>';
       }).join('');
-      const body = wlViewBar(people) + head + '<div class="wl">' + cards + '</div>';
+      /* The chain leads, the cards follow. One is the shape of the problem —
+         who is stuck behind whom — and the other is the detail of any one
+         person once you know which one to look at. Putting the detail first
+         made the reader derive the shape from seven boxes by hand. */
+      const body = wlViewBar(people) + head + wlChainHtml(people)
+        + '<div class="wl">' + cards + '</div>';
       if (inner) return body;
       return '<h3 style="font-size:0.95rem;margin:0.9rem 0 0.2rem">Worklist — what each person can start now'
         + ' <span class="help-text" style="font-weight:400">(read straight off the dependency network: '

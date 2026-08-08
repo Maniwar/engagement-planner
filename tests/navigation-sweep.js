@@ -756,6 +756,76 @@ const { chromium } = requirePlaywright();
         + 'decide whether to go and look');
     wlSetView('blocked', true); wlSetView('done', false); wlSetView('soon', false); wlSetView('all', false);
 
+    /* ═══ THE CHAIN AGREES WITH THE CARDS ═══════════════════════════════════
+       "Who is waiting on whom" leads this panel now, and it is a SECOND
+       rendering of the same blocker lists the cards below are built from. Two
+       renderings of one fact is exactly how a screen ends up contradicting
+       itself: the chain says A. Rivera is holding up three people, the card
+       under it says nobody is waiting on them, and both are drawn from data
+       that cannot support both readings.
+
+       So it is recounted here off worklistData directly — not read back off
+       wlChain, which would only prove wlChain equals itself. Both directions,
+       because they are separate walks: waiting-on is per person over their own
+       blockers, holding-up is the inverse over everybody else's.
+
+       The sort is asserted too. Sorted by anything else this is a roster with
+       extra columns; the ordering IS the answer to "who do I chase". */
+    if (typeof wlChain === 'function') {
+      const names = new Set(data.map(p => p.name));
+      const wo = {}, hu = {};
+      data.forEach(p => { wo[p.name] = new Set(); hu[p.name] = new Set(); });
+      data.forEach(p => p.blocked.forEach(r => (r.blockers || []).forEach(bk => {
+        const os = (bk.owners && bk.owners.length) ? bk.owners : [WL_NOBODY];
+        os.forEach(o => {
+          if (o !== p.name) wo[p.name].add(o);
+          if (names.has(o) && o !== p.name) hu[o].add(p.name);
+        });
+      })));
+      const chain = wlChain(data);
+      out.chainRows = chain.length;
+      out.chainTop = chain.slice(0, 3).map(r => r.name + ':' + r.holdingUp.length);
+      chain.forEach(r => {
+        const p = data.find(x => x.name === r.name);
+        if (!p) { say2('the chain lists "' + r.name + '", who is not on the worklist at all'); return; }
+        if (r.waitingOn.length !== wo[r.name].size)
+          say2('the chain says ' + r.name + ' is waiting on ' + r.waitingOn.length + ' people; an independent '
+            + 'walk of their blockers finds ' + wo[r.name].size);
+        if (r.holdingUp.length !== hu[r.name].size)
+          say2('the chain says ' + r.name + ' is holding up ' + r.holdingUp.length + ' people; an independent '
+            + 'walk of everybody else’s blockers finds ' + hu[r.name].size);
+        if (r.now !== p.now.length || r.blocked !== p.blocked.length)
+          say2('the chain row for ' + r.name + ' reads ' + r.now + '/' + r.blocked + ' startable/blocked '
+            + 'while their card reads ' + p.now.length + '/' + p.blocked.length + ' — one screen, two answers');
+      });
+      if (chain.length !== data.length)
+        say2('the chain shows ' + chain.length + ' people against ' + data.length + ' on the worklist — '
+          + 'somebody is missing from the picture that is meant to be the whole picture');
+      for (let i = 1; i < chain.length; i++)
+        if (chain[i - 1].holdingUp.length < chain[i].holdingUp.length) {
+          say2('the chain is not ordered by how many people each person is holding up ('
+            + chain[i - 1].name + ' above ' + chain[i].name + ') — that ordering is the answer to "who do I '
+            + 'chase", and without it this is a roster with extra columns');
+          break;
+        }
+      /* And it has to be DRAWN, with a bar that has a box. A stacked bar whose
+         segments collapse to zero width is the Monte Carlo histogram bug again:
+         correct data, hoverable, invisible. */
+      const host2 = document.getElementById('worklistHost');
+      if (host2 && data.length >= 2) {
+        const rowsDrawn = host2.querySelectorAll('.wc-t tbody tr').length;
+        const segs = [...host2.querySelectorAll('.wc-s')]
+          .filter(x => x.getBoundingClientRect().width > 0.5 && x.getBoundingClientRect().height > 0.5);
+        out.chainDrawn = rowsDrawn; out.chainSegs = segs.length;
+        if (rowsDrawn !== chain.length)
+          say2('the chain computed ' + chain.length + ' rows and drew ' + rowsDrawn);
+        if (!segs.length)
+          say2('every segment of every workload bar in the chain has no box — the split is invisible while '
+            + 'still being hoverable');
+      }
+    } else say2('the "who is waiting on whom" chain is gone — the worklist is back to a grid of cards that '
+      + 'each answer for one person, with the reader left to work out the order to act in');
+
     /* The drill-in is checked against the person with the MOST work, and among
        ties one who also has finished activities. Picking the first person with
        any finished row gave a target whose every group sat under the cap, so a
