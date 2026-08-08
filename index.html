@@ -1709,6 +1709,27 @@
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
 
+    /* A peak load, drawn. Number then bar, so it scans as a column of numbers
+       and reads as a column of levels at the same time. */
+    .pk { display: inline-flex; align-items: center; gap: 0.4rem; justify-content: flex-end; }
+    .pk-n { font-variant-numeric: tabular-nums; }
+    .pk-n.hot { color: var(--critical); font-weight: 700; }
+    .pk-bar { width: 46px; height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; flex: none; }
+    .pk-bar > i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+
+    /* ═══ THE SAME TABLE MANNERS EVERYWHERE ══════════════════════════════
+       The activity list and the dictionary got a hover in the project's own
+       colour, a header that stays put while the body scrolls, and prose cells
+       tied to the top of their row. Every other table in the app — roster,
+       RAID, traceability, the bank — kept the old flat grey hover and a header
+       that scrolled away, so the two surfaces somebody uses most behaved one
+       way and the eight they use less behaved another. One set of manners. */
+    .table-wrap table thead th { position: sticky; top: 0; z-index: 2;
+      background: #f8fafc; box-shadow: inset 0 -1px 0 var(--border); }
+    .table-wrap tbody tr:hover > td { background: var(--primary-50); }
+    .roster-table td { vertical-align: middle; }
+    .roster-table tbody tr { transition: background-color .1s ease; }
+
     /* The project identity, in the header, on the same line as the app name.
        Quiet enough not to compete with the product mark, loud enough to be the
        first thing you read after it — and it is a button, because the only
@@ -1717,14 +1738,20 @@
     .proj-chip { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0;
       background: rgb(255 255 255 / .08); border: 1px solid rgb(255 255 255 / .14);
       color: #e2e8f0; font-size: var(--t-md); font-weight: 500; padding: 0.28rem 0.6rem;
-      border-radius: 8px; margin-left: 0.6rem; max-width: min(46vw, 620px);
-      white-space: nowrap; overflow: hidden; box-shadow: none; }
+      border-radius: 8px; margin-left: 0.6rem; max-width: min(30vw, 420px);
+      white-space: nowrap; overflow: hidden; box-shadow: none; flex: 0 1 auto; min-width: 0; }
     .proj-chip:hover:not(:disabled) { background: rgb(255 255 255 / .16); border-color: rgb(255 255 255 / .26); color: #fff; }
     .proj-chip b { font-weight: 700; color: #fff; }
     .proj-chip .pc-meta { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
     .proj-chip .pc-edit { opacity: .55; margin-left: 0.15rem; }
     .proj-chip:hover .pc-edit { opacity: 1; }
-    @media (max-width: 900px) { .proj-chip .pc-meta { display: none; } .proj-chip { margin-left: 0; } }
+    /* 1500, not 900. At 599px the chip was wide enough to push the whole
+       action row onto a second line on a 1600px screen — the merge gave a row
+       back and then took one straight to the header. The name always shows and
+       the meta is the part that yields, because "which project" is the question
+       and the calendar is the footnote; the full string stays on the tooltip. */
+    @media (max-width: 1500px) { .proj-chip .pc-meta { display: none; } }
+    @media (max-width: 760px) { .proj-chip { margin-left: 0; max-width: 42vw; } }
 
     .pers { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
     .pers-av { width: 24px; height: 24px; border-radius: 50%; flex: none; position: relative;
@@ -4130,7 +4157,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.07.2357</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0010</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -16703,7 +16730,21 @@ Or say what you want, in your own words:
           </td>
           <td>${assigned.length}</td>
           <td>${effort.toFixed(1)}d</td>
-          <td>${Math.round(R.peak)}%</td>
+          ${/* A PEAK IS A READING, SO DRAW IT AS ONE. 200% and 300% sat in the
+                same grey as 50%, on the one column whose entire job is to say
+                "this person is booked past what they have" — the number was
+                there and the alarm was not. The bar is peak against capacity,
+                so a full bar IS capacity and anything past it overflows; the
+                ink turns only when the peak actually exceeds the capacity,
+                which is the same threshold the status badge beside it uses. */''}
+          <td>${(() => {
+            const cap = Math.max(1, R.capacity || 100), pk = Math.round(R.peak);
+            const ratio = Math.min(1, (R.peak || 0) / cap);
+            const hot = R.peak > cap + 1e-6;
+            return `<span class="pk"><span class="pk-n${hot ? ' hot' : ''}">${pk}%</span>`
+              + `<span class="pk-bar" title="${escapeHtml(pk + '% of a ' + Math.round(cap) + '% capacity')}">`
+              + `<i style="width:${Math.round(ratio * 100)}%${hot ? ';background:var(--critical)' : ''}"></i></span></span>`;
+          })()}</td>
           ${/* "Peak load 200%" beside a green OK is the same collision the heatmap
                 had: the peak is raw and the badge applies the finished-work rule,
                 both true and reading as a contradiction. The badge says which
