@@ -1084,12 +1084,24 @@
        context for the gate, not a competing row, and the numbers it carries are
        cumulative where every other number on that line is per-row. The dotted
        underline says "there is more here" without adding a control. */
-    .ms-reach { display: block; font-size: var(--t-xs); color: var(--muted); cursor: help;
-      margin: 1px 0 0; padding-left: 1.35rem; letter-spacing: .01em;
-      border-bottom: 1px dotted transparent; width: fit-content; }
-    .ms-reach b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
-    .ms-reach:hover { border-bottom-color: var(--border); }
-    .ms-reach-none { font-style: italic; }
+    .ms-reach { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;
+      font-size: var(--t-xs); color: var(--muted); cursor: help;
+      margin: 2px 0 0; padding-left: 1.05rem; width: fit-content; }
+    /* The bar IS the progress of everything behind the gate. A bar and not a
+       fourth number, because the status column on the same row already prints a
+       percentage about this row, and two percentages side by side measuring
+       different things is worse than one of them being a shape. */
+    .ms-meter { display: block; width: 26px; height: 5px; border-radius: 3px; flex: none;
+      background: #e2e8f0; overflow: hidden; cursor: help; }
+    .ms-meter > i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+    .ms-f { display: inline-flex; align-items: baseline; gap: 0.16rem; white-space: nowrap; }
+    .ms-f > i { font-style: normal; opacity: 0.5; font-size: 0.92em; }
+    .ms-f > b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ms-reach-none { display: block; font-style: italic; padding-left: 1.35rem;
+      font-size: var(--t-xs); color: var(--muted); margin-top: 2px; }
+    /* A milestone's own estimate columns. Recessive, because "there is nothing
+       here" is the answer, and it is the same answer five times across one row. */
+    .ms-na { color: var(--slack); cursor: help; }
     /* ═══ THE CHAIN ═══════════════════════════════════════════════════════
        A table, not a diagram. The relation is many-to-many — three people can
        wait on one, and one can wait on three — and a node-and-arrow picture of
@@ -4315,7 +4327,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0738</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.0750</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -9187,10 +9199,22 @@ Or say what you want, in your own words:
         const summary = t.isSummary;
         /* The diamond explains itself on hover instead of being a symbol you
            either know or do not: zero of its own, and what it took to reach it. */
+        /* ═══ ONE DIAMOND PER ROW, AND IT IS THE ONE ON THE NAME ═════════════
+           A milestone read "— — — ◆ ◆" across O, M, P, TE and WORK. All five
+           mean the same thing — not applicable, this is a date — spelled two
+           different ways, in a row whose name already carries a ◆ to say it is
+           a milestone. The diamonds in the numeric columns were repeating the
+           row's type in the places reserved for its numbers, and the reader had
+           to work out that the two shapes were one fact.
+
+           So the estimate columns are all the same recessive dash, and the
+           marker stays where it identifies the row. The dash is what every
+           other column in this app already uses for "there is nothing here",
+           which is true of a gate's own duration and its own work. */
+        const msNone = why => '<span class="ms-na" title="' + escapeHtml(why
+          + (calculated ? '\n\n' + milestoneReachTip(t) : '')) + '">—</span>';
         const teStr = t.milestone
-          ? '<span title="' + escapeHtml('A milestone has no duration of its own — it is the moment the '
-              + 'work before it is finished.' + (calculated ? '\n\n' + milestoneReachTip(t) : ''))
-            + '" style="cursor:help">◆</span>'
+          ? msNone('A milestone has no duration of its own — it is the moment the work before it is finished.')
           : (calculated ? fmtDur(t.te) : '—');
         const slackStr = calculated ? (Math.abs(t.slack) < 0.05 ? '0.0' : t.slack.toFixed(1)) : '—';
         const st = taskStatus(t);
@@ -9265,12 +9289,18 @@ Or say what you want, in your own words:
           ${(() => { const noEst = !summary && !t.milestone && !(t.p > 0);
             const a = noEst ? ' style="background:#fee2e2;color:#b91c1c;font-weight:700" title="NO ESTIMATE — this work package contributes nothing to the schedule, the critical path or the price. Click the cell and type the estimate right here."' : '';
             const ed = f => (!summary && !t.milestone) ? ` data-omp="${f}" onclick="beginOmpEdit(this, ${t.id}, '${f}')"${noEst ? '' : ' style="cursor:text"'}` : '';
-            return `<td${a}${ed('o')}>${summary ? rollCell(t.oUp, 'optimistic') : t.milestone ? '—' : fmtDurCell(t.o)}</td>
-          <td${a}${ed('m')}>${summary ? rollCell(t.mUp, 'most-likely') : t.milestone ? '—' : fmtDurCell(t.m)}</td>
-          <td${a}${ed('p')}>${summary ? rollCell(t.pUp, 'pessimistic') : t.milestone ? '—' : fmtDurCell(t.p)}</td>
+            /* O, M and P take the same recessive dash as TE and WORK. They
+               were plain '—' while those two were greyed, so one row showed
+               five columns meaning "not applicable" in two different greys,
+               and only two of them said why on hover. */
+            const msEst = msNone('A milestone is a date, not work — there is nothing to estimate. '
+              + 'The estimates that get you TO it are on the activities before it.');
+            return `<td${a}${ed('o')}>${summary ? rollCell(t.oUp, 'optimistic') : t.milestone ? msEst : fmtDurCell(t.o)}</td>
+          <td${a}${ed('m')}>${summary ? rollCell(t.mUp, 'most-likely') : t.milestone ? msEst : fmtDurCell(t.m)}</td>
+          <td${a}${ed('p')}>${summary ? rollCell(t.pUp, 'pessimistic') : t.milestone ? msEst : fmtDurCell(t.p)}</td>
           <td${a}><strong>${noEst ? '⚠ 0' : teStr}</strong></td>
           <td${a} style="color:#475569${t.milestone ? ';cursor:help' : ''}" title="${escapeHtml(workCellTip(t))}">${(() => {
-            if (t.milestone) return '◆';
+            if (t.milestone) return msNone('A milestone consumes no effort — nobody works ON a date.');
             if (!calculated) return '—';
             const w = t.isSummary
               ? leafDescendants(t.id).reduce((sx, x) => sx + workingDaysToUnit(plannedEffortDays(x)), 0)
@@ -11478,17 +11508,41 @@ Or say what you want, in your own words:
       if (!r) return '';
       if (!r.n) return '<span class="ms-reach ms-reach-none" title="'
         + escapeHtml(milestoneReachTip(t)) + '">nothing feeds this gate yet</span>';
-      /* Both numbers are LABELLED. "44d · 52.88d" put a calendar span and a
-         work total side by side wearing the same unit — the reader has no way
-         to tell which is which, and this is the one confusion the whole app has
-         spent the most effort keeping straight (#84). Elapsed is calendar days
-         and always will be; work is in the plan's chosen unit, so it takes the
-         word rather than a suffix. */
-      return '<span class="ms-reach" title="' + escapeHtml(milestoneReachTip(t)) + '">to here:'
-        + (r.span != null ? ' <b>' + r.span + '</b> days elapsed ·' : '')
-        + ' <b>' + escapeHtml(fmtDurCell(r.effort)) + '</b> of work'
-        + ' · <b>' + escapeHtml(fmtMoney(r.cost)) + '</b>'
-        + ' · <b>' + r.pct + '%</b> done</span>';
+      /* ═══ A METER, NOT A SENTENCE ════════════════════════════════════════
+         The first version was a run of prose — "to here: 2 days elapsed ·
+         9.54h of work · $1,335 · 0% done" — with two faults.
+
+         It ended in "0% done", and the STATUS column on the same row already
+         answers how far along that row is. Two percentages a few inches apart,
+         measuring different things (the gate's own state, against the
+         completion of everything upstream of it), with nothing to tell them
+         apart. The upstream figure is the one that adds something, so it stays
+         — as the FILL OF A BAR rather than a fourth number. A bar is a
+         different kind of mark from a status chip and cannot be read as a
+         second opinion about it.
+
+         And four labelled facts in a row is a paragraph under a row title, not
+         a readout. The bar carries progress; the three quantities keep their
+         units and drop the words, which move into the tooltip where the rest
+         of this row already keeps its detail.
+
+         The two remaining numbers still must not wear the same unit — elapsed
+         is calendar days, work is in the plan's chosen unit, and "44d · 52.88d"
+         side by side is the confusion #84 exists to prevent. They are told
+         apart by their marks now rather than by the words, and both are spelled
+         out in full on hover. */
+      const pct = Math.max(0, Math.min(100, r.pct));
+      const f = (mark, val, tip) => '<span class="ms-f" title="' + escapeHtml(tip) + '">'
+        + '<i>' + mark + '</i><b>' + escapeHtml(val) + '</b></span>';
+      return '<span class="ms-reach" title="' + escapeHtml(milestoneReachTip(t)) + '">'
+        + '<span class="ms-meter" title="' + escapeHtml(pct + '% of the work behind this gate is finished — '
+            + r.done + ' of ' + r.n + ' activities') + '"><i style="width:' + pct + '%"></i></span>'
+        + (r.span != null ? f('⏱', r.span + 'd', r.span + ' calendar days from the first thing upstream '
+            + 'starting to this gate') : '')
+        + f('▪', fmtDurCell(r.effort), fmtDurCell(r.effort) + ' of work behind this gate, across '
+            + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies'))
+        + f('$', fmtMoney(r.cost).replace(/^\$/, ''), fmtMoney(r.cost) + ' of planned cost behind this gate')
+        + '</span>';
     }
     function plannedEffortUnit(t, useBaseline) {
       if (!t || t.milestone) return 0;
@@ -17968,10 +18022,13 @@ Or say what you want, in your own words:
            took. The columns stay honest — the gate really is zero of all three
            — and the reach goes under the name where it cannot be mistaken for
            a per-row figure. */
+        /* Same as the activity list: all five estimate columns say the same
+           recessive dash, and the one ◆ that identifies the row stays on the
+           name where it belongs. */
+        const msNa = why => '<span class="ms-na" title="' + escapeHtml(why
+          + (calculated ? '\n\n' + milestoneReachTip(t) : '')) + '">—</span>';
         const msDur = t.milestone
-          ? '<span style="cursor:help" title="' + escapeHtml('A milestone has no duration of its own — it is '
-              + 'the moment the work before it is finished.' + (calculated ? '\n\n' + milestoneReachTip(t) : ''))
-            + '">◆</span>'
+          ? msNa('A milestone has no duration of its own — it is the moment the work before it is finished.')
           : '';
         const dur = t.milestone ? msDur : (calculated ? fmtDur(t.te) : '—');
         const msReachW = (t.milestone && calculated) ? milestoneReachChips(t) : '';
@@ -17986,7 +18043,7 @@ Or say what you want, in your own words:
           <td class="num" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.isSummary) { const e = leafDescendants(t.id).reduce((a, x) => a + plannedEffortDays(x), 0);
               return e > 0 ? '<span class="help-text">' + escapeHtml(fmtDurCell(workingDaysToUnit(e))) + '</span>' : '—'; }
-            if (t.milestone) return '◆';
+            if (t.milestone) return msNa('A milestone consumes no effort — nobody works ON a date.');
             const e = plannedEffortDays(t);
             return e > 0 ? escapeHtml(fmtDurCell(workingDaysToUnit(e))) : '—'; })()}</td>
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.startDate) : '—'}</td>
