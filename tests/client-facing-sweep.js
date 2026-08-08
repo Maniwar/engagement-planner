@@ -96,8 +96,19 @@ const DATA = FIXTURE();
     const safeRep = strip(buildStatusReportHtml());
     const leaked = nums(safeRep);
     if (leaked.length)
+      /* fmtMoney, not `money`. This line called a function that does not exist
+         anywhere — not in the sweep, not in the product — and it never showed,
+         because the branch only runs when client-safe mode LEAKS a figure and
+         the clean build never leaks. The first mutant that broke client-safe
+         mode made the check CRASH instead of report, and the mutation engine
+         stopped the whole run rather than score a crashed check as a catch.
+
+         That is the shape of the problem this suite keeps finding in itself:
+         an assertion that has never once executed is not a passing assertion,
+         it is an unexecuted one, and it can be arbitrarily broken. `nums`
+         returns numbers, so they have to be formatted back to be readable. */
       say('Client-safe status report', 'still prints ' + leaked.length + ' money figure'
-        + (leaked.length === 1 ? '' : 's') + ': ' + leaked.slice(0, 4).map(money).join(', '));
+        + (leaked.length === 1 ? '' : 's') + ': ' + leaked.slice(0, 4).map(fmtMoney).join(', '));
     if (/margin|day rate|bill rate|cost/i.test(safeRep) && /\$/.test(safeRep))
       say('Client-safe status report', 'mentions cost with a currency symbol present');
     // and it must still be a usable report, not an empty one

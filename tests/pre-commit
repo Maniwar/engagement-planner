@@ -161,6 +161,24 @@ rm -f /tmp/ptr-m.$$
 # Its own ability to fail is proven by geometry-selftest.js, which plants one of
 # each defect into the live page and requires all five to be found. Run that
 # after touching the probe. ~23s, so it rides with every commit.
+# ═══ NAMES THAT RESOLVE TO NOTHING ═══════════════════════════════════════
+# Static, so it costs milliseconds and rides with every commit. It exists
+# because client-facing-sweep carried `leaked.map(money)` for months: `money`
+# is not a function anywhere, the branch only runs when client-safe mode leaks,
+# and the shipped build does not leak — so the line had never once executed.
+# It surfaced only when a mutant broke client-safe mode and the sweep CRASHED
+# instead of reporting, which cost a thirty-minute mutation run to learn.
+#
+# A check that throws is scored as a crash, not as a finding, so this class of
+# typo hides a real red result inside a stack trace. Cheaper to read the files.
+if node tests/probes/dead-call-scan.js > /tmp/ptr-d.$$ 2>&1; then
+  echo "  ✓ dead calls           every name in every check resolves"
+else
+  echo "  ✗ DEAD CALLS — a check names something that exists nowhere and will throw when it fires"
+  sed -n '/call(s) name something/,$p' /tmp/ptr-d.$$ | sed 's/^/      /'; fail=1
+fi
+rm -f /tmp/ptr-d.$$
+
 if node tests/probes/geometry-sweep.js > /tmp/ptr-g.$$ 2>&1; then
   echo "  ✓ geometry             nothing clipped, crushed, overlapping or unreachable"
 else
