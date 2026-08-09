@@ -4872,7 +4872,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0526</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0537</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6857,6 +6857,69 @@ Or say what you want, in your own words:
       } catch (e) { alert('Could not read the trunk: ' + (e.message || e)); }
       finally { trunkBusy = false; }
     }
+    /* ═══ SAYING WHAT A PUSH IS ABOUT TO DO ══════════════════════════════════
+       Asked after seeing the pull dialog: "how can i get this message on a pull
+       AND on a push as well."
+
+       Pull explained itself — how far behind you are, and that nothing of yours
+       can be lost — and push said nothing at all until it was over. That is
+       backwards: pull changes YOUR copy, which you can undo; push changes the
+       file the whole team reads, which you cannot reach into their browsers to
+       undo. The one that leaves the building is the one that should have
+       announced itself.
+
+       So it counts the same way pull does, in the same plain terms, and names
+       the two things somebody actually wants confirmed before publishing: what
+       is going, and who is going to see it.
+
+       Computed from the tasks, not from the version notes. A note is what
+       somebody typed; the ids are what changed, and this dialog is a claim
+       about the second. */
+    function trunkPushSummary(t, mine) {
+      const out = { versions: mine.length, added: 0, removed: 0, changed: 0, others: [], first: false };
+      const tip = trunkTip(t);
+      if (!tip || !tip.doc) { out.first = true; return out; }
+      const now = serialize();
+      const byId = d => { const m = new Map(); ((d && d.tasks) || []).forEach(x => m.set(x.id, x)); return m; };
+      const A = byId(tip.doc), B = byId(now);
+      B.forEach((x, id) => {
+        if (!A.has(id)) { out.added++; return; }
+        if (JSON.stringify(A.get(id)) !== JSON.stringify(x)) out.changed++;
+      });
+      A.forEach((x, id) => { if (!B.has(id)) out.removed++; });
+      const me = trunkIdentity().key;
+      const seen = new Set();
+      ((t.log) || []).forEach(e => {
+        if (!e || String(e.by || '') === me) return;
+        const nm = String(e.byName || e.by || '').trim();
+        if (nm && !seen.has(nm)) { seen.add(nm); out.others.push(nm); }
+      });
+      return out;
+    }
+    function trunkPushSentence(t, mine, name) {
+      const s2 = trunkPushSummary(t, mine);
+      if (s2.first) {
+        return 'This starts the trunk in "' + name + '" with ' + s2.versions + ' version'
+          + (s2.versions === 1 ? '' : 's') + ' of your plan.\n\nEverybody else joins by picking this same '
+          + 'file, and from then on it is the shared history.\n\nShare it?';
+      }
+      const bits = [];
+      if (s2.added) bits.push(s2.added + ' activit' + (s2.added === 1 ? 'y' : 'ies') + ' you added');
+      if (s2.removed) bits.push(s2.removed + ' you removed');
+      if (s2.changed) bits.push(s2.changed + ' you changed');
+      const who = s2.others.length
+        ? s2.others.slice(0, 3).join(', ') + (s2.others.length > 3 ? ' and ' + (s2.others.length - 3) + ' more' : '')
+        : '';
+      return 'You are about to share ' + s2.versions + ' version' + (s2.versions === 1 ? '' : 's')
+        + ' with the team' + (who ? ' — ' + who + ' will see this next time they sync' : '') + '.\n\n'
+        + (bits.length ? bits.join(', ') + '.\n\n' : 'Nothing about the activities changed; this files where '
+            + 'you are so the histories stay joined.\n\n')
+        /* The mirror of pull's reassurance, and it is a different one. Pull
+           cannot lose YOUR work; push cannot lose THEIRS, because the trunk is
+           append-only and a stale push is refused before it gets here. */
+        + 'Nothing of theirs can be lost — a push only adds to the shared history, and one that was missing '
+        + 'their work would have been refused before this point.\n\nShare it?';
+    }
     async function trunkPush(quiet) {
       if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
       if (!(await trunkPermit(trunkHandle))) return;
@@ -6886,6 +6949,7 @@ Or say what you want, in your own words:
         const have = new Set([].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid)));
         const mine = (planVersions || []).filter(v => v.vid && !have.has(v.vid));
         if (!mine.length) { if (!quiet) flashSaved('✓ The trunk already has everything of yours'); return; }
+        if (!quiet && !confirm(trunkPushSentence(t, mine, (trunkHandle && trunkHandle.name) || 'the trunk file'))) return;
         mine.forEach((v, i) => {
           // the newest carries the live plan; the rest carry their own snapshot
           const doc = (i === mine.length - 1) ? serialize() : Object.assign({}, serialize(), v.snap);

@@ -327,7 +327,43 @@ function serveApp() {
          SENDS. A loop that only ever receives keeps one person up to date and
          everybody else stale. */
       trunkPaused = '';
-      const tipNow = trunkTip(await trunkRead(handle));
+      const tSummary = await trunkRead(handle);
+      const tipNow = trunkTip(tSummary);
+
+      /* ── A PUSH SAYS WHAT IT IS ABOUT TO PUBLISH ────────────────────────
+         Pull explained itself and push said nothing until it was over, which
+         is backwards: pull changes YOUR copy and undo reaches it; push changes
+         the file a whole team reads and you cannot reach into their browsers.
+         The one that leaves the building is the one that has to announce
+         itself.
+
+         Asserted on the CLAIM, not on the wording: the sentence has to carry
+         the number of activities that actually differ between this plan and
+         the trunk tip, and it has to name somebody else who is in the file.
+         A confirm that says "share it?" and nothing else is a button with a
+         speed bump, not an explanation. */
+      (() => {
+        const tRead = tSummary;
+        const mineNow = (planVersions || []).filter(v => v.vid
+          && !new Set(((tRead.log) || []).map(e => e.vid)).has(v.vid));
+        const sent = trunkPushSentence(tRead, mineNow, 'trunk-sweep.json');
+        const sum = trunkPushSummary(tRead, mineNow);
+        out.pushSaysChanged = sum.changed;
+        out.pushNamesOthers = sum.others.length;
+        out.pushSentence = String(sent).slice(0, 80);
+        if (!sum.changed && !sum.added && !sum.removed)
+          bad.push('Auto sync :: the push preview reports nothing changed at all, so the sentence below is '
+            + 'not describing this push and the assertion is vacuous');
+        else if (String(sent).indexOf(String(sum.changed || sum.added || sum.removed)) < 0)
+          bad.push('Trunk :: the push preview never states how much is going: "' + String(sent).slice(0, 100)
+            + '". A confirm that says "share it?" and nothing else is a speed bump, not an explanation');
+        if (!sum.others.length)
+          bad.push('Trunk :: the push preview finds nobody else in a trunk five people have written to, so '
+            + 'it cannot tell anybody who is about to see their work');
+        else if (String(sent).indexOf(sum.others[0]) < 0)
+          bad.push('Trunk :: the push preview knows who else is in the file and does not say so');
+      })();
+
       hydrate(JSON.parse(JSON.stringify(tipNow.doc))); calculate();
       adoptVersions((await trunkRead(handle)).log || []);
       out.autoRelAfterCatchUp = trunkRelation(await trunkRead(handle)).relation;
