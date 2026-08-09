@@ -1060,9 +1060,19 @@ const QA = JSON.parse(fs.readFileSync(
         if (wi < 0) say('Activity list', 'the table shows O/M/P/TE and no work at all — every column in it '
           + 'is a duration and nothing says so');
         const rows = tbl ? [...tbl.querySelectorAll('tbody tr')] : [];
-        const bad2 = rows.filter(r => r.cells.length > 1 && r.cells.length !== hdr.length);
-        if (bad2.length) say('Activity list', bad2.length + ' row(s) have a different cell count from the '
-          + 'header — a column was added without every row following');
+        /* COLSPANS COUNT AS THEIR WIDTH. This counted raw <td>s, which is the
+           same question only while every row is one cell per column — and the
+           milestone row is not: its five estimate cells are one band. Counting
+           cells called that a row with a missing column, which is precisely
+           backwards, because the sum still comes to the full width and that IS
+           the property. A row that does not span the table is the defect worth
+           catching; how many elements it takes to do it is an implementation
+           detail, and asserting on it is root cause 2 again. */
+        const width = r => [...r.cells].reduce((n, c) => n + (parseInt(c.getAttribute('colspan'), 10) || 1), 0);
+        const bad2 = rows.filter(r => r.cells.length > 1 && width(r) !== hdr.length);
+        if (bad2.length) say('Activity list', bad2.length + ' row(s) span ' + width(bad2[0])
+          + ' columns against a header of ' + hdr.length + ' — counting colspans, so a row is short or long '
+          + 'by a real column and everything to its right is under the wrong heading');
         const row = rows.find(r => r.cells[3] && r.cells[3].textContent.indexOf(t.name) >= 0);
         if (row && wi >= 0 && ti >= 0) {
           const te = row.cells[ti].textContent.trim(), wk = row.cells[wi].textContent.trim();
@@ -1147,6 +1157,115 @@ const QA = JSON.parse(fs.readFileSync(
             say('Work cell', 'a milestone contributes ' + plannedEffortUnit(msT) + ' to the effort rollup — '
               + 'whatever its cell says, the plan is counting the gate as work');
         }
+
+        /* ═══ THE GATE BAND ════════════════════════════════════════════════
+           A milestone row used to be an activity row with five em-dashes where
+           the estimates go, and the one thing it had to say — what it took to
+           get to the gate — was pushed onto a SECOND LINE under the name, so
+           every milestone row was twice as tall as its neighbours to carry a
+           reading it had nowhere to put.
+
+           Those five cells are empty because they ask "how big is this row",
+           and a gate has no size. So they became one band. Three properties
+           are worth holding, and only the first is about appearance:
+
+             · the band spans the ESTIMATE columns and no others. Predecessors,
+               start, finish, slack, % and status are all true of a milestone
+               and three of them are inline-editable; a band that swallowed
+               them would look bolder and take away pinning a gate date. So the
+               cell count and the STARTING COLUMN are both asserted — a colspan
+               in the wrong place still counts to five.
+             · the reach it prints is right, recomputed here by walking the
+               predecessor graph with this file's own traversal rather than
+               reading milestoneReach back, which would only prove it equals
+               itself.
+             · and the gate's own size is still nothing. This number is
+               cumulative and sits in the columns where per-row numbers live,
+               so the one way it could do real damage is by being read as the
+               milestone's own duration or work — which is #84 exactly. The row
+               has to keep saying so. */
+        (() => {
+          const ms = tasks.find(x => x.milestone && (x.predecessors || []).length);
+          if (!ms) { out.gateBand = 'SKIPPED-no-milestone-with-predecessors'; return; }
+          switchTab('tasks'); renderTaskTable();
+          const tr = document.querySelector('#taskBody tr[data-task-id="' + ms.id + '"]');
+          if (!tr) { say('Gate band', 'the milestone has no row in the activity table at all'); return; }
+          const cells = [...tr.querySelectorAll('td')];
+          const band = tr.querySelector('td.ms-band');
+          const plain = [...document.querySelectorAll('#taskBody tr[data-task-id]')]
+            .find(r => !r.querySelector('td.ms-band') && !r.classList.contains('is-sum'));
+          out.gateBand = band ? band.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) : '(none)';
+
+          if (!band) {
+            say('Gate band', 'the milestone row has no gate band — it is back to being an activity row with '
+              + 'five empty estimate cells, and whatever it took to reach the gate is not on the row');
+            return;
+          }
+          if (band.getAttribute('colspan') !== '5')
+            say('Gate band', 'the band spans ' + band.getAttribute('colspan') + ' columns rather than the '
+              + 'five estimate columns. Anything wider is eating a cell that is true of a milestone — '
+              + 'predecessors, the dates, slack, % and status all mean something at a gate, and three of '
+              + 'them are edited in place');
+          if (plain) {
+            const pc = plain.querySelectorAll('td').length;
+            if (cells.length !== pc - 4)
+              say('Gate band', 'a milestone row has ' + cells.length + ' cells against ' + pc + ' on an '
+                + 'activity row; replacing five columns with one band should leave exactly ' + (pc - 4));
+            /* THE STARTING COLUMN, not just the width. A five-wide band placed
+               one cell early swallows OWNER and leaves WORK stranded, and every
+               count-based check still passes. */
+            const bandX = Math.round(band.getBoundingClientRect().left);
+            const oCell = plain.querySelectorAll('td')[cells.indexOf(band)];
+            const oX = oCell ? Math.round(oCell.getBoundingClientRect().left) : null;
+            out.gateBandX = bandX + ' vs ' + oX;
+            if (oX != null && Math.abs(bandX - oX) > 2)
+              say('Gate band', 'the band starts at x=' + bandX + ' and the first estimate column of an '
+                + 'activity row starts at x=' + oX + ' — it is spanning the wrong five columns');
+          }
+
+          /* ── the numbers, recomputed by an independent walk ─────────────── */
+          const byId = {}; tasks.forEach(x => { byId[x.id] = x; });
+          const seen = new Set(), leaves = new Map();
+          const push = x => { if (x && !x.milestone && !x.isSummary) leaves.set(x.id, x); };
+          const walk = id => {
+            if (seen.has(id)) return;                       // the plan may contain a cycle
+            seen.add(id);
+            const x = byId[id]; if (!x) return;
+            if (x.isSummary) leafDescendants(x.id).forEach(k => { push(k); (k.predecessors || []).forEach(q => walk(q.id)); });
+            else push(x);
+            (x.predecessors || []).forEach(q => walk(q.id));
+          };
+          (ms.predecessors || []).forEach(q => walk(q.id));
+          let effort = 0, cost = 0;
+          leaves.forEach(x => { effort += workingDaysToUnit(plannedEffortDays(x)); cost += taskCost(x); });
+          const txt = band.textContent.replace(/\s+/g, ' ');
+          out.gateReach = leaves.size + ' leaves, ' + Math.round(effort * 100) / 100 + ', ' + Math.round(cost);
+          if (!leaves.size)
+            say('Gate band', 'this milestone names predecessors and the walk behind it reaches no work at all');
+          const wantWork = fmtDurCell(effort), wantCost = fmtMoney(cost);
+          if (txt.indexOf(wantWork) < 0)
+            say('Gate band', 'the work behind this gate is ' + wantWork + ' across ' + leaves.size
+              + ' activities, and the band reads "' + txt.slice(0, 70) + '". A gate readout that is wrong '
+              + 'about the work behind it is worse than no readout — it is the number somebody quotes');
+          if (txt.indexOf(wantCost.replace(/^\$/, '')) < 0)
+            say('Gate band', 'the cost behind this gate is ' + wantCost + ' and the band reads "'
+              + txt.slice(0, 70) + '"');
+
+          /* ── it must still say the gate itself is nothing ──────────────── */
+          const tip = band.querySelector('[title]') ? band.querySelector('[title]').getAttribute('title')
+            : (band.getAttribute('title') || '');
+          if (!/still zero|no effort|no work|not work/i.test(tip))
+            say('Gate band', 'the band prints cumulative duration, work and cost in the columns where a '
+              + 'row\'s OWN duration, work and cost live, and nothing on it says the milestone itself is '
+              + 'still zero. That is exactly the reading #84 exists to prevent');
+
+          /* ── and it must not be said twice ─────────────────────────────── */
+          const nameCell = tr.querySelector('td[data-name-id]');
+          if (nameCell && nameCell.querySelector('.ms-reach'))
+            say('Gate band', 'the reach is drawn BOTH in the band and as a capsule under the name. Two '
+              + 'copies of one reading is how they drift apart, and the second line is the row height '
+              + 'this change existed to give back');
+        })();
         t2.units = k.u; t2.attendees = k.a; t2.participants = k.p; calculate();
       })();
 

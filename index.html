@@ -1173,6 +1173,56 @@
     .ms-reach.is-clear .ms-f + .ms-f { border-left-color: #bbf7d0; }
     .ms-reach-none { display: block; font-style: italic; padding-left: 1.35rem;
       font-size: var(--t-xs); color: var(--muted); margin-top: 2px; }
+    /* ═══ THE GATE BAND ══════════════════════════════════════════════════
+       One cell across the five estimate columns of a milestone row. Amber,
+       because every other coloured mark in this table is blue (in progress),
+       red (critical, late) or green (done), and a gate is none of those — it is
+       a decision point, and giving it a colour already spoken for would make it
+       read as a state it is not in.
+
+       Left-aligned inside a right-aligned run of numeric columns ON PURPOSE:
+       this is one reading, not five, and starting it under the O column tells
+       the eye immediately that the usual column grid does not apply to this
+       row. Labels above values, so nothing here needs a hover to be understood
+       — the capsule this replaces put a clock and a sigma next to "2d" and
+       "9.54d", which are different units and read as a contradiction. */
+    td.ms-band { padding: 3px 6px !important; text-align: left !important; }
+    .ms-gate { display: inline-flex; align-items: center; gap: 0.5rem; max-width: 100%;
+      padding: 2px 0.5rem 2px 0.3rem; border-radius: 8px; cursor: help; white-space: nowrap;
+      background: linear-gradient(180deg, #fffdf7, #fdf5e6);
+      border: 1px solid #f0dfba; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgb(120 80 10 / .05); }
+    .ms-gate:hover { border-color: #e3cb96; }
+    .ms-gate .ms-ring { background: conic-gradient(#b45309 calc(var(--p, 0) * 1%), #f0e2c4 0); }
+    .ms-gate .ms-ring::after { background: #fffdf7; }
+    /* label ABOVE value, tight, so a labelled pair costs barely more width than
+       the bare number did — the whole point is that the words are free here and
+       were not inside a one-line capsule. */
+    .ms-gf { display: inline-flex; flex-direction: column; line-height: 1.06; min-width: 0; }
+    .ms-gf > i { font-style: normal; font-size: 0.58rem; letter-spacing: .07em; text-transform: uppercase;
+      font-weight: 700; color: #b08442; }
+    .ms-gf > b { font-size: var(--t-sm); font-weight: 700; color: #78430c; letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums; }
+    .ms-gf + .ms-gf { border-left: 1px solid #f0e2c4; padding-left: 0.5rem; }
+    /* how many of the upstream activities are finished. The ring says the same
+       thing by area; this says it in a form you can quote in a status meeting. */
+    .ms-gn { font-size: 0.62rem; font-weight: 700; color: #b08442; font-variant-numeric: tabular-nums;
+      border-left: 1px solid #f0e2c4; padding-left: 0.5rem; align-self: stretch;
+      display: inline-flex; align-items: center; }
+    /* Everything upstream is finished, so the gate can be taken today. The one
+       state the reader can act on, and the only one worth a colour change. */
+    .ms-gate.is-clear { background: linear-gradient(180deg, #f7fefb, #ecfdf5); border-color: #a7f3d0; }
+    .ms-gate.is-clear .ms-ring { background: #059669; }
+    .ms-gate.is-clear .ms-ring::after { background: #f7fefb; }
+    .ms-gate.is-clear .ms-gf > i, .ms-gate.is-clear .ms-gn { color: #4a8f6d; }
+    .ms-gate.is-clear .ms-gf > b { color: #065f46; }
+    .ms-gate.is-clear .ms-gf + .ms-gf, .ms-gate.is-clear .ms-gn { border-left-color: #bbf7d0; }
+    /* A gate with nothing feeding it is a finding, not a blank. It means the
+       plan claims a decision point that no work leads up to. */
+    .ms-gate.is-empty { background: #fef2f2; border-color: #fecaca; color: #b91c1c;
+      font-size: var(--t-xs); font-weight: 600; padding: 2px 0.5rem; }
+    .ms-gate.is-idle { background: transparent; border-color: transparent; box-shadow: none;
+      color: var(--muted); font-size: var(--t-xs); font-style: italic; white-space: normal; }
+    @media (max-width: 900px) { .ms-gf > i { display: none; } }
     /* A milestone's own estimate columns. Recessive, because "there is nothing
        here" is the answer, and it is the same answer five times across one row. */
     .ms-na { color: var(--slack); cursor: help; }
@@ -4584,7 +4634,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.08.2102</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0031</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -9929,7 +9979,11 @@ Or say what you want, in your own words:
            and a cumulative number sitting in a per-row column is the same
            mistake as the Gantt bar that read 2.1 over a one-day activity. The
            columns keep saying zero, which is true. */
-        const msReach = (t.milestone && calculated) ? milestoneReachChips(t) : '';
+        /* The reach moved into the band across the estimate columns, so the
+           name is a name again — one line, the same height as every row
+           around it. milestoneReachChips still serves the WBS dictionary,
+           whose columns are different and where no such span exists. */
+        const msReach = '';
         const nameCell = `<span style="display:${msReach ? 'block' : 'inline-flex'};align-items:center;padding-left:${depth * 16}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}${taxChip(t)}</span>${msReach}</span>`;
         const pctCell = summary
           ? `<span title="Rolled up automatically from sub-tasks, weighted by expected duration (TE) — check off the children and this updates itself">${calculated ? (t.percentComplete || 0) + '%' : '—'} <span class="help-text" style="font-size:0.65rem">auto</span></span>`
@@ -9946,7 +10000,8 @@ Or say what you want, in your own words:
           <td data-owner-id="${t.id}" style="font-size:var(--t-md)${summary ? '' : ';cursor:text'}" title="${(resources[(t.owner || '').trim()] || {}).role ? escapeHtml((t.owner || '').trim() + ' — ' + resources[(t.owner || '').trim()].role) + '. ' : ''}${t.overallocated ? escapeHtml((t.owner||'')+' is over-allocated during this task. ') : ''}${summary ? '' : 'Click to reassign right here (type-ahead from the roster). Comma-separate for several people — first = owner, the rest join as attendees; @N sets allocation % (e.g. QA Tester@50).'}"${summary ? '' : ` onclick="beginOwnerEdit(${t.id}, this)"`}>${summary ? summaryOwnerCell(t) : personCell(t.owner, { over: t.overallocated,
               extra: ((!t.milestone && t.units !== 100) ? ` <span class="pers-alloc">@${t.units}%</span>` : '')
                    + ((t.attendees && t.attendees.length) ? ` <span class="pers-more" title="${escapeHtml(t.attendees.map(a => a.name + ' @' + a.units + '%').join(', '))}">+${t.attendees.length}</span>` : '') })}</td>
-          ${(() => { const noEst = !summary && !t.milestone && !(t.p > 0);
+          ${(() => { if (t.milestone) return milestoneBandCell(t);
+            const noEst = !summary && !t.milestone && !(t.p > 0);
             const a = noEst ? ' style="background:#fee2e2;color:#b91c1c;font-weight:700" title="NO ESTIMATE — this work package contributes nothing to the schedule, the critical path or the price. Click the cell and type the estimate right here."' : '';
             const ed = f => (!summary && !t.milestone) ? ` data-omp="${f}" onclick="beginOmpEdit(this, ${t.id}, '${f}')"${noEst ? '' : ' style="cursor:text"'}` : '';
             /* O, M and P take the same recessive dash as TE and WORK. They
@@ -12273,6 +12328,59 @@ Or say what you want, in your own words:
             + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies'))
         + f('$', fmtMoney(r.cost).replace(/^\$/, ''), fmtMoney(r.cost) + ' of planned cost behind this gate')
         + '</span>';
+    }
+    /* ═══ THE GATE BAND ══════════════════════════════════════════════════════
+       "i feel like for milestones we can use an entirely different looking row
+       that uses this space really effectively for milestone info."
+
+       A milestone row was an activity row with the activity removed: five
+       columns of em-dash across O, M, P, TE and WORK, and the one thing the row
+       actually had to say — what it took to get to the gate — squeezed into a
+       capsule on a SECOND line under the name, which made every milestone row
+       twice as tall as its neighbours to hold a reading it had nowhere to put.
+
+       Those five columns are not empty by accident. They are empty because they
+       ask "how big is this row", and a gate has no size. So they are the exact
+       cells to give back: one band spanning all five, carrying the cumulative
+       reach in the place where the per-row equivalents live. SPAN sits over
+       where TE would be, WORK over WORK — the same quantities one level up.
+
+       Only those five. PREDECESSORS, START, FINISH, SLACK, % and STATUS stay as
+       real cells, because every one of them is true of a milestone and three of
+       them are inline-editable; a band that swallowed them would have looked
+       bolder and taken away the ability to pin a gate date.
+
+       Labelled, which the capsule could not afford. Its three marks were a
+       clock, a sigma and a dollar sign, and "2d" beside "9.54d" reads as a
+       contradiction until you hover — one is calendar days and the other is
+       work in the plan's unit, which is exactly the confusion #84 exists to
+       prevent. Words, in caps, above the numbers: no hover required. */
+    function milestoneBandCell(t) {
+      const wrap = inner => '<td class="ms-band" colspan="5">' + inner + '</td>';
+      if (!calculated) return wrap('<span class="ms-gate is-idle">Calculate to see what it takes '
+        + 'to reach this gate</span>');
+      const r = milestoneReach(t);
+      if (!r) return wrap('');
+      if (!r.n) return wrap('<span class="ms-gate is-empty" title="' + escapeHtml(milestoneReachTip(t))
+        + '">⚠ nothing feeds this gate</span>');
+      const pct = Math.max(0, Math.min(100, r.pct));
+      const ringTip = pct + '% of the work behind this gate is finished — '
+        + r.done + ' of ' + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies');
+      const f = (label, val, tip) => '<span class="ms-gf" title="' + escapeHtml(tip) + '">'
+        + '<i>' + label + '</i><b>' + escapeHtml(val) + '</b></span>';
+      return wrap('<span class="ms-gate' + (pct >= 100 ? ' is-clear' : '') + '" title="'
+          + escapeHtml(milestoneReachTip(t)) + '">'
+        + '<span class="ms-ring" style="--p:' + pct + '" title="' + escapeHtml(ringTip) + '"'
+          + ' role="img" aria-label="' + escapeHtml(ringTip) + '"></span>'
+        + (r.span != null ? f('span', r.span + 'd', r.span + ' calendar days from the first thing '
+            + 'upstream starting to this gate. Calendar days, not working days, and NOT the sum of the '
+            + 'durations — work upstream of a gate runs in parallel.') : '')
+        + f('work', fmtDurCell(r.effort), fmtDurCell(r.effort) + ' of work behind this gate, across '
+            + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies') + '. This is effort in the plan\'s unit, '
+            + 'which is a different quantity from the elapsed span beside it.')
+        + f('cost', fmtMoney(r.cost), fmtMoney(r.cost) + ' of planned cost behind this gate')
+        + '<span class="ms-gn" title="' + escapeHtml(ringTip) + '">' + r.done + '/' + r.n + '</span>'
+        + '</span>');
     }
     function plannedEffortUnit(t, useBaseline) {
       if (!t || t.milestone) return 0;
