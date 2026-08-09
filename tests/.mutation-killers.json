@@ -333,5 +333,9 @@
  "check-off: work marked complete with no dates at all is not reported": "baseline-sweep.js",
  "SOW: a story the contract relies on is left out of the appendix it points readers to": "client-facing-sweep.js",
  "SOW: the price and the payment schedule go back to the basement": "client-facing-sweep.js",
- "chip: watching with nothing published looks identical to a working pair": "trunk-sweep.js"
+ "chip: watching with nothing published looks identical to a working pair": "trunk-sweep.js",
+ "criteria: attendee allocations are hard-coded past whatever the plan said": "ai-boundary-sweep.js",
+ "editor: nothing pairs side by side, so the second column stays empty": "dialog-sweep.js",
+ "SOW panel: the document is read through a letterbox again": "navigation-sweep.js",
+ "editor: the form is one tall column on any screen": "dialog-sweep.js"
 }

@@ -48,16 +48,28 @@ const { AUDIT } = require('./geometry-lib.js');
        and reporting those produced 22 findings and no defects. */
     ['collide',  '<table style="table-layout:fixed;width:200px"><tr>'
                + '<td style="width:60px"><select style="width:150px"><option>— none —</option></select></td>'
-               + '<td style="width:60px"><input value="100"></td></tr></table>']
+               + '<td style="width:60px"><input value="100"></td></tr></table>'],
+    /* BURIED, in both of its shapes. The first is a scrim: a panel with no
+       controls in it laid over one, which `collide` cannot see because it only
+       ever compares two controls to each other. The second is the quieter one —
+       nothing is on top at all, the control simply refuses clicks and hands them
+       to the box behind it, so every box measurement in this file agrees the
+       layout is perfect while the button does nothing. */
+    ['buried',   '<div style="position:relative;height:60px">'
+               + '<button style="position:absolute;left:10px;top:10px;width:120px;height:34px">Approve</button>'
+               + '<div style="position:absolute;left:0;top:0;width:200px;height:60px;background:rgba(0,0,0,.02)"></div>'
+               + '</div>'],
+    ['buried-inert', '<div><button style="pointer-events:none;width:120px;height:34px">Approve</button></div>']
   ];
   const res = {};
   for (const [kind, html] of cases) {
     await plant(html); await p.waitForTimeout(180);
     const got = await run();
-    res[kind] = got.some(f => f.kind === kind);
+    // two cases prove the same kind by two different routes; both must fire
+    res[kind] = got.some(f => f.kind === kind.replace(/-.*$/, ''));
     await clear();
   }
-  console.log(JSON.stringify({ cleanFindings: clean.length, detects: res }, null, 1));
+  console.log(JSON.stringify({ cleanFindings: clean.length, cleanKinds: clean.map(f=>f.kind+':'+f.detail.slice(0,60)), detects: res }, null, 1));
   const missed = Object.entries(res).filter(([,v])=>!v).map(([k])=>k);
   if (missed.length) console.log('NOT DETECTED: ' + missed.join(', ') + ' — the probe is blind to these');
   await b.close();

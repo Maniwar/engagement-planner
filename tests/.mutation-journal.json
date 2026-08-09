@@ -1,36 +1,72 @@
 {
- "at": "2026-08-09T22:40:47.305Z",
+ "at": "2026-08-09T23:21:04.537Z",
  "full": false,
  "ran": 4,
  "of": 339,
  "rows": [
   {
    "what": "criteria: attendee allocations are hard-coded past whatever the plan said",
-   "by": null,
-   "survived": true,
+   "by": "ai-boundary-sweep.js",
+   "survived": false,
    "skipped": false,
-   "findings": []
+   "findings": [
+    "AI boundary :: the plan said an attendee takes 10% of a person and the app holds 20%. Under capacity, under the default, and stated outright — there is no readi",
+    "AI boundary :: the plan deliberately booked an attendee at 60% of a 20% person for one short activity and the app holds 20%. A short burst above capacity is a l",
+    "✚ 2 criteria added to US-1 (1 error, 1 happy) — 3 existing criteria untouched",
+    "Northwind Consulting"
+   ]
   },
   {
    "what": "SOW panel: the document is read through a letterbox again",
-   "by": null,
-   "survived": true,
+   "by": "navigation-sweep.js",
+   "survived": false,
    "skipped": false,
-   "findings": []
+   "findings": [
+    "SOW panel :: the document is 420px inside a 1316px panel",
+    "Sample-Client-Engagement-CRM-Rollout-team-trunk.json",
+    "+2 more, $1,576 — show",
+    "Integration Testing ×14",
+    "Subtotal — 7 activities (5 shown)4.8h",
+    "Hidden by the filter: blocked 7",
+    "Hidden by the filter: blocked 5",
+    "Hidden by the filter: blocked 1",
+    "Hidden by the filter: blocked 2",
+    "Fees and Payment:changed",
+    "Service Levels:added",
+    "COMPAREv2 — after CO 1v1 — sentthe draft as it stands→v2 — after CO 1v1 — sentthe draft as it standsidenticalThese two documents are word for word the same."
+   ]
   },
   {
    "what": "editor: nothing pairs side by side, so the second column stays empty",
-   "by": null,
-   "survived": true,
+   "by": "dialog-sweep.js",
+   "survived": false,
    "skipped": false,
-   "findings": []
+   "findings": [
+    "QA reference · Activity editor :: a field marked to pair renders 986px wide inside a 1019px body — it is spanning both columns, so nothing actually sits beside ",
+    "QA reference · Activity editor :: 3 fields are marked to pair and no two of them share a line — each starts its own row, so the form is the tall single column t",
+    "Real export · Activity editor :: a field marked to pair renders 986px wide inside a 1019px body — it is spanning both columns, so nothing actually sits beside a",
+    "Real export · Activity editor :: 3 fields are marked to pair and no two of them share a line — each starts its own row, so the form is the tall single column th",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
   },
   {
    "what": "editor: the form is one tall column on any screen",
-   "by": null,
-   "survived": true,
+   "by": "dialog-sweep.js",
+   "survived": false,
    "skipped": false,
-   "findings": []
+   "findings": [
+    "QA reference · Activity editor :: on a 1440px screen the editor lays out in 1 column(s) — the form is the single tall column it always was, with two thirds of t",
+    "QA reference · Activity editor :: a field marked to pair renders 986px wide inside a 1019px body — it is spanning both columns, so nothing actually sits beside ",
+    "QA reference · Activity editor :: 3 fields are marked to pair and no two of them share a line — each starts its own row, so the form is the tall single column t",
+    "Real export · Activity editor :: on a 1440px screen the editor lays out in 1 column(s) — the form is the single tall column it always was, with two thirds of th",
+    "Real export · Activity editor :: a field marked to pair renders 986px wide inside a 1019px body — it is spanning both columns, so nothing actually sits beside a",
+    "Real export · Activity editor :: 3 fields are marked to pair and no two of them share a line — each starts its own row, so the form is the tall single column th",
+    "The schedule cannot be computed, so nothing on this tab can ",
+    "The schedule cannot be computed, so noth",
+    "⚠ Cannot calculate — 2 activities wait o"
+   ]
   }
  ]
 }

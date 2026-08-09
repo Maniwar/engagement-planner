@@ -165,6 +165,15 @@ const AUDIT = () => {
          none of them were defects. */
       const fa = a.closest('td, th'), fb = b.closest('td, th');
       if (!fa || !fb || fa === fb) continue;
+      /* A PINNED COLUMN IS PLACED OVER THINGS ON PURPOSE, exactly like the
+         absolute and fixed controls excluded above, and for the same reason:
+         what is under it is one horizontal scroll away. #taskTable's actions
+         column is sticky right, so between about 1390px and 1500px — where the
+         table is wider than the screen but only just — it sits over the actuals
+         input two columns along, and this reported it as a collision. The three
+         widths the sweep runs at all missed that band, so the finding surfaced
+         in the self-test instead, which is the wrong place to learn it. */
+      if (getComputedStyle(fa).position === 'sticky' || getComputedStyle(fb).position === 'sticky') continue;
       const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
       const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
       const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
@@ -174,6 +183,135 @@ const AUDIT = () => {
           + '), so one of them takes clicks meant for the other');
     }
   }
+
+  /* ═══ REACHABLE, AND BURIED ANYWAY ═══════════════════════════════════════
+     Every check above measures BOXES: too small for its content, too big for
+     its container, intersecting another box. None of them asks the question a
+     person actually has, which is "if I click this, does the click get there".
+     Boxes are a proxy for that and a leaky one in both directions — `collide`
+     only compares two controls, so a control buried under a sticky header, a
+     scrim, or a panel that is not itself a control is invisible to it, and a
+     control with pointer-events switched off overlaps nothing at all while
+     being just as dead.
+
+     So stop proxying and ask the browser. elementFromPoint IS the hit test the
+     click will use, which makes this the one check here with no threshold to
+     argue about: either the thing at the control's own centre is the control,
+     or the click lands somewhere else.
+
+     SCROLLED, and judged over EVERY position rather than the first one. A row
+     passing under a sticky table header is unclickable at that instant and
+     perfectly clickable two lines later — that is what sticky means, and a probe
+     that reports the instant reports the design. So a control is buried only if
+     there is no scroll position anywhere at which a click reaches it. Written
+     the naive way this printed 21 findings on a clean build and every one was a
+     row under the header it had just scrolled beneath.
+
+     Anything that never comes into view at any position is COUNTED and
+     reported, because "checked nothing and said nothing" is the failure this
+     probe has already been caught in once. */
+  const scroller = document.scrollingElement || document.documentElement;
+  const y0 = scroller.scrollTop;
+  /* A BOX IS NOT A PROOF THAT ANYTHING IS DRAWN. getBoundingClientRect answers
+     for a closed <details> and for content skipped by content-visibility — it
+     hands back a plausible rectangle for a subtree the browser never painted
+     and will never hit-test. Written without this, the first run reported 138
+     findings on a clean build and the great majority were controls inside
+     collapsed accordions: "a click on ⬇ Bank (.csv) lands on an <h2>", about a
+     button nobody can see. There is no answer to "does a click reach this" for
+     something that is not on the screen, so it is not asked. */
+  const rendered = el => {
+    if (typeof el.checkVisibility === 'function'
+        && !el.checkVisibility({ checkVisibilityCSS: true, contentVisibilityAuto: true, opacityProperty: true }))
+      return false;
+    const d = el.closest('details:not([open])');
+    return !(d && !el.closest('summary'));
+  };
+  /* AND THE VIEWPORT IS NOT THE ONLY THING THAT CLIPS. A row scrolled out of a
+     table wrapper still reports a rect where it WOULD be; the wrapper clips it,
+     so nothing is painted there and the hit test lands on the page behind. That
+     is not a burial, it is a row you have not scrolled to. The honest bound is
+     the intersection of the viewport with every clipping ancestor. */
+  const clipOf = el => {
+    let box = { l: 1, t: 1, r: window.innerWidth - 1, b: window.innerHeight - 1 };
+    for (let a = el.parentElement; a && a.tagName !== 'HTML'; a = a.parentElement) {
+      const c = getComputedStyle(a);
+      if (c.overflow === 'visible' && c.overflowX === 'visible' && c.overflowY === 'visible') continue;
+      const ar = a.getBoundingClientRect();
+      box = { l: Math.max(box.l, ar.left), t: Math.max(box.t, ar.top),
+              r: Math.min(box.r, ar.right), b: Math.min(box.b, ar.bottom) };
+    }
+    return box;
+  };
+  const ctrls = [...root.querySelectorAll('input, select, textarea, button, a[href]')]
+    .filter(vis).filter(rendered);
+  const reached = new Set();        // a click got through at some position
+  const blocked = new Map();        // el -> why, at every position it was testable
+  const probe = () => ctrls.forEach(el => {
+    if (reached.has(el)) return;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const cb = clipOf(el);
+    if (cx < cb.l || cy < cb.t || cx > cb.r || cy > cb.b) return;
+    const hit = document.elementFromPoint(cx, cy);
+    /* A descendant is the control (a span inside a button is the button), and
+       so is an ancestor that WRAPS it for that purpose — a <label> around its
+       own input forwards the click by definition. Any other ancestor coming
+       back means the control let the click through to whatever is behind it. */
+    if (hit && el.contains(hit)) { reached.add(el); blocked.delete(el); return; }
+    if (hit && hit.contains(el) && hit.tagName === 'LABEL') { reached.add(el); blocked.delete(el); return; }
+    const name = hit ? '<' + hit.tagName.toLowerCase()
+      + (hit.className ? '.' + String(hit.className).split(' ')[0] : '') + '>' : null;
+    blocked.set(el, !hit ? 'nothing is at its own centre — it is outside every hit region'
+      : hit.contains(el) ? 'a click at its centre passes through to ' + name + ', the box AROUND it — '
+        + 'the control is drawn but takes no clicks'
+      : 'a click at its centre lands on ' + name + ' instead, at every scroll position it can be seen at');
+  });
+  /* THE PAGE IS NOT THE ONLY THING THAT SCROLLS. Most of this application's
+     controls live inside a table wrapper or a panel with its own scrollbar, and
+     a pass that only moves the window reached 75 of 193 of them — a check that
+     covers a third of the surface and says nothing about the rest is how the
+     letterbox mutant lived. Each inner scroller is stepped too, and put back. */
+  const inner = [...root.querySelectorAll('*')].filter(el => {
+    const cs = getComputedStyle(el);
+    if (!/auto|scroll/.test(cs.overflowY + ' ' + cs.overflowX + ' ' + cs.overflow)) return false;
+    return el.scrollHeight - el.clientHeight > 8 || el.scrollWidth - el.clientWidth > 8;
+  }).map(el => ({ el: el, top0: el.scrollTop, left0: el.scrollLeft }));
+  const sweepInner = () => inner.forEach(s => {
+    const h = s.el.clientHeight, w = s.el.clientWidth;
+    const maxT = s.el.scrollHeight - h, maxL = s.el.scrollWidth - w;
+    if (!h || !w) return;
+    /* SIDEWAYS TOO. The activity table is wider than any screen it is read on,
+       so a third of its controls sit past the right edge of their own wrapper
+       and are clipped there — measurable, unpaintable, and never asked about.
+       Vertical-only stepping left 44 of 193 controls on that tab unexamined. */
+    for (let x = 0; ; x += Math.max(160, Math.floor(w * 0.8))) {
+      s.el.scrollLeft = Math.min(x, maxL);
+      for (let y = 0; ; y += Math.max(120, Math.floor(h * 0.8))) {
+        s.el.scrollTop = Math.min(y, maxT);
+        probe();
+        if (y >= maxT) break;
+      }
+      if (x >= maxL) break;
+    }
+    s.el.scrollLeft = s.left0;
+    s.el.scrollTop = s.top0;
+  });
+  const step = Math.max(200, Math.floor(window.innerHeight * 0.8));
+  const maxY = Math.max(0, scroller.scrollHeight - window.innerHeight);
+  for (let y = 0; ; y += step) {
+    scroller.scrollTop = Math.min(y, maxY);
+    probe();
+    sweepInner();
+    if (y >= maxY) break;
+  }
+  scroller.scrollTop = y0;
+  blocked.forEach((why, el) => push('buried', el, why));
+  const unseen = ctrls.length - reached.size - blocked.size;
+  if (unseen > 0 && ctrls.length)
+    out.push({ kind: 'unhittable', tag: '', cls: '', text: '',
+      detail: unseen + ' of ' + ctrls.length + ' controls never had their centre on screen at any scroll '
+        + 'position, so nothing was asked about them' });
 
   // the page itself must never scroll sideways
   const doc = document.documentElement;
