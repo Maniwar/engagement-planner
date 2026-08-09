@@ -329,7 +329,19 @@ const DATA = FIXTURE();
             owner: 'Full Timer', attendees: [{ name: 'Client SME' }] },
           // deliberately ASKED for above capacity: must survive untouched
           { name: 'Crunch', parent: 'Phase 1', optimistic: 1, mostLikely: 1, pessimistic: 2,
-            owner: 'Part Timer', units: 100 }
+            owner: 'Part Timer', units: 100 },
+          /* AND THE SAME TWO PROPERTIES FOR AN ATTENDEE. Every case above leaves
+             the attendee's units UNSAID, so all three prove is that the default
+             gets corrected — and the correction runs off the auto marker, which
+             a build that discards the stated number still sets. So "Matan at
+             10%" could be thrown away between the model saying it and anything
+             reading it, and the numbers would still come out right, because
+             capacity happened to land near the number that was binned. Two
+             attendees who SAY what they want: one under capacity, one over. */
+          { name: 'Briefing', parent: 'Phase 1', optimistic: 1, mostLikely: 2, pessimistic: 3,
+            owner: 'Full Timer', attendees: [{ name: 'Client SME', units: 10 }] },
+          { name: 'Escalation', parent: 'Phase 1', optimistic: 1, mostLikely: 1, pessimistic: 2,
+            owner: 'Full Timer', attendees: [{ name: 'Client SME', units: 60 }] }
         ],
         resources: [
           { name: 'Full Timer', capacityPercent: 100, kind: 'internal' },
@@ -345,6 +357,8 @@ const DATA = FIXTURE();
                            (find('Discovery').attendees || [])[0].units,
         buildAttendee: (find('Build').attendees || [])[0] && (find('Build').attendees || [])[0].units,
         crunchExplicit: find('Crunch').units,
+        briefingAttendee: (find('Briefing').attendees || [])[0] && (find('Briefing').attendees || [])[0].units,
+        escalationAttendee: (find('Escalation').attendees || [])[0] && (find('Escalation').attendees || [])[0].units,
         caps: Object.fromEntries(Object.entries(resources).map(([k, v]) => [k, v.capacity])),
         markersLeft: tasks.some(t => '_unitsAuto' in t
           || (t.attendees || []).some(a => '_unitsAuto' in a))
@@ -361,6 +375,25 @@ const DATA = FIXTURE();
         + Math.max(alloc.discoveryAttendee, alloc.buildAttendee) + '% of a person with '
         + alloc.caps['Client SME'] + '% capacity — attendee allocations were hard-coded past whatever the '
         + 'model said, which discards an instruction rather than merely defaulting badly');
+    /* AN ATTENDEE'S STATED NUMBER IS THE ATTENDEE'S NUMBER. Both directions,
+       because only one of them is about the clamp: 10% on a 20% person is under
+       capacity and nothing has any excuse to move it, and 60% on a 20% person is
+       over and still may not be moved, for the same reason the owner's 100% may
+       not. What this catches that nothing above did is the number being BINNED
+       before the clamp ever sees it — replace the read with a hard-coded 100 and
+       the auto marker goes on too, so capacity dutifully corrects it to 20 and
+       every earlier assertion here stays green while "Matan at 10%" is gone. */
+    if (alloc.briefingAttendee !== 10)
+      R.contradictions.push('AI boundary :: the plan said an attendee takes 10% of a person and the app '
+        + 'holds ' + alloc.briefingAttendee + '%. Under capacity, under the default, and stated outright — '
+        + 'there is no reading of this number the app is entitled to substitute its own for'
+        + (alloc.briefingAttendee === alloc.caps['Client SME'] ? '. It equals their capacity, which is what '
+          + 'a discarded number looks like after the capacity pass has tidied up behind it' : ''));
+    if (alloc.escalationAttendee !== 60)
+      R.contradictions.push('AI boundary :: the plan deliberately booked an attendee at 60% of a '
+        + alloc.caps['Client SME'] + '% person for one short activity and the app holds '
+        + alloc.escalationAttendee + '%. A short burst above capacity is a legitimate thing to plan, and an '
+        + 'attendee is not a lesser kind of participant than an owner — the owner\'s equivalent survives');
     /* The one that stops this becoming a clamp. */
     if (alloc.crunchExplicit !== 100)
       R.contradictions.push('AI boundary :: the plan explicitly asked for 100% of a 50% person for one short '

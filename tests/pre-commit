@@ -17,7 +17,7 @@
 #      on a public demo, so a red suite is a shipped defect. The hand-derived
 #      plan, twenty-two sweeps and the drawing mutation check take about ten
 #      minutes — the price of this one file being the release. The
-#      engine mutation check is another 26-40 minutes and is opt-in via FULL=1;
+#      engine mutation check is another 26-70 minutes and is opt-in via FULL=1;
 #      run it before anything the user will look at.
 #
 #      Measured, not estimated, and stated as a RANGE on purpose — see the long
@@ -138,7 +138,9 @@ rm -f /tmp/ptr-m.$$
 # named is more useful than a figure with a false decimal place.
 #
 # If you add mutants, re-run it a couple of times and widen the range rather
-# than replacing it, and correct the "~26-40m" in the skipped message below.
+# than replacing it, and correct the "~26-70m" in the skipped message below.
+# Widened, not replaced, after a 339-mutant run measured about 65 minutes on a
+# loaded machine — a fourth wrong figure would have been the point of the note.
 #
 # It fails on a SKIPPED mutant as well as a survivor, and the two mean different
 # things: a survivor says the product has an unguarded region, a skip says this
@@ -250,7 +252,7 @@ if [ -n "$FULL" ]; then
   fi
   rm -f /tmp/ptr-e.$$
 else
-  echo "  · mutation · engine    skipped (FULL=1 to run it, ~26-40m)"
+  echo "  · mutation · engine    skipped (FULL=1 to run it, ~26-70m)"
 fi
 
 if [ "$fail" -ne 0 ]; then

@@ -363,6 +363,24 @@ const QA = JSON.parse(fs.readFileSync(
               + Math.round(w) + 'px wide inside a ' + g.bodyW + 'px body — it is spanning both columns, '
               + 'so nothing actually sits beside anything');
           }
+          /* AND SOMETHING IS ACTUALLY BESIDE SOMETHING. Everything above reads
+             ONE field and the box around it: how many tracks the owner declares,
+             how wide a paired field comes out. Both are proxies for the only
+             question a reader would ask — are two of these on the SAME LINE —
+             and neither can answer it alone: a two-track grid whose items all
+             span it still stacks, and a half-width field with nothing next to it
+             is still a half-empty row. Two boxes sharing a top edge and not
+             sharing a left edge is the question asked of the pixels, and it is
+             false under every one-column layout. */
+          const tops = {};
+          vh.forEach(k => { const r = k.getBoundingClientRect();
+            (tops[Math.round(r.top)] = tops[Math.round(r.top)] || []).push(Math.round(r.left)); });
+          const paired = Object.values(tops).filter(ls => new Set(ls).size > 1);
+          g.pairedRows = paired.length;
+          if (vh.length >= 2 && !paired.length)
+            say('Activity editor', vh.length + ' fields are marked to pair and no two of them share a line — '
+              + 'each starts its own row, so the form is the tall single column the pairing exists to prevent '
+              + 'and half of a ' + g.bodyW + 'px form is blank beside it');
         } else g.skipped = 'viewport under the breakpoint';
 
         const NA = ['mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup', 'mTaxonomyGroup', 'ompHint', 'estBlock'];

@@ -303,16 +303,16 @@
        work IS, versus how it is GOING and what it COSTS — were separated by
        whatever happened to be declared between them in the markup.
 
-       Opt-IN rather than opt-out. Every direct child spans both columns by
-       default, so a block added later cannot silently land half-width and break
-       its own internal grid; only the small paired fields ask to sit side by
-       side. That way this rule can never damage a section nobody remembered to
-       check. Below the breakpoint it is the single column it always was. */
-    @media (min-width: 1000px) {
-      #modal .modal-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.25rem; align-items: start; }
-      #modal .modal-body > * { grid-column: 1 / -1; min-width: 0; }
-      #modal .modal-body > .mb-half { grid-column: auto; }
-    }
+       The two-column grid used to live on #modal .modal-body itself. It does
+       not any more, and the rule is gone rather than kept: the form became
+       SECTION CARDS, so every direct child of the body is a full-width card and
+       each card owns the grid its own fields pair inside. That left the body
+       rule laying out nine children at 1 / -1 — pixel for pixel what
+       `display: block` already did — and a rule that cannot change what is
+       drawn is a rule that hides a change nobody will see. Two mutants planted
+       against it survived for exactly that reason. The live rule is on .ed-sec,
+       a few hundred lines down, and carries the opt-in note that used to be
+       here. */
     /* A field that cannot apply to this KIND of row is hidden, not disabled: a
        greyed box still costs a line of vertical space and still invites the
        question "why can I not type here". */
@@ -5029,7 +5029,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2247</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2308</span>
   </footer>
 
   <!-- Add / Edit Modal -->

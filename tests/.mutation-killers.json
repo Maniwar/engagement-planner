@@ -328,5 +328,10 @@
  "revenue: a receipt leaks into actual cost, so CPI is computed on a mixed basis": "effort-basis-sweep.js",
  "effort: actual cost multiplies logged time by the allocation a second time": "effort-basis-sweep.js",
  "effort: the estimate bank files a calendar span against logged work": "effort-basis-sweep.js",
- "plan truth: the scope panel calls a sum of spans effort": "effort-basis-sweep.js"
+ "plan truth: the scope panel calls a sum of spans effort": "effort-basis-sweep.js",
+ "form: the log shows the entry and hides the analysis behind it": "drawn-surfaces-sweep.js",
+ "check-off: work marked complete with no dates at all is not reported": "baseline-sweep.js",
+ "SOW: a story the contract relies on is left out of the appendix it points readers to": "client-facing-sweep.js",
+ "SOW: the price and the payment schedule go back to the basement": "client-facing-sweep.js",
+ "chip: watching with nothing published looks identical to a working pair": "trunk-sweep.js"
 }

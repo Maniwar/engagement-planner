@@ -1076,6 +1076,15 @@ const { chromium } = requirePlaywright();
     const bad3 = [];
     const say3 = x => bad3.push('SOW panel :: ' + x);
     switchTab('raid');
+    /* switchTab('raid') stopped being a complete instruction when the tab grew
+       three sub-tabs, and this block never noticed: everything below reads
+       markup, which a display:none subtree hands back intact, so the only check
+       that reads PIXELS measured a zero-width panel and quietly declined to
+       fire. A mutant that letterboxed the contract to 420px survived every run
+       because of it. Ask for the section, not the tab — and put it back at the
+       end, because the RAID log lives on a sibling section. */
+    const sub0 = (typeof csTab === 'string') ? csTab : 'raid';
+    setCsTab('sow');
     await generateSOW();
     renderSowHistory();
     const tS = document.getElementById('dhTabSow'), tP = document.getElementById('dhTabPlan');
@@ -1103,15 +1112,27 @@ const { chromium } = requirePlaywright();
       .map(x => x.textContent).filter(x => /version/i.test(x));
     out.strayHistories = stray;
     if (stray.length) say3('a second version history still hides in an accordion: ' + stray.join(' / '));
-    // the document is not read through a letterbox
+    /* THE DOCUMENT IS NOT READ THROUGH A LETTERBOX. A zero here means the panel
+       was not on screen, which is the one answer this check must never treat as
+       a pass — the && guard below used to swallow it silently, and did, for
+       every run this block has ever made. */
     const c = document.getElementById('sowContainer');
     out.panelW = c.clientWidth;
     out.docW = c.firstElementChild ? c.firstElementChild.clientWidth : 0;
-    if (out.docW && out.panelW && out.docW < out.panelW * 0.45)
+    if (!out.panelW || !out.docW)
+      say3('the document panel measures ' + out.docW + 'px inside ' + out.panelW + 'px — nothing was on '
+        + 'screen to measure, so the width of the contract went unchecked rather than checked and passed');
+    else if (out.docW < out.panelW * 0.45)
       say3('the document is ' + out.docW + 'px inside a ' + out.panelW + 'px panel');
     out.seps = document.querySelectorAll('#view-raid .tb-sep').length;
     if (out.seps < 3) say3('the toolbar groups its controls with ' + out.seps + ' separators — nine buttons '
       + 'in one flat row read as nine unrelated decisions');
+    /* PUT THE TAB BACK. This block is the only one that moves the client-facing
+       sub-tab, and leaving it on the document sent the RAID-log block below to
+       a hidden log, where it reported "0 of 5 links" about a surface it could
+       not see. A probe that changes the app's state and does not restore it
+       does not fail — it makes the NEXT probe fail, about something else. */
+    setCsTab(sub0);
     return { contradictions: bad3, counts: out };
   });
   H.contradictions.forEach(x => bad.push(x));

@@ -1,55 +1,36 @@
 {
- "at": "2026-08-09T04:51:44.382Z",
+ "at": "2026-08-09T22:40:47.305Z",
  "full": false,
- "ran": 5,
- "of": 340,
+ "ran": 4,
+ "of": 339,
  "rows": [
   {
-   "what": "revenue: a receipt leaks into actual cost, so CPI is computed on a mixed basis",
-   "by": "effort-basis-sweep.js",
-   "survived": false,
+   "what": "criteria: attendee allocations are hard-coded past whatever the plan said",
+   "by": null,
+   "survived": true,
    "skipped": false,
-   "findings": [
-    "Actual cost :: recording a client RECEIPT of 37545 changed this activity's actual cost from 3600 to 37545. What the client paid you is not what the work cost yo",
-    "Actual cost :: actual cost is now exactly the amount the client paid, so cost has been replaced by revenue outright"
-   ]
+   "findings": []
   },
   {
-   "what": "effort: a lone part-time person keeps only units/100 of the time they logged",
-   "by": "effort-basis-sweep.js",
-   "survived": false,
+   "what": "SOW panel: the document is read through a letterbox again",
+   "by": null,
+   "survived": true,
    "skipped": false,
-   "findings": [
-    "Logged effort :: one person is on this activity, at 20%, and they are credited with 0.2 of the time they logged. A lone participant's share is all of it whateve",
-    "Logged effort :: two people at equal allocations each carry half the logged time; this one carries 0.2. Shares are normalised against the team on the activity, "
-   ]
+   "findings": []
   },
   {
-   "what": "effort: actual cost multiplies logged time by the allocation a second time",
-   "by": "effort-basis-sweep.js",
-   "survived": false,
+   "what": "editor: nothing pairs side by side, so the second column stays empty",
+   "by": null,
+   "survived": true,
    "skipped": false,
-   "findings": [
-    "Actual cost :: four days were logged by somebody allocated 20% and the cost came back as 720 against a rate x days of 3600. The allocation has been applied to a"
-   ]
+   "findings": []
   },
   {
-   "what": "effort: the estimate bank files a calendar span against logged work",
-   "by": "effort-basis-sweep.js",
-   "survived": false,
+   "what": "editor: the form is one tall column on any screen",
+   "by": null,
+   "survived": true,
    "skipped": false,
-   "findings": [
-    "Estimate bank :: the bank files 3.167 against this activity, which is its calendar SPAN. The work logged against it will be effort, so the bank would be compari"
-   ]
-  },
-  {
-   "what": "plan truth: the scope panel calls a sum of spans effort",
-   "by": "effort-basis-sweep.js",
-   "survived": false,
-   "skipped": false,
-   "findings": [
-    "Plan truth :: the scope panel says the plan holds 45.1, which is the sum of the SPANS. The effort is 50.3. Adding spans across activities that run in parallel i"
-   ]
+   "findings": []
   }
  ]
 }

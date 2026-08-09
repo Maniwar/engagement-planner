@@ -1720,13 +1720,20 @@ const MUTANTS = [
     find: "'mTaxonomyGroup', 'ompHint'];",
     with: "'mTaxonomyGroup'];" },
 
+  /* Both of these were planted against #modal .modal-body and survived every
+     run. Not because the checks were weak — because the rule they broke had
+     stopped drawing anything. The editor became section cards, so every direct
+     child of the body spans 1 / -1 and the grid there is indistinguishable from
+     `display: block`. Re-pointed at .ed-sec, which is where the two columns
+     actually are; the dead rule is out of the product. A mutant that cannot
+     change a pixel measures the mutant, not the suite. */
   { what: 'editor: nothing pairs side by side, so the second column stays empty',
-    find: '      #modal .modal-body > .mb-half { grid-column: auto; }',
-    with: '      #modal .modal-body > .mb-half { grid-column: 1 / -1; }' },
+    find: '      .ed-sec > .mb-half { grid-column: auto; }',
+    with: '      .ed-sec > .mb-half { grid-column: 1 / -1; }' },
 
   { what: 'editor: the form is one tall column on any screen',
-    find: '      #modal .modal-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.25rem; align-items: start; }',
-    with: '      #modal .modal-body { display: block; }' },
+    find: '      .ed-sec { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.25rem; align-items: start; }',
+    with: '      .ed-sec { display: block; }' },
 
   { what: 'editor: hiding the work fields takes the payment fields with them',
     find: "    const MILESTONE_NA = ['mUnitsGroup', 'mCurveGroup', 'attGroup', 'mActualEffortGroup',",
