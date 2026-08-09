@@ -1268,6 +1268,116 @@ const { chromium } = requirePlaywright();
       raid.length = 0; keep.forEach(r => raid.push(r));
       renderRaid();
     })();
+
+    /* ═══ A LINK HAS TO LOOK LIKE THE THING IT POINTS AT ══════════════════
+       "the activity pills don't look like they're great ways to link,
+       visually it doesn't look impressive."
+
+       They were bespoke pale-blue pills carrying a whole sentence, capped at
+       14rem and cut mid-word — one read "1 Kickoff call with CEO — Confirm
+       Sco|" and the story beside it opened "— conduct the kickoff call with
+       the CE|", a fragment starting at a dash. Two identical-looking pills,
+       neither legible, neither saying what KIND of thing it pointed at.
+
+       Four properties, and the middle two are the ones that would cost you:
+
+         · the mark is the product's OWN entity mark, so a link to activity 1.1
+           looks like activity 1.1 everywhere else. Checked by class, because
+           that is the identity — a bespoke pill styled to look similar is
+           exactly what this replaced.
+         · the IDENTIFIER is on the row. A truncated sentence is unrecognisable;
+           "A 1.1" is not.
+         · truncation is only honest when the whole string is ONE HOVER AWAY.
+           The old chip cut the name and its tooltip said only "Activity", so
+           the missing half was nowhere on the page.
+         · and nothing disappears silently. Past three the rest collapse, and
+           the collapsed ones have to still be named somewhere. */
+    (() => {
+      const keep = raid.slice();
+      const leaves = tasks.filter(x => !x.isSummary && !x.milestone).slice(0, 5);
+      if (leaves.length < 4) { out.linkRail = 'SKIPPED-too-few-activities'; return; }
+      raid.length = 0;
+      raid.push({ id: 7101, type: 'Risk', title: 'LINK probe many', probability: 3, impact: 3,
+        owner: Object.keys(resources || {})[0] || '', status: 'Open', mitigation: 'x',
+        links: leaves.map(t => ({ k: 'act', id: t.id, was: t.name })) });
+      raid.push({ id: 7102, type: 'Risk', title: 'LINK probe dead', probability: 3, impact: 3,
+        owner: Object.keys(resources || {})[0] || '', status: 'Open', mitigation: 'x',
+        links: [{ k: 'act', id: 999999, was: 'A task that no longer exists' }] });
+      raid.push({ id: 7103, type: 'Risk', title: 'LINK probe none', probability: 3, impact: 3,
+        owner: Object.keys(resources || {})[0] || '', status: 'Open', mitigation: 'x', links: [] });
+      setRaidTab('all'); setRaidQuery(''); renderRaid();
+      const rowOf = t => [...document.querySelectorAll('#raidContainer tbody tr')]
+        .find(tr => tr.textContent.indexOf('LINK probe ' + t) >= 0);
+
+      const many = rowOf('many');
+      if (!many) { say4('a planted entry with links did not render'); return; }
+      const marks = [...many.querySelectorAll('.rd-links .ek')];
+      out.linkRail = marks.length + ' marks, ' + (many.querySelector('.rd-link-more') ? 'collapsed' : 'flat');
+      if (!marks.length)
+        say4('an entry linked to ' + leaves.length + ' activities draws no entity marks at all — the links '
+          + 'are back to being bespoke pills, or gone');
+      if (marks.length > 4)
+        say4('all ' + marks.length + ' links are drawn on the row. Past about three the reader has stopped '
+          + 'reading them individually and the entry has become a paragraph of chips');
+      const first = marks[0];
+      if (first) {
+        const shown = first.textContent.replace(/\s+/g, ' ').trim();
+        const tgt = leaves[0];
+        const ref = tgt.wbs || ('#' + tgt.id);
+        if (shown.indexOf(ref) < 0)
+          say4('a link to activity ' + ref + ' shows "' + shown + '" and never shows its identifier. A '
+            + 'truncated sentence is unrecognisable; the reference is what makes it a link you can follow');
+        const tip = first.getAttribute('title') || '';
+        if (tip.indexOf(tgt.name) < 0)
+          say4('the link shows a shortened name and its tooltip does not carry the whole one: "'
+            + tip.slice(0, 70) + '". Truncation is only honest when the full text is one hover away — the '
+            + 'old chip cut the name and said only what kind of thing it was');
+      }
+      const more = many.querySelector('.rd-link-more');
+      if (marks.length < leaves.length && !more)
+        say4('links were dropped from the row with nothing saying how many — a row that quietly shows three '
+          + 'of five reads as an entry that touches three things');
+      if (more && !/\d/.test(more.getAttribute('title') || ''))
+        say4('the collapsed links are not named anywhere, so what they are is unreachable without opening '
+          + 'the entry and hunting');
+
+      const dead = rowOf('dead');
+      const deadMark = dead && dead.querySelector('.rd-links .ek');
+      out.deadLink = deadMark ? deadMark.className : '(none)';
+      if (!deadMark) say4('a link pointing at a deleted activity draws nothing at all, so a broken trace is '
+        + 'indistinguishable from no trace');
+      else {
+        /* WITHOUT HOVERING. This first compared the two class strings, which
+           passes the moment anything about them differs — a mutant that
+           removed the whole dead treatment and left only a strikethrough
+           still "differed" and the check stayed silent. The property is that
+           the row SHOWS it is broken: a strike through the text, or a class
+           the stylesheet can colour. Either satisfies a reader; neither being
+           present does not. The tooltip is checked separately, because an
+           explanation you have to go looking for is not a warning. */
+        const struck = !!deadMark.querySelector('s, del');
+        const marked = /dead|dangling|broken|missing|stale/.test(deadMark.className);
+        if (!struck && !marked)
+          say4('a link to something that no longer exists is drawn exactly like a live one — no strike, no '
+            + 'marker class. The trace looks intact and follows nowhere');
+        const dtip = deadMark.getAttribute('title') || '';
+        if (!/no longer|missing|deleted|not in this plan/i.test(dtip))
+          say4('the broken link never says what happened to its target: "' + dtip.slice(0, 70) + '"');
+        if (dtip.indexOf('A task that no longer exists') < 0)
+          say4('the broken link does not say what it USED to point at, which is the only thing left that '
+            + 'could tell somebody what the entry was about');
+      }
+
+      const none = rowOf('none');
+      const add = none && none.querySelector('.rd-link-add');
+      out.emptyLink = add ? add.textContent.trim() : (none ? (none.querySelector('.rd-links') || {}).textContent : '?');
+      if (none && !add)
+        say4('an entry with nothing linked offers no way to link one. It is the entry that will never '
+          + 'explain a number later, and it is being told about rather than asked about');
+
+      raid.length = 0; keep.forEach(r => raid.push(r));
+      renderRaid();
+    })();
     return { contradictions: bad4, counts: out };
   });
   RD.contradictions.forEach(x => bad.push(x));
