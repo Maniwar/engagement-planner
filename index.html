@@ -2195,7 +2195,7 @@
        the right-hand edge. Under auto layout a column takes what its widest
        content asks for, and a text input asks for its default size regardless
        of the width you gave it, so the CELL has to be told. */
-    .roster-table .rl-role-c { width: 140px; max-width: 140px; }
+    .roster-table .rl-role-c { width: 190px; max-width: 190px; }
     .roster-table .rl-role-c input { width: 100%; min-width: 0; }
     .roster-table .rl-org-c { width: 116px; max-width: 116px; }
     /* 106, because 92 clipped "Internal" to "Interr" in the select itself —
@@ -4920,7 +4920,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1816</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1914</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8941,7 +8941,14 @@ Or say what you want, in your own words:
          does, so the roster's own name is offered as the selected option. */
       const stored = String((resources[person] || {}).org || '').trim();
       const legacy = ((!cur || !orgFind(cur)) && stored) || '';
-      return '<select class="mini-inp rl-org" data-ri="' + ri + '" style="width:150px" title="'
+      /* NO INLINE WIDTH. The roster gives this cell 116px and the stylesheet
+         says the select fills it, but an inline 150px beats a stylesheet, so
+         the control overhung its own column by 45px and sat on top of the
+         capacity input beside it — the number was under the select, and
+         clicking where the number appeared opened the company list. Same shape
+         of defect as the invisible reorder buttons: an inline style quietly
+         outranking the rule that was supposed to govern it. */
+      return '<select class="mini-inp rl-org" data-ri="' + ri + '" title="'
         + escapeHtml('The company this person works for, chosen from your saved list so the same firm is one '
           + 'entity across every project rather than three spellings. It is recorded by id on every archived '
           + 'activity, which is what lets the estimate bank say how a given partner has historically run '
@@ -19242,7 +19249,18 @@ Or say what you want, in your own words:
           <td class="rl-kind-c"><select class="mini-inp rl-kind" data-ri="${ri}" title="Client/external people carry no cost or billing — but their workload and PTO are still tracked">
             <option value="internal" ${!isClient ? 'selected' : ''}>Internal</option>
             <option value="client" ${isClient ? 'selected' : ''}>Client</option></select></td>
-          <td class="rl-role-c"><input class="mini-inp rl-role" data-ri="${ri}" type="text" value="${escapeHtml((resources[name] || {}).role || '')}" placeholder="e.g. Platform Developer" title="${escapeHtml((resources[name] || {}).role ? (resources[name] || {}).role + ' — ' : '')}What they do on this engagement — the AI captures it from your notes ('Marcus Webb — CRM Platform Developer'); applying a rate card also fills it. Shows on owner hovers so a roster of names still tells you who does what." style="width:130px" /></td>
+          <td class="rl-role-c"><input class="mini-inp rl-role" data-ri="${ri}" type="text" value="${escapeHtml((resources[name] || {}).role || '')}" placeholder="e.g. Platform Developer" title="${escapeHtml((resources[name] || {}).role ? (resources[name] || {}).role + ' — ' : '')}What they do on this engagement — the AI captures it from your notes ('Marcus Webb — CRM Platform Developer'); applying a rate card also fills it. Shows on owner hovers so a roster of names still tells you who does what." style="width:100%" />
+            ${/* THE TITLE IS FOR THIS ENGAGEMENT; THE FAMILY IS FOR EVERY ONE.
+                 Both, side by side, because they answer different questions and
+                 collapsing them loses one: the free text is what this person
+                 does here and shows on owner hovers, and the family is the
+                 bucket the estimate bank compares them in across projects. The
+                 select is left on Auto by default and says out loud what Auto
+                 resolved to, so the decision a reader accepts by not touching
+                 it is a decision they can see. */''}
+            <div style="display:flex;align-items:center;gap:3px;margin-top:2px">${roleFamChip(name)}
+              <select class="mini-inp rl-fam" data-ri="${ri}" style="flex:1;min-width:0;font-size:0.68rem;padding:1px 2px" title="${escapeHtml('Which family of role this is, for cross-project comparison. Left on Auto it is read from the job title above and nothing is stored, so it follows a retitle. Set it explicitly when the title reads wrong — "Senior BA", "Sr. Business Analyst" and "BA" are one role, and the bank can only say how analysts estimate if they land in one bucket.')}">${roleFamOptionsHtml(roleFamCoerce((resources[name] || {}).roleFam) || '', true)}</select>
+            </div></td>
           <td class="rl-org-c">${orgPickerHtml(name, ri)}</td>
           <td class="rl-num"><input class="mini-inp rl-cap" data-ri="${ri}" type="number" min="1" step="10" value="${R.capacity}" title="Capacity % — 100 = 1 full-time person, 300 = a 3-person team" /></td>
           ${/* ═══ THREE COLUMNS FOR TWO FACTS ═══════════════════════════════
@@ -19690,7 +19708,21 @@ Or say what you want, in your own words:
           const n = names[Number(inp.dataset.ri)];
           if (!resources[n]) resources[n] = { capacity: 100 };
           resources[n].role = inp.value.trim();
-          saveLocal(); renderTaskTable();
+          // the family chip beside it is INFERRED from this text, so it has to
+          // be re-read here or it keeps reporting the previous title
+          saveLocal(); renderTaskTable(); renderResources();
+        });
+      });
+      cont.querySelectorAll('select.rl-fam').forEach(sel => {
+        sel.addEventListener('change', () => {
+          const n = names[Number(sel.dataset.ri)];
+          if (!resources[n]) resources[n] = { capacity: 100 };
+          // '' means Auto, and Auto is the ABSENCE of a stored value, not a
+          // stored empty one — otherwise pinning and un-pinning would leave
+          // behind a field that reads the same and behaves differently.
+          const v = roleFamCoerce(sel.value);
+          if (v) resources[n].roleFam = v; else delete resources[n].roleFam;
+          saveLocal(); renderResources();
         });
       });
       cont.querySelectorAll('select.rl-org').forEach(sel => {
@@ -26424,6 +26456,113 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
        adding from the library copies values in, and a rate that then differs
        is reported rather than quietly reconciled — the library is what you
        usually charge, the project is what you agreed this time. */
+    /* ═══ A ROLE IS A CATEGORY, NOT A JOB TITLE ══════════════════════════════
+       The roster's `role` is free text, and rightly so: "CRM Platform
+       Developer" is what this person does on THIS engagement and it belongs on
+       the hover beside their name. But the estimate bank grouped by that
+       string, and across projects "Senior BA", "Sr. Business Analyst" and "BA"
+       are one role and three buckets — so the one figure a role-level
+       calibration exists to produce, "our analysts run 1.3x their estimate",
+       split into three buckets of n=1 and said nothing.
+
+       This is the same problem the company registry solved, and it is NOT
+       solved the same way, because a company and a role are different kinds of
+       thing. A company is an ENTITY: arbitrary name, needs an id so a rename
+       reaches records archived years ago. A role is a CATEGORY, and the
+       question asked of it — how does this kind of person estimate — only has
+       an answer if the categories are the same across every project and every
+       firm. So this follows the ACTIVITY work type instead: a fixed
+       vocabulary, inferred from the text on READ, never stored, overridable.
+
+       Inference on read is what makes every roster already filed become
+       grouped the moment this loads: nothing migrated, nothing written, nothing
+       to undo, and it re-reads itself when somebody rewrites a job title.
+
+       And like the work type, a title matching nothing resolves to '' and is
+       DROPPED rather than defaulted into a bucket. A wrong median is worse than
+       a missing one: nobody acts on a gap, and everybody acts on a number. */
+    const ROLE_FAMILIES = [
+      { id: 'pm', label: 'Delivery & project management', short: 'PM',
+        re: /\bp\.?m\b|project manager|programme? manager|delivery (lead|manager)|scrum master|\bpmo\b|engagement (lead|manager)|iteration manager/i },
+      { id: 'ba', label: 'Business analysis', short: 'BA',
+        re: /\bb\.?a\b|business analyst|functional analyst|requirements|product owner|\bpo\b|process analyst/i },
+      { id: 'arch', label: 'Architecture', short: 'Arch',
+        re: /architect|technical lead|tech lead|principal engineer|solution design/i },
+      { id: 'dev', label: 'Engineering & build', short: 'Dev',
+        re: /developer|engineer|programmer|\bdev\b|integrat|configurator|consultant \(technical\)|full[\s-]?stack|back[\s-]?end|front[\s-]?end/i },
+      { id: 'qa', label: 'Test & quality', short: 'QA',
+        re: /\bq\.?a\b|\buat\b|tester|test (lead|analyst|engineer|manager)|quality|\bsdet\b/i },
+      { id: 'data', label: 'Data', short: 'Data',
+        re: /data (engineer|analyst|architect|scientist|migration)|\betl\b|\bbi\b|reporting analyst|database/i },
+      { id: 'design', label: 'Design & research', short: 'Design',
+        re: /designer|\bux\b|\bui\b|user research|service design|creative/i },
+      { id: 'change', label: 'Change, training & adoption', short: 'Change',
+        re: /change (manager|lead|analyst)|training|trainer|adoption|communications|\bocm\b|enablement/i },
+      /* THE CLIENT SIDE HAS ROLES TOO, and leaving them unmatched put every
+         client stakeholder in the "?" bucket — the tool saying it had no idea
+         what a Subject Matter Expert is. They carry no cost, but they carry
+         WORKLOAD and they own activities, so a role family that cannot name
+         them is a vocabulary with a hole where half the room stands. */
+      { id: 'sme', label: 'Subject-matter expert & stakeholder', short: 'SME',
+        re: /\bsme\b|subject[\s-]?matter|stakeholder|business (lead|owner|representative|sme)|super[\s-]?user|champion|process owner/i },
+      { id: 'exec', label: 'Executive & sponsor', short: 'Exec',
+        re: /sponsor|director|\bvp\b|\bcio\b|\bcto\b|\bceo\b|partner|executive|head of/i }
+    ];
+    const ROLE_FAM_IDS = ROLE_FAMILIES.map(x => x.id);
+    const ROLE_FAM_BY_ID = {}; ROLE_FAMILIES.forEach(x => { ROLE_FAM_BY_ID[x.id] = x; });
+    function roleFamCoerce(v) {
+      const s = String(v == null ? '' : v).trim().toLowerCase();
+      return ROLE_FAM_IDS.indexOf(s) >= 0 ? s : null;
+    }
+    function roleFamLabel(id) { return (ROLE_FAM_BY_ID[id] || {}).label || ''; }
+    const _roleFamInfer = new Map();
+    function inferRoleFamily(text) {
+      const s = String(text || '');
+      if (!s.trim()) return '';
+      if (_roleFamInfer.has(s)) return _roleFamInfer.get(s);
+      let hit = '';
+      for (let i = 0; i < ROLE_FAMILIES.length; i++) { if (ROLE_FAMILIES[i].re.test(s)) { hit = ROLE_FAMILIES[i].id; break; } }
+      if (_roleFamInfer.size > 2000) _roleFamInfer.clear();
+      _roleFamInfer.set(s, hit);
+      return hit;
+    }
+    /* THE resolver. Nothing reads r.roleFam directly except the writers. */
+    function roleFamilyOf(name) {
+      const r = resources[String(name || '').trim()] || {};
+      const stored = roleFamCoerce(r.roleFam);
+      if (stored) return { id: stored, label: roleFamLabel(stored), src: 'user' };
+      const inf = inferRoleFamily(r.role);
+      return inf ? { id: inf, label: roleFamLabel(inf), src: 'auto' } : { id: '', label: '', src: '' };
+    }
+    function roleFamOptionsHtml(sel, short) {
+      /* The roster cell is 190px wide and already holds a job title. Full
+         labels there produced a select showing "Auto (from the jo" — a control
+         whose only visible text is the truncation. Short in the roster, full
+         wherever there is room. */
+      return '<option value="">' + (short ? 'Auto' : 'Auto (from the job title)') + '</option>'
+        + ROLE_FAMILIES.map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${escapeHtml(short ? c.short : c.label)}</option>`).join('');
+    }
+    /* The visible-inference promise, kept here the way taxChip keeps it on an
+       activity row: a reader can see what the tool decided, and that it decided
+       rather than was told. */
+    function roleFamChip(name) {
+      const g = roleFamilyOf(name);
+      const r = resources[String(name || '').trim()] || {};
+      if (!g.id) {
+        if (!String(r.role || '').trim()) return '';
+        return ` <span class="tx-chip tx-inf" title="${escapeHtml('Nothing in "' + r.role
+          + '" matched a role family, so this person is left out of every role bucket in the estimate bank '
+          + 'rather than guessed into one. Pick a family to include them.')}">?</span>`;
+      }
+      const inf = g.src === 'auto';
+      const tip = inf
+        ? 'INFERRED from the job title: ' + g.label + '. Nothing is stored, so it re-reads itself if you '
+          + 'rewrite the title. Pick a family to pin it.'
+        : 'Role family set by hand: ' + g.label + '.';
+      return ` <span class="tx-chip${inf ? ' tx-inf' : ''}" title="${escapeHtml(tip
+        + ' This is the dimension the estimate bank groups people by, so it has to mean the same thing on '
+        + 'every project.')}">${inf ? '~' : ''}${escapeHtml(ROLE_FAM_BY_ID[g.id].short)}</span>`;
+    }
     const RES_LIB_STORE = 'pertGantt.resourceLibrary';
     let resLibCache = null;
     /* ═══ COMPANIES ARE ENTITIES, NOT SPELLINGS ══════════════════════════════
@@ -26596,7 +26735,8 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
     function resLibRowOf(name) {
       const r = resources[name] || {};
       return { name: name, kind: isClientResource(name) ? 'client' : 'internal',
-               role: String(r.role || ''), org: orgOf(name), orgId: orgIdOf(name), capacity: getCapacity(name),
+               role: String(r.role || ''), roleFam: roleFamCoerce(r.roleFam) || undefined,
+               org: orgOf(name), orgId: orgIdOf(name), capacity: getCapacity(name),
                rate: rawRate(name), billRate: rawBillRate(name), rateUnit: resRateUnit(name),
                at: fmtISO(new Date()) };
     }
@@ -26618,6 +26758,8 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         const merged = Object.assign({}, cur, row);
         ['rate', 'billRate'].forEach(k => { if (!(Number(row[k]) > 0) && Number(cur[k]) > 0) merged[k] = cur[k]; });
         if (!String(row.role || '').trim() && String(cur.role || '').trim()) merged.role = cur.role;
+        // a filing that never pinned a family must not un-pin the one on record
+        if (!roleFamCoerce(row.roleFam) && roleFamCoerce(cur.roleFam)) merged.roleFam = cur.roleFam;
         if (JSON.stringify(merged) !== JSON.stringify(cur)) { out[i] = merged; updated++; }
       });
       return { rows: out, added: added, updated: updated };
@@ -26873,6 +27015,13 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
           tax: tx.id, taxSrc: tx.src,
           audience: activityAudience(t),
           owner: t.owner || '', role: ((resources[(t.owner || '').trim()] || {}).role || ''),
+          /* THE FAMILY, and its label as it stands today. The id so four
+             engagements' worth of analysts join up however the job title was
+             written on each; the label so an exported bank is readable without
+             this vocabulary beside it — the same pair, for the same reason, as
+             the company id and name below. */
+          roleFam: roleFamilyOf(t.owner || '').id,
+          roleFamLabel: roleFamilyOf(t.owner || '').label,
           /* WHO ACTUALLY DID IT, and who they work for.
              The bank could calibrate by activity kind, work type and role, and
              the one thing it could not answer is the question that comes up
@@ -27112,7 +27261,15 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         byTaxUi: group(r => taxLabel(r.tax), { rows: wpRows, minN: 1 }),
         byAud: group(r => r.audience, { minN: TAX_MIN_N }),
         taxUserPct: wpRows.length ? Math.round(100 * wpUser / wpRows.length) : 0,
-        byRole: group(r => r.role || r.owner).slice(0, 8),
+        /* GROUPED BY THE FAMILY, not by the job title. "Senior BA", "Sr.
+           Business Analyst" and "BA" are one role and were three buckets, so
+           the one figure this exists to produce — how a kind of person
+           estimates — split into three n=1 rows and said nothing. Rows filed
+           before the vocabulary existed carry no family and fall back to the
+           text they do have, which is honest: the tool cannot know that two old
+           strings meant one role. */
+        byRole: group(r => r.roleFamLabel || (r.roleFam ? roleFamLabel(r.roleFam) : '') || r.role || r.owner)
+          .slice(0, 8),
         /* Company first, then person. An activity worked by two firms is counted
            in BOTH — it is evidence about each of them and attributing it to one
            would be a guess. That makes the n columns overlap, which is honest and
@@ -35073,6 +35230,131 @@ Do not write payment terms or exclusions — both are generated from the project
        must not replace the rationale somebody has already read and approved —
        re-rolling the prose because a checkbox moved would be a different
        document arriving for a reason nobody asked for. */
+    /* ═══ ONE CHANGE ORDER, ONE DOCUMENT, RENDERABLE FOREVER ══════════════════
+       A pure function of the record. Everything it needs is stored on the
+       change order — which baseline it diffed, the price and finish on that
+       day, the rationale, which orders had already amended the SOW — so an
+       entry drafted in March still prints the March document in September.
+
+       Entries written before those fields existed fall back to what CAN be
+       derived: the deltas and the resulting figures are on every entry ever
+       written, so the "from" side is the "to" side less the delta. Where a fact
+       is genuinely not recoverable the document SAYS so rather than inventing
+       one, because a change order that quietly guesses the baseline it amended
+       is worse than one that admits the record is thin.  */
+    function coDocumentHtml(c, opts) {
+      if (!c) return '';
+      const draft = !!(opts && opts.draft);
+      const td = 'padding:5px 9px;border:1px solid #cbd5e1;font-size:12.5px;';
+      const th = td + 'background:#f1f5f9;font-weight:700;text-align:left;';
+      const u = c.unit || unitLabel();
+      const diff = c.diff || [];
+      const hidden = new Set(c.hidePrice || []);
+      const priceDelta = c.priceDelta || 0, finishDelta = c.finishDelta || 0;
+      const baseFinish = c.baseFinish || (c.newFinish
+        ? fmtISO(new Date(new Date(c.newFinish + 'T00:00:00').getTime() - finishDelta * 86400000)) : null);
+      const basePrice = c.basePrice != null ? c.basePrice
+        : (c.newPrice != null ? c.newPrice - priceDelta : null);
+      const amended = Array.isArray(c.amended) ? c.amended : [];
+      const amendedNote = amended.length ? ' as previously amended by ' + amended.join(', ') : '';
+      const baseDate = c.baseDate || null;
+      const st = draft ? null : coState(c);
+      const stamp = draft ? 'DRAFT ' + new Date().toLocaleDateString()
+        : (CO_STATES[st] || { lbl: st }).lbl.toUpperCase() + ' ' + escapeHtml(String(c.stateAt || c.date || ''));
+      const lineSum = c.lineSum == null ? diff.reduce((a, d) => a + (d.priceDelta || 0), 0) : c.lineSum;
+      return `<div style="font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;max-width:860px">
+        <h1 style="margin:0 0 2px;font-size:20px">Change Order ${escapeHtml(String(c.no))} — ${escapeHtml(projName())}</h1>
+        <p style="color:#64748b;font-size:12px;margin:0 0 12px">${stamp} • ${baseDate
+            ? 'diffs against the contract baseline of ' + escapeHtml(baseDate)
+            : 'the baseline this diffed against is not recorded on this entry'}${escapeHtml(amendedNote)}</p>
+        ${c.rationale ? `<p style="font-size:13px">${c.rationale}</p>`
+          : (draft ? '<p style="font-size:13px"><em>[Describe why this change is needed.]</em></p>' : '')}
+        ${c.unpricedAdds ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin:10px 0;font-size:12.5px;color:#b91c1c"><b>⚠ Unpriced scope:</b> ${c.unpricedAdds.n} added item(s) totalling ${c.unpricedAdds.units} ${escapeHtml(u)} of work carry <b>no price impact</b> in this change order. If that is intentional goodwill, say so explicitly below and cap it; otherwise set rates for the people doing the work (Resources tab) or a contract price (Pricing) and re-draft — silent free scope is how margins die.</div>` : ''}
+        ${c.legacyBasis ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin:10px 0;font-size:12.5px;color:#92400e"><b>⚠ Baseline priced on the previous method:</b> this SOW baseline was captured before pricing was consolidated onto the simulated revenue percentile, so part of the price movement below is the change of method rather than a change of scope. Re-generate the SOW to re-baseline before issuing this change order, or state the scope-only delta explicitly.</div>` : ''}
+        <h2 style="font-size:15px;margin:12px 0 6px">Scope changes</h2>
+        <!-- EVERY line of the diff, with its own money, and a total that is the
+             sum of the lines. The old table showed three kinds and the price
+             impact was a single project-level subtraction printed further down,
+             so a reader could not attribute one dollar of it to one change —
+             which is exactly why "unpriced scope" had to be a warning rather
+             than a column. A change order a client cannot add up is a number
+             they are asked to take on faith. -->
+        ${hidden.size ? `<p style="font-size:12px;color:#475569;margin:6px 0">${hidden.size} of these ${diff.length} lines ${hidden.size === 1 ? 'is' : 'are'} <b>priced in aggregate</b> rather than individually. The total below is the full figure for every line, priced or aggregated.</p>` : ''}
+        <table style="border-collapse:collapse"><tr><th style="${th}">Change</th><th style="${th}">Item</th><th style="${th}">From → to</th><th style="${th}">Effort</th><th style="${th}">Price impact</th></tr>
+          ${diff.map(d => {
+            const k = DIFF_KINDS[d.kind] || { lbl: d.kind, billable: false };
+            const col = d.kind === 'added' ? '#15803d' : d.kind === 'removed' ? '#b91c1c'
+              : k.billable ? '#b45309' : '#475569';
+            const fromTo = (d.from == null && d.to == null) ? '—'
+              : d.kind === 'added' ? 'new'
+              : d.kind === 'removed' ? 'withdrawn'
+              : String(d.from == null ? '(none)' : d.from).slice(0, 60) + ' → ' + String(d.to == null ? '(none)' : d.to).slice(0, 60);
+            const eff = d.days ? (d.days > 0 ? '+' : '') + d.days.toFixed(1) + ' ' + u : '—';
+            /* WITHHELD IS NOT ZERO, and the document must not let the two be
+               confused. A withheld line still carries its money into the total
+               below; it simply does not print the figure beside itself. Saying
+               "priced in aggregate" rather than leaving the cell blank is the
+               whole difference between a commercial choice and a document that
+               does not add up. */
+            const money = hidden.has(diffRowKey(d))
+              ? '<span style="color:#64748b">priced in aggregate</span>'
+              : d.priceDelta
+              ? (d.priceDelta > 0 ? '+' : '−') + fmtMoney(Math.abs(Math.round(d.priceDelta))).replace('$', '$')
+              : (k.billable ? '<span style="color:#b91c1c">not priced</span>' : 'no price impact');
+            return `<tr><td style="${td};color:${col}">${escapeHtml(k.lbl)}</td><td style="${td}">${escapeHtml(String(d.name))}${d.field ? ` <span style="color:#94a3b8">(${escapeHtml(d.field)})</span>` : ''}</td><td style="${td};font-size:11.5px">${escapeHtml(fromTo)}</td><td style="${td}">${eff}</td><td style="${td}">${money}</td></tr>`;
+          }).join('')}
+          ${!diff.length ? `<tr><td style="${td}" colspan="5">No line-level changes (schedule/price only)</td></tr>` : ''}
+          ${diff.length ? `<tr><td style="${th}" colspan="4"><b>Sum of the lines above</b></td><td style="${th}"><b>${(lineSum >= 0 ? '+' : '−') + fmtMoney(Math.abs(Math.round(lineSum)))}</b></td></tr>` : ''}
+        </table>
+        ${(() => {
+          /* The two totals are printed TOGETHER when they disagree, because
+             they are allowed to: the plan price also moves with the pricing
+             basis, the rate card and the risk percentile, none of which are
+             scope. Saying so is the difference between a reconciliation and a
+             discrepancy nobody mentions. */
+          if (Math.abs(Math.round(lineSum) - priceDelta) < 1) return '';
+          return `<p style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin:8px 0"><b>The lines and the total differ by ${fmtMoney(Math.abs(priceDelta - Math.round(lineSum)))}.</b> The lines above price the SCOPE that moved. The project price also moves with the rate card, the pricing basis and the risk percentile, and none of those are scope changes the client agreed to. State which one this change order is billing.</p>`;
+        })()}
+        <h2 style="font-size:15px;margin:12px 0 6px">Impact</h2>
+        <table style="border-collapse:collapse">
+          <tr><th style="${th}">Schedule</th><td style="${td}">${baseFinish ? escapeHtml(baseFinish) + ' → ' : ''}${escapeHtml(String(c.newFinish || '—'))} (${finishDelta >= 0 ? '+' : ''}${finishDelta} calendar days)</td></tr>
+          ${basePrice ? `<tr><th style="${th}">Price</th><td style="${td}">${fmtMoney(basePrice)} → ${fmtMoney(c.newPrice || 0)} (${priceDelta >= 0 ? '+' : ''}${fmtMoney(Math.abs(priceDelta)).replace('$', priceDelta < 0 ? '−$' : '$')})</td></tr>` : ''}
+        </table>
+        <h2 style="font-size:15px;margin:12px 0 6px">Approval</h2>
+        <p style="font-size:13px">This change order (${escapeHtml(String(c.no))}) amends the SOW${baseDate ? ' dated ' + escapeHtml(baseDate) : ''}${escapeHtml(amendedNote)}. All other terms remain unchanged.</p>
+        <table style="border-collapse:collapse;margin-top:8px"><tr>
+          <td style="${td};width:260px">Client approval: ______________________ Date: ______</td>
+          <td style="${td};width:260px">Provider approval: ______________________ Date: ______</td></tr></table>
+      </div>`;
+    }
+    /* Any entry in the log, on demand. The drill-in panel explains a change
+       order to somebody who has the tool; these two hand the same change order
+       to somebody who does not. */
+    function coDocFor(no) {
+      const c = String(no) === DRAFT_CO ? draftChangeOrder._pending
+              : (coLog || []).find(x => String(x.no) === String(no));
+      return c ? coDocumentHtml(c, { draft: String(no) === DRAFT_CO }) : '';
+    }
+    async function coCopyDoc(no) {
+      const html = coDocFor(no);
+      if (!html) { alert('That change order is not in the log.'); return; }
+      const plain = html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' })
+        })]);
+        flashSaved('✓ ' + no + ' copied — paste into Word, Docs or an email');
+      } catch (e) { coDownloadDoc(no); }
+    }
+    function coDownloadDoc(no) {
+      const html = coDocFor(no);
+      if (!html) { alert('That change order is not in the log.'); return; }
+      download(safeName() + '-' + String(no).replace(/[^\w-]+/g, '') + '.html',
+        '<!doctype html><meta charset="utf-8"><title>' + escapeHtml(String(no) + ' — ' + projName())
+        + '</title>' + html, 'text/html');
+      flashSaved('⬇ ' + no + ' saved as its own document');
+    }
     async function draftChangeOrder(opts) {
       const keep = !!(opts && opts.keepNarrative) && draftChangeOrder._rationale != null;
       if (!sowBaseline) { alert('Generate the SOW first — that captures the contract baseline the change order diffs against.'); return; }
@@ -35148,68 +35430,34 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
          "did anyone raise one at all" and issuing is raising. */
       const amended = coAccepted();
       const amendedNote = amended.length ? ' as previously amended by ' + amended.map(c => c.no).join(', ') : '';
-      coDraft = `<div style="font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;max-width:860px">
-        <h1 style="margin:0 0 2px;font-size:20px">Change Order ${coNo} — ${escapeHtml(projName())}</h1>
-        <p style="color:#64748b;font-size:12px;margin:0 0 12px">DRAFT ${new Date().toLocaleDateString()} • diffs against the contract baseline of ${escapeHtml(sowBaseline.date)}${escapeHtml(amendedNote)}</p>
-        ${rationale ? `<p style="font-size:13px">${rationale}</p>` : '<p style="font-size:13px"><em>[Describe why this change is needed.]</em></p>'}
-        ${(added.length && Math.abs(priceDelta) < 1) ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin:10px 0;font-size:12.5px;color:#b91c1c"><b>⚠ Unpriced scope:</b> ${added.length} added item(s) totalling ${added.reduce((sx, t) => sx + plannedEffortUnit(t), 0).toFixed(1)} ${u} of work carry <b>no price impact</b> in this change order. If that is intentional goodwill, say so explicitly below and cap it; otherwise set rates for the people doing the work (Resources tab) or a contract price (Pricing) and re-draft — silent free scope is how margins die.</div>` : ''}
-        ${legacyBasis ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin:10px 0;font-size:12.5px;color:#92400e"><b>⚠ Baseline priced on the previous method:</b> this SOW baseline was captured before pricing was consolidated onto the simulated revenue percentile, so part of the price movement below is the change of method rather than a change of scope. Re-generate the SOW to re-baseline before issuing this change order, or state the scope-only delta explicitly.</div>` : ''}
-        <h2 style="font-size:15px;margin:12px 0 6px">Scope changes</h2>
-        <!-- EVERY line of the diff, with its own money, and a total that is the
-             sum of the lines. The old table showed three kinds and the price
-             impact was a single project-level subtraction printed further down,
-             so a reader could not attribute one dollar of it to one change —
-             which is exactly why "unpriced scope" had to be a warning rather
-             than a column. A change order a client cannot add up is a number
-             they are asked to take on faith. -->
-        ${coHidden.size ? `<p style="font-size:12px;color:#475569;margin:6px 0">${coHidden.size} of these ${diff.length} lines ${coHidden.size === 1 ? 'is' : 'are'} <b>priced in aggregate</b> rather than individually. The total below is the full figure for every line, priced or aggregated.</p>` : ''}
-        <table style="border-collapse:collapse"><tr><th style="${th}">Change</th><th style="${th}">Item</th><th style="${th}">From → to</th><th style="${th}">Effort</th><th style="${th}">Price impact</th></tr>
-          ${diff.map(d => {
-            const k = DIFF_KINDS[d.kind] || { lbl: d.kind, billable: false };
-            const col = d.kind === 'added' ? '#15803d' : d.kind === 'removed' ? '#b91c1c'
-              : k.billable ? '#b45309' : '#475569';
-            const fromTo = (d.from == null && d.to == null) ? '—'
-              : d.kind === 'added' ? 'new'
-              : d.kind === 'removed' ? 'withdrawn'
-              : String(d.from == null ? '(none)' : d.from).slice(0, 60) + ' → ' + String(d.to == null ? '(none)' : d.to).slice(0, 60);
-            const eff = d.days ? (d.days > 0 ? '+' : '') + d.days.toFixed(1) + ' ' + u : '—';
-            /* WITHHELD IS NOT ZERO, and the document must not let the two be
-               confused. A withheld line still carries its money into the total
-               below; it simply does not print the figure beside itself. Saying
-               "priced in aggregate" rather than leaving the cell blank is the
-               whole difference between a commercial choice and a document that
-               does not add up. */
-            const money = coHidden.has(diffRowKey(d))
-              ? '<span style="color:#64748b">priced in aggregate</span>'
-              : d.priceDelta
-              ? (d.priceDelta > 0 ? '+' : '−') + fmtMoney(Math.abs(Math.round(d.priceDelta))).replace('$', '$')
-              : (k.billable ? '<span style="color:#b91c1c">not priced</span>' : 'no price impact');
-            return `<tr><td style="${td};color:${col}">${escapeHtml(k.lbl)}</td><td style="${td}">${escapeHtml(String(d.name))}${d.field ? ` <span style="color:#94a3b8">(${escapeHtml(d.field)})</span>` : ''}</td><td style="${td};font-size:11.5px">${escapeHtml(fromTo)}</td><td style="${td}">${eff}</td><td style="${td}">${money}</td></tr>`;
-          }).join('')}
-          ${!diff.length ? `<tr><td style="${td}" colspan="5">No line-level changes (schedule/price only)</td></tr>` : ''}
-          ${diff.length ? `<tr><td style="${th}" colspan="4"><b>Sum of the lines above</b></td><td style="${th}"><b>${(() => { const t2 = diff.reduce((a2, d) => a2 + (d.priceDelta || 0), 0); return (t2 >= 0 ? '+' : '−') + fmtMoney(Math.abs(Math.round(t2))); })()}</b></td></tr>` : ''}
-        </table>
-        ${(() => {
-          /* The two totals are printed TOGETHER when they disagree, because
-             they are allowed to: the plan price also moves with the pricing
-             basis, the rate card and the risk percentile, none of which are
-             scope. Saying so is the difference between a reconciliation and a
-             discrepancy nobody mentions. */
-          const lineSum = Math.round(diff.reduce((a2, d) => a2 + (d.priceDelta || 0), 0));
-          if (Math.abs(lineSum - priceDelta) < 1) return '';
-          return `<p style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin:8px 0"><b>The lines and the total differ by ${fmtMoney(Math.abs(priceDelta - lineSum))}.</b> The lines above price the SCOPE that moved. The project price also moves with the rate card, the pricing basis and the risk percentile, and none of those are scope changes the client agreed to. State which one this change order is billing.</p>`;
-        })()}
-        <h2 style="font-size:15px;margin:12px 0 6px">Impact</h2>
-        <table style="border-collapse:collapse">
-          <tr><th style="${th}">Schedule</th><td style="${td}">${sowBaseline.finish} → ${curFinish} (${finishDelta >= 0 ? '+' : ''}${finishDelta} calendar days)</td></tr>
-          ${sowBaseline.price ? `<tr><th style="${th}">Price</th><td style="${td}">${fmtMoney(sowBaseline.price)} → ${fmtMoney(curPrice)} (${priceDelta >= 0 ? '+' : ''}${fmtMoney(Math.abs(priceDelta)).replace('$', priceDelta < 0 ? '−$' : '$')})</td></tr>` : ''}
-        </table>
-        <h2 style="font-size:15px;margin:12px 0 6px">Approval</h2>
-        <p style="font-size:13px">This change order (${coNo}) amends the SOW dated ${escapeHtml(sowBaseline.date)}${escapeHtml(amendedNote)}. All other terms remain unchanged.</p>
-        <table style="border-collapse:collapse;margin-top:8px"><tr>
-          <td style="${td};width:260px">Client approval: ______________________ Date: ______</td>
-          <td style="${td};width:260px">Provider approval: ______________________ Date: ______</td></tr></table>
-      </div>`;
+      /* THE DOCUMENT IS BUILT FROM THE RECORD, NOT FROM THE MOMENT.
+         It used to be written straight into `coDraft` out of live plan state,
+         which meant exactly one change order had a document at a time — the
+         last one drafted. Every earlier one was reduced to a row in a log and a
+         drill-in panel, so "send me CO-002 again" had no answer, and neither
+         did an auditor asking what the client actually signed.
+
+         Now every fact the page needed is stored ON the change order and the
+         document is a pure function of it, so any entry in the log renders its
+         own paper at any time, including after the plan has moved on past it.
+         That is also what makes the export honest: it reproduces the document
+         as it stood, not the document the plan would produce today. */
+      const pendingRecord = {
+        no: coNo,
+        date: fmtISO(new Date()),
+        rationale: rationale,
+        baseDate: sowBaseline.date, baseFinish: sowBaseline.finish, basePrice: sowBaseline.price || 0,
+        amended: amended.map(c => c.no),
+        unit: u,
+        legacyBasis: legacyBasis,
+        unpricedAdds: (added.length && Math.abs(priceDelta) < 1)
+          ? { n: added.length, units: +added.reduce((sx, t) => sx + plannedEffortUnit(t), 0).toFixed(1) }
+          : null,
+        diff: JSON.parse(JSON.stringify(diff)),
+        hidePrice: [...coHidden],
+        finishDelta, priceDelta, newFinish: curFinish, newPrice: curPrice
+      };
+      coDraft = coDocumentHtml(pendingRecord, { draft: true });
       // remember what this draft covers so approval can log it and roll the baseline
       draftChangeOrder._pending = {
         no: coNo,
@@ -35236,7 +35484,17 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         fromV: base ? base.v : null,
         lineSum: Math.round(diff.reduce((a2, d) => a2 + (d.priceDelta || 0), 0)),
         hidePrice: [...coHidden],
-        finishDelta, priceDelta, newFinish: curFinish, newPrice: curPrice
+        finishDelta, priceDelta, newFinish: curFinish, newPrice: curPrice,
+        /* THE DOCUMENT'S OWN FACTS travel with the entry. Which baseline it
+           diffed against, what the price and finish were on that day, the
+           rationale a person wrote, which change orders had already amended the
+           SOW — none of these can be recovered later from a plan that has moved
+           on, and without them a re-rendered change order would be a different
+           document wearing the same number. */
+        rationale: pendingRecord.rationale, baseDate: pendingRecord.baseDate,
+        baseFinish: pendingRecord.baseFinish, basePrice: pendingRecord.basePrice,
+        amended: pendingRecord.amended, unit: pendingRecord.unit,
+        legacyBasis: pendingRecord.legacyBasis, unpricedAdds: pendingRecord.unpricedAdds
       };
       setDocView('co');
       flashSaved('✓ ' + coNo + ' drafted — review, 📋 Copy CO, then mark approved once signed. The SOW is still '
@@ -35254,6 +35512,8 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
       coLog.push({ no: p.no, date: fmtISO(new Date()), scope: p.scope, detail: p.detail,
         finishDelta: p.finishDelta, priceDelta: p.priceDelta, newFinish: p.newFinish, newPrice: p.newPrice,
         diff: p.diff || [], lineSum: p.lineSum || 0, hidePrice: (p.hidePrice || []).slice(),
+        rationale: p.rationale, baseDate: p.baseDate, baseFinish: p.baseFinish, basePrice: p.basePrice,
+        amended: p.amended, unit: p.unit, legacyBasis: p.legacyBasis, unpricedAdds: p.unpricedAdds,
         fromV: p.fromV, toV: null, state: 'issued', stateAt: fmtISO(new Date()) });
       saveLocal();
       renderCoHistory();
@@ -35288,6 +35548,8 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
       coLog.push({ no: p.no, date: fmtISO(new Date()), scope: p.scope, detail: p.detail,
         finishDelta: p.finishDelta, priceDelta: p.priceDelta, newFinish: p.newFinish, newPrice: p.newPrice,
         diff: p.diff || [], lineSum: p.lineSum || 0, hidePrice: (p.hidePrice || []).slice(),
+        rationale: p.rationale, baseDate: p.baseDate, baseFinish: p.baseFinish, basePrice: p.basePrice,
+        amended: p.amended, unit: p.unit, legacyBasis: p.legacyBasis, unpricedAdds: p.unpricedAdds,
         fromV: p.fromV, toV: toV.v, state: 'accepted', stateAt: fmtISO(new Date()) });
       /* No second snapshot. snapshotSowBaseline() PUSHES a version, so calling
          it here wrote a duplicate of the one taken two lines above — two
@@ -35851,6 +36113,25 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
                       + 'the SOW again and it will be recorded from then on.')
               + '</div>';
           })()
+        /* THE DOCUMENT, FROM ANY ENTRY, AT ANY TIME. This panel explains a
+           change order to somebody who has the tool open; these two hand the
+           same change order to somebody who does not — which used to be
+           possible only for whichever one was drafted last, because the
+           document lived in a single `coDraft` string the next draft
+           overwrote. */
+        + '<h4 class="co-h">The document</h4>'
+        + '<div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">'
+          + '<button class="btn-sm btn-secondary no-print" onclick="coCopyDoc(\'' + ekJs(c.no) + '\')" title="'
+            + escapeHtml('Copy this change order as a formatted document — paste it into Word, Docs or an '
+              + 'email. Rendered from what this entry recorded, so it reproduces the paper as it stood '
+              + 'rather than what the plan would produce today.') + '">📋 Copy ' + escapeHtml(String(c.no))
+            + '</button>'
+          + '<button class="btn-sm btn-secondary no-print" onclick="coDownloadDoc(\'' + ekJs(c.no) + '\')" title="'
+            + escapeHtml('Save this one change order as its own HTML file — openable and printable without '
+              + 'this tool.') + '">⬇ Save as a file</button>'
+          + (c.baseDate ? '' : '<span class="help-text">This entry predates the stored document facts, so the '
+              + 'baseline date is not on it — everything else prints from the deltas it recorded.</span>')
+        + '</div>'
         + '<h4 class="co-h">Versions of the plan</h4>'
         + '<div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">'
           + vBtn(c.fromV, 'Before') + '<span aria-hidden="true" style="color:var(--muted)">→</span>'

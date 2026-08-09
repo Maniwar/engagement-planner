@@ -1124,8 +1124,127 @@ const DATA = FIXTURE();
       if (wasTab && typeof setResTab === 'function') setResTab(wasTab);
     })();
 
+    /* ═══ THREE SPELLINGS OF ONE ROLE ARE ONE BUCKET ══════════════════════
+       The roster's job title is free text, and should be: "CRM Platform
+       Developer" is what this person does HERE. But the estimate bank grouped
+       by that string, so across projects "Senior BA", "Sr. Business Analyst"
+       and "BA" were three buckets — and the single figure a role-level
+       calibration exists to produce, how a kind of person estimates, split into
+       three rows of n=1 and said nothing.
+
+       Every assertion below is about the ANSWER, not the vocabulary: the three
+       titles land in one bucket, the bucket counts all three, an explicit
+       choice beats the guess, and a title the vocabulary does not know is
+       dropped rather than defaulted — because a wrong median is worse than a
+       missing one. Nobody acts on a gap; everybody acts on a number. */
+    const roleFamily = (() => {
+      const sayR = x => say('Role family', x);
+      const out = {};
+      const names = Object.keys(resources).slice(0, 3);
+      if (names.length < 3) { sayR('the fixture has fewer than three people, so one role cannot be spelled '
+        + 'three ways and this proves nothing'); return out; }
+      const keptRoles = names.map(n => resources[n].role);
+      const keptFams = names.map(n => resources[n].roleFam);
+      const keptOwners = leafTasks().map(t => t.owner);
+      const keptEff = leafTasks().map(t => t.actualEffort);
+
+      names.forEach((n, i) => { resources[n].role = ['Senior BA', 'Sr. Business Analyst', 'BA'][i]; delete resources[n].roleFam; });
+      const fams = names.map(n => roleFamilyOf(n));
+      out.threeTitles = fams.map(f => f.id + '/' + f.src);
+      if (!fams.every(f => f.id && f.id === fams[0].id))
+        sayR('three spellings of one role resolve to ' + [...new Set(fams.map(f => f.id || '(none)'))].join('/')
+          + ' — the bank will hold them as separate buckets and no role-level figure will ever have an n');
+      if (!fams.every(f => f.src === 'auto'))
+        sayR('the family was stored rather than read. Storing it means a retitle leaves a stale bucket '
+          + 'behind, and every roster already filed stays ungrouped until somebody opens it');
+
+      // an explicit choice beats the guess, and is the only thing that persists
+      resources[names[0]].roleFam = 'qa';
+      const pinned = roleFamilyOf(names[0]);
+      out.pinned = pinned.id + '/' + pinned.src;
+      if (pinned.id !== 'qa' || pinned.src !== 'user')
+        sayR('an explicitly chosen family does not beat the one guessed from the title, so correcting the '
+          + 'tool is impossible');
+      delete resources[names[0]].roleFam;
+
+      // a title the vocabulary does not know is DROPPED, never defaulted
+      resources[names[0]].role = 'Chief Vibes Officer';
+      const unknown = roleFamilyOf(names[0]);
+      out.unknown = unknown.id === '' ? 'dropped' : unknown.id;
+      if (unknown.id)
+        sayR('a job title nothing in the vocabulary matched was filed as "' + unknown.id + '" anyway. '
+          + 'A guess that reaches a median is a number somebody prices work from');
+      resources[names[0]].role = 'Senior BA';
+
+      /* THE PAYOFF, MEASURED WHERE IT LANDS. Everything above is about the
+         resolver; this is about the bank, which is the only reason the resolver
+         exists. Actuals are logged so there are rows at all. */
+      leafTasks().forEach((t, i) => { if (!t.milestone) { t.owner = names[i % 3]; t.actualEffort = Math.max(0.5, plannedEffortDays(t) * 1.2); } });
+      const rows = bankRowsFromPlan();
+      out.bankRows = rows.length;
+      const titles = [...new Set(rows.map(r => r.role).filter(Boolean))];
+      const buckets = [...new Set(rows.map(r => r.roleFamLabel).filter(Boolean))];
+      out.bankTitles = titles.length; out.bankBuckets = buckets;
+      if (titles.length < 2)
+        sayR('the archived rows carry fewer than two distinct job titles, so "three spellings collapse to '
+          + 'one bucket" cannot be observed here and would pass on any build');
+      else if (buckets.length !== 1)
+        sayR(titles.length + ' job titles produced ' + buckets.length + ' role buckets in the bank — the '
+          + 'point of the family is that they produce one');
+      if (rows.some(r => !r.roleFam && r.role))
+        sayR('an archived row carries a job title and no family, so it will group on the spelling forever — '
+          + 'the family has to be written at archive time, because the roster it came from may be gone');
+
+      names.forEach((n, i) => { resources[n].role = keptRoles[i];
+        if (keptFams[i]) resources[n].roleFam = keptFams[i]; else delete resources[n].roleFam; });
+      leafTasks().forEach((t, i) => { t.owner = keptOwners[i]; t.actualEffort = keptEff[i]; });
+      calculate();
+
+      /* AND IT IS REACHABLE. A vocabulary nobody can correct is a vocabulary
+         that is wrong forever on the one row that matters. */
+      switchTab('resources');
+      if (typeof setResTab === 'function') setResTab('team'); else renderResources();
+      const rowsUi = document.querySelectorAll('.roster-table tbody tr').length;
+      const picks = document.querySelectorAll('.roster-table select.rl-fam').length;
+      out.rosterRows = rowsUi; out.familyPickers = picks;
+      /* ZERO ROWS IS A FAILURE, NOT A PASS. Written as "if (rowsUi && …)" this
+         block found no roster at all — wrong sub-tab — and reported green
+         having looked at nothing, which is the exact shape of vacuity the
+         suite exists to refuse. */
+      if (!rowsUi)
+        sayR('the roster drew no rows, so neither the family picker nor the column geometry below was '
+          + 'looked at — this block passed without reading anything');
+      else if (picks < rowsUi)
+        sayR(picks + ' of ' + rowsUi + ' roster rows offer a way to correct the family, so on the rest the '
+          + 'guess is final');
+
+      /* THE COMPANY PICKER MUST STAY IN ITS OWN COLUMN. An inline width of
+         150px in a 116px cell beat the stylesheet rule that said "fill the
+         cell", so the control overhung by 45px and sat on top of the capacity
+         input — clicking where the number appeared opened the company list.
+         Same shape as the invisible reorder buttons: an inline style quietly
+         outranking the rule meant to govern it. */
+      const tr = document.querySelector('.roster-table tbody tr');
+      if (!tr) sayR('no roster row to measure the column geometry on');
+      else {
+        const cell = tr.querySelector('.rl-org-c'), sel = cell && cell.querySelector('select');
+        const cap = tr.querySelector('.rl-cap');
+        if (sel && cap) {
+          const sb = sel.getBoundingClientRect(), cb = cell.getBoundingClientRect(), pb = cap.getBoundingClientRect();
+          out.orgOverhang = Math.round(sb.right - cb.right);
+          out.orgOverCapacity = Math.round(sb.right - pb.left);
+          if (sb.right > cb.right + 1)
+            sayR('the company picker overhangs its own column by ' + Math.round(sb.right - cb.right) + 'px');
+          if (sb.right > pb.left + 1)
+            sayR('the company picker covers ' + Math.round(sb.right - pb.left) + 'px of the capacity field '
+              + 'beside it, so the number is under a control that is not about it');
+        }
+      }
+      return out;
+    })();
+
     return { contradictions: bad, ledger, multiMeasure, timesheet, priceGap, count: n, recount: mine, built,
-             overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, heatmap, roster,
+             overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, heatmap, roster, roleFamily,
              lintFindings: lint.map(f => String(f.finding).slice(0, 80)) };
   });
 

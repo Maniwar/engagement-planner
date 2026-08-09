@@ -352,6 +352,78 @@ const DATA = FIXTURE();
       if (/milestone-based payment|paid by milestone|invoiced monthly/i.test(strip(noTerms)))
         say('SOW document', 'with no billing arrangement recorded the document still proposes one');
 
+      /* ═══ EVERY CHANGE ORDER HAS ITS OWN DOCUMENT, FOREVER ════════════════
+         The document used to be written into a single `coDraft` string out of
+         live plan state, so exactly one change order had paper at a time — the
+         last one drafted. "Send me CO-002 again" had no answer, and neither did
+         an auditor asking what the client actually signed.
+
+         The property under test is not that a document exists. It is that the
+         document belongs to the ENTRY and not to the moment: the plan is moved
+         on after the change order is logged, and what comes back must still be
+         the change order's own figures. A renderer that reads the live plan
+         would pass a "does it render" check and fail this one. */
+      (() => {
+        const keptLog = coLog.slice(), keptPend = draftChangeOrder._pending;
+        if (!sowBaseline) { say('Change order', 'no SOW baseline in the fixture, so a change order cannot '
+          + 'be drafted and this proves nothing'); return; }
+        const c = {
+          no: 'CO-PROBE', date: '2026-03-04', state: 'accepted', stateAt: '2026-03-04',
+          baseDate: '2026-02-01', baseFinish: '2026-06-30', basePrice: 100000,
+          newFinish: '2026-07-14', newPrice: 112500, finishDelta: 14, priceDelta: 12500,
+          amended: ['CO-001'], unit: 'days', rationale: 'Probe rationale sentence.',
+          lineSum: 12500,
+          diff: [{ kind: 'added', id: 9901, name: 'Probe activity', days: 4, priceDelta: 12500 }],
+          hidePrice: []
+        };
+        coLog = keptLog.concat([c]);
+        const doc1 = coDocFor('CO-PROBE');
+        const flat = String(doc1).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        if (!doc1) { say('Change order', 'a logged change order renders no document at all'); coLog = keptLog; return; }
+        [['CO-PROBE', 'its own number'], ['2026-02-01', 'the baseline it diffed against'],
+         ['112500', 'the price it moved to'], ['CO-001', 'the orders that had already amended the SOW'],
+         ['Probe rationale', 'the rationale somebody wrote'], ['Probe activity', 'the line it changed']]
+          .forEach(([needle, what]) => {
+            if (flat.replace(/[,$]/g, '').indexOf(needle) < 0)
+              say('Change order', 'the re-rendered document does not carry ' + what
+                + ' — it is not a reproduction of what was issued, it is a new document with an old number');
+          });
+        if (!/Client approval/.test(flat))
+          say('Change order', 'the document carries no approval block, so it is a summary rather than '
+            + 'something a client can sign');
+        /* THE PLAN MOVES ON. Everything below is the same assertion as above,
+           asked again after the world has changed, because that is the only
+           way to tell a stored document from a live re-computation. */
+        const keptPrice = pricing ? JSON.parse(JSON.stringify(pricing)) : null;
+        const t0 = leafTasks()[0];
+        const keptOmp = t0 ? { o: t0.o, m: t0.m, p: t0.p } : null;
+        if (t0) { t0.o += 12; t0.m += 12; t0.p += 12; calculate(); }
+        const doc2 = coDocFor('CO-PROBE');
+        if (t0 && keptOmp) { t0.o = keptOmp.o; t0.m = keptOmp.m; t0.p = keptOmp.p; calculate(); }
+        if (keptPrice) pricing = keptPrice;
+        if (doc2 !== doc1)
+          say('Change order', 'the document changed when the PLAN changed. A change order is a record of '
+            + 'what was agreed on a date; one that re-reads today\'s figures cannot be reissued and cannot '
+            + 'be audited');
+        // and two entries are two documents, which the single-draft design could not do
+        const c2 = Object.assign({}, c, { no: 'CO-PROBE2', newPrice: 90000, priceDelta: -10000 });
+        coLog = keptLog.concat([c, c2]);
+        const docA = coDocFor('CO-PROBE'), docB = coDocFor('CO-PROBE2');
+        if (docA === docB)
+          say('Change order', 'two different change orders render the identical document');
+        // an entry written before the document facts existed still prints, and says so
+        const old = { no: 'CO-OLD', date: '2026-01-05', state: 'accepted',
+          diff: c.diff, finishDelta: 3, priceDelta: 500, newFinish: '2026-05-05', newPrice: 50500 };
+        coLog = keptLog.concat([old]);
+        const docOld = String(coDocFor('CO-OLD'));
+        if (!docOld) say('Change order', 'an entry filed before the document facts existed renders nothing, '
+          + 'so upgrading the tool silently took the paper away from every change order already on the log');
+        else if (!/not recorded on this entry/.test(docOld))
+          say('Change order', 'an entry with no stored baseline prints as though it had one — a change order '
+            + 'that invents the contract it amended is worse than one that admits the record is thin');
+        coLog = keptLog; draftChangeOrder._pending = keptPend;
+      })();
+
       // ── out of scope limits; it never waives ────────────────────────────
       revTerms = savedTerms;
       raid = raid.filter(x => x.type !== 'Exclusion');
