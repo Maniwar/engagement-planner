@@ -1267,6 +1267,66 @@ const QA = JSON.parse(fs.readFileSync(
           switchTab('tasks'); renderTaskTable();
         })();
 
+        /* ═══ FOLDING A PHASE IS NOT AN EDIT ═══════════════════════════════
+           Reported: "it saves when expanding and collapsing the gantt chart
+           and then it chugs a bit in the animation." Measured at 81ms of
+           blocked main thread on a 149-activity plan before a single frame of
+           the glide could run, because the click serialised the whole plan,
+           pushed an undo snapshot and re-rendered two surfaces nobody was
+           looking at.
+
+           Timing is not what is asserted here — a millisecond figure measured
+           in a headless container on a shared runner is noise, and a check
+           that goes red when the machine is busy gets switched off. What IS
+           asserted is the three facts that made it slow, each of which is an
+           identity: a fold writes nothing synchronously, a fold is not an undo
+           step, and a fold is nonetheless persisted. */
+        (() => {
+          switchTab('gantt');
+          setCollapseLevel(0);
+          const tog = document.querySelector('#ganttContainer [data-gtoggle]');
+          if (!tog) { out.foldCost = 'SKIPPED-no-collapsible-phase-on-this-plan'; return; }
+          const id = Number(tog.dataset.gtoggle);
+          const pid = activeProjectId();
+          const before = { undo: undoStack.length, cached: projCache[pid] };
+          tog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          const after = { undo: undoStack.length, cached: projCache[pid] };
+          out.foldUndoAdded = after.undo - before.undo;
+          out.foldWroteSynchronously = after.cached !== before.cached;
+          if (after.undo !== before.undo)
+            say('Gantt', 'opening a phase pushed ' + (after.undo - before.undo) + ' undo step(s). Ctrl+Z '
+              + 'after opening a phase then closes the phase instead of undoing the last real edit, and a '
+              + 'few dozen clicks flush every real edit out of a 60-deep stack — a fold is a way of looking '
+              + 'at the plan, not a change to it');
+          if (after.cached !== before.cached)
+            say('Gantt', 'opening a phase serialised and wrote the entire plan before the chart could '
+              + 'redraw. That work lands in the frames the expansion animation needs, which is what "it '
+              + 'chugs a bit in the animation" is');
+          /* AND IT IS NOT LOST. Deferring is only allowed because the write
+             still happens — and because it happens on the way out, too. */
+          if (typeof flushViewSave === 'function') flushViewSave();
+          const written = projCache[pid];
+          /* COMPARED TO WHAT IS ON SCREEN, not to an expected id. Written as
+             "the id must be absent from the saved set" this passed against a
+             build that never saved at all: the cache still held a state from
+             before the phase was ever collapsed, in which the id was equally
+             absent. The identity is that the file agrees with the view. */
+          const savedIds = written ? ((JSON.parse(written).collapsedIds) || []).slice().sort() : null;
+          const liveIds = [...collapsedIds].slice().sort();
+          out.foldPersisted = !!savedIds && JSON.stringify(savedIds) === JSON.stringify(liveIds);
+          out.foldSaved = savedIds ? savedIds.length : null;
+          out.foldLive = liveIds.length;
+          if (!written)
+            say('Gantt', 'nothing was written even after the deferred save was flushed, so the fold is lost '
+              + 'on reload');
+          else if (!out.foldPersisted)
+            say('Gantt', 'the saved file holds ' + savedIds.length + ' collapsed phase(s) and the screen '
+              + 'shows ' + liveIds.length + '. Deferring the write is only allowed because the write still '
+              + 'happens — a fold that never lands reopens every phase on reload');
+          setCollapseLevel(Infinity);
+          switchTab('tasks'); renderTaskTable();
+        })();
+
         /* ═══ ONE ROW MOVES AS ONE ROW ═════════════════════════════════════
            The expand animation slides <g data-gopen> groups from where they
            were to where they are. That only reads as one movement if a row IS

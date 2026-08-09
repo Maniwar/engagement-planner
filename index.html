@@ -3016,17 +3016,29 @@
     .story-sentence .sc-id { font-size: 0.72rem; color: var(--muted); font-weight: 700; letter-spacing: 0.02em; }
     .story-sentence .sc-lead { color: var(--muted); font-weight: 700; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.3rem; }
     .story-sentence .sc-muted { color: var(--muted); }
-    /* Wide screens: story cards flow into two columns instead of one long ribbon
-       with dead space on the right. An EXPANDED card spans both columns so its
-       acceptance criteria still get the full width to read in. */
-    @media (min-width: 1500px) {
-      .story-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.6rem; align-items: start; }
-      .story-grid > .story-card { margin-bottom: 0.5rem; }
-      .story-grid > .story-card[open] { grid-column: 1 / -1; }
-    }
-    @media (min-width: 2100px) {
-      .story-grid { grid-template-columns: 1fr 1fr 1fr; }
-    }
+    /* ═══ HOW MANY COLUMNS IS A QUESTION ABOUT THE CARD, NOT THE DEVICE ═════
+       This was two fixed breakpoints: two columns past 1500px, three past
+       2100px. Reported as "we only see 3 story columns per row on very wide
+       mode, we have enough room to have 3 even before" — and quite right, 2100
+       was picked to be safe rather than measured. A viewport figure is the
+       wrong quantity anyway: the grid lives inside a panel with its own
+       padding, so the same 1600px browser gives a different amount of room on
+       a tab with a sidebar than on one without, and no list of device widths
+       can know that.
+
+       The real constraint is how narrow a story card can get and still read —
+       "As a … I want to … so that …" plus a row of chips — which is about
+       400px. So the grid asks for that directly and fits however many fit.
+       Three columns now arrive around 1250px of PANEL rather than 2100px of
+       screen, one column falls out on a phone with no separate rule, and the
+       card min-width is a number somebody can argue with by looking at a card.
+
+       An EXPANDED card still spans the full row: its acceptance criteria are a
+       list to read, not a column to squeeze. */
+    .story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr));
+      gap: 0 0.6rem; align-items: start; }
+    .story-grid > .story-card { margin-bottom: 0.5rem; }
+    .story-grid > .story-card[open] { grid-column: 1 / -1; }
     /* ---- expanded story card: give the detail real structure ---- */
     .story-card > summary { border-radius: 10px; outline: none; }
     .story-card > summary:focus { outline: none; }
@@ -4920,7 +4932,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1914</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2040</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7242,6 +7254,8 @@ Or say what you want, in your own words:
        storage, so the auto-sync loop learns about all of them without a single
        call site being changed — and a new feature is covered the day it saves. */
     function saveLocal() {
+      // a real save writes the collapse state too, so the deferred one is moot
+      if (typeof viewSaveTimer !== 'undefined' && viewSaveTimer) { clearTimeout(viewSaveTimer); viewSaveTimer = null; }
       try { trunkNoteLocalEdit(); } catch (e) {}
       try {
         const data = serialize();
@@ -8042,6 +8056,14 @@ Or say what you want, in your own words:
     }
     window.addEventListener('popstate', applyTabHash);
     window.addEventListener('hashchange', applyTabHash);
+    /* DEFERRED IS NOT DROPPED. A view save waits half a second so it cannot
+       hold up an animation; if the tab is closed or hidden inside that window
+       it is written immediately instead. pagehide rather than beforeunload,
+       because beforeunload does not fire on a mobile tab being discarded. */
+    window.addEventListener('pagehide', () => { try { flushViewSave(); } catch (e) {} });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { try { flushViewSave(); } catch (e) {} }
+    });
     function switchTab(name) {
       if (!_tabNav && location.hash.replace(/^#/, '') !== name) {
         try { history.pushState(null, '', '#' + name); }
@@ -8084,6 +8106,9 @@ Or say what you want, in your own words:
          uniform and deliberately boring: the moment one of these is left bare it
          becomes the one that takes the tab down, and there is no way to tell by
          reading which of them is "safe enough" to skip. */
+      // the activity table is kept live rather than re-rendered, so a fold made
+      // while looking at the chart has to be caught up here
+      if (name === 'tasks') flushTaskTableIfStale();
       if (name === 'wbs') guardRender('renderWBS', renderWBS);
       if (name === 'req') guardRender('renderReqs', renderReqs);
       /* `&& calculated` meant a project with NO activities never wrote to these
@@ -14312,11 +14337,36 @@ Or say what you want, in your own words:
         setTimeout(() => { row.style.background = orig; }, 2200);
       }
     }
+    /* ═══ FOLDING A PHASE IS NOT AN EDIT, AND NOT A REASON TO REDRAW THE
+           WHOLE APPLICATION ══════════════════════════════════════════════════
+       Reported: "it seems that it saves when expanding and collapsing the gantt
+       chart and then it chugs a bit in the animation." Exactly so, and it was
+       measured at 81ms of blocked main thread on a 149-activity plan before a
+       single frame of the glide could run — five dropped frames, at the one
+       moment the eye is following something move.
+
+       Three things were on that click and none of them had to be:
+
+       THE SAVE. saveLocal() serialises the entire plan, stringifies it, walks
+       every leaf twice for the project index and writes to IndexedDB. The
+       collapse state does belong in the file, but not before the next frame:
+       it is deferred, and any real save in the meantime supersedes it, because
+       the fold is already inside the thing that real save writes.
+
+       THE UNDO ENTRY. Because the state is serialised, every twisty click
+       pushed a snapshot — so Ctrl+Z after opening a phase closed the phase
+       instead of undoing your last real edit, and sixty clicks flushed the
+       whole undo history out of a 60-deep stack. A fold is a way of LOOKING at
+       the plan, not a change to it.
+
+       THE OTHER TWO SURFACES. It re-rendered the activity table and the WBS
+       tree as well as the chart, both of them off-screen. The WBS already
+       re-renders when you arrive at it, so it is simply dropped; the activity
+       table does not, so it is marked and flushed on arrival. */
     function toggleCollapse(id) {
       if (collapsedIds.has(id)) collapsedIds.delete(id); else collapsedIds.add(id);
-      saveLocal();
-      renderTaskTable(); renderWBS();
-      if (calculated) renderGantt();
+      renderCollapseSurfaces();
+      saveViewSoon();
     }
     // Collapse to a logical level: hide everything deeper than `depth`
     // (0 = phases only, 1 = phases + work packages, Infinity = expand all).
@@ -14327,9 +14377,47 @@ Or say what you want, in your own words:
           if (isSummaryId(task.id) && d >= depth) collapsedIds.add(task.id);
         });
       }
-      saveLocal();
-      renderTaskTable(); renderWBS();
-      if (calculated) renderGantt();
+      renderCollapseSurfaces();
+      saveViewSoon();
+    }
+    /* Only what is being looked at. The others catch up on arrival, which is
+       what makes this safe rather than merely fast. */
+    function renderCollapseSurfaces() {
+      const active = document.querySelector('.tab.active');
+      const on = active ? active.dataset.tab : 'tasks';
+      if (on === 'gantt' && calculated) renderGantt();
+      else if (on === 'wbs') renderWBS();
+      else renderTaskTable();
+      if (on !== 'tasks') taskTableStale = true;
+    }
+    /* THE VIEW STATE CATCHES UP WHEN THE VIEW IS LOOKED AT. The activity table
+       is the one surface switchTab keeps live rather than re-rendering, so it
+       is the one that needs telling. */
+    let taskTableStale = false;
+    function flushTaskTableIfStale() {
+      if (!taskTableStale) return;
+      taskTableStale = false;
+      renderTaskTable();
+    }
+    /* A save that cannot hold up a frame. Coalesced, so dragging the collapse
+       level across L1/L2/All writes once; superseded by any real save, because
+       the fold is already inside what that save wrote; and flushed when the tab
+       goes away, so nothing is lost by deferring it. */
+    let viewSaveTimer = null;
+    function saveViewSoon() {
+      if (viewSaveTimer) clearTimeout(viewSaveTimer);
+      viewSaveTimer = setTimeout(flushViewSave, 500);
+    }
+    function flushViewSave() {
+      if (!viewSaveTimer) return;
+      clearTimeout(viewSaveTimer); viewSaveTimer = null;
+      /* undoGuard is what tells trackUndo "record this state, do not make it a
+         step you can go back to" — which is precisely what a fold is. Nothing
+         else can have changed since, because a real edit would have saved and
+         cancelled this timer. */
+      const g = undoGuard;
+      undoGuard = true;
+      try { saveLocal(); } finally { undoGuard = g; }
     }
 
     // ========================= REORDER / INDENT =========================

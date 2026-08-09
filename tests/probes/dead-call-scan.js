@@ -58,7 +58,7 @@ Blob File FileReader FormData URL URLSearchParams TextEncoder TextDecoder AbortC
 Element HTMLElement Node NodeList Event CustomEvent MutationObserver IntersectionObserver
 ClipboardItem Image Audio Worker IDBKeyRange indexedDB crypto performance
 ErrorEvent PromiseRejectionEvent DOMParser XMLSerializer Range Text Option
-DOMException AbortSignal
+DOMException AbortSignal MouseEvent KeyboardEvent PointerEvent CustomEvent
 eval require module exports process __dirname __filename Buffer
 `.trim().split(/\s+/));
 
