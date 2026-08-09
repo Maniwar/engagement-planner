@@ -1117,6 +1117,140 @@ const { chromium } = requirePlaywright();
   H.contradictions.forEach(x => bad.push(x));
   note.sowPanel = H.counts;
 
+  /* ═══ FIVE ROOMS, AND NOTHING LOST BEHIND A DOOR ═════════════════════════
+     "This UI takes up a lot of space we have been using tabs in other areas."
+     759px of chrome sat above the first story card: a four-line explainer, six
+     98px cards carrying four plain totals, a six-row reference list and up to
+     six conditional banners. The banners are the reason the number had a RANGE
+     — the sicker the plan, the more of them appeared and the less of the work
+     you could see.
+
+     Splitting a surface into rooms is the easy half. The half that goes wrong
+     is that something becomes unreachable, so most of what follows is about
+     arrival: every id any drill-in in the app asks for must still land, in the
+     right room, and the counts a reader looks for must still be where a reader
+     looks. The budget is asserted too — the complaint was a measurement, so the
+     fix is measured, and a fixture that re-accumulates the chrome fails here
+     rather than in front of a client. */
+  const RQ = await page.evaluate(() => {
+    const badR = [];
+    const sayR = x => badR.push('Stories tab :: ' + x);
+    const out = {};
+    switchTab('req');
+    renderReqs();
+    const bar = document.getElementById('reqTabBar');
+    const cont = document.getElementById('reqContainer');
+    if (!bar || !cont) { sayR('the tab strip or the container is gone'); return { contradictions: badR, counts: out }; }
+    const tabs = [...bar.querySelectorAll('.stab')];
+    out.tabs = tabs.map(t => t.textContent.replace(/\s+/g, ' ').trim());
+    if (tabs.length < 4)
+      sayR('the strip offers ' + tabs.length + ' room(s) — the six banners, the reference rows and the two '
+        + 'audit views need somewhere of their own to be, or they are back on top of the stories');
+    /* EXACTLY ONE ROOM AT A TIME, and it must be the one asked for. Painted in
+       the wrong order this shows all five stacked, which is the failure the
+       whole redesign exists to end and which no count of tabs would catch. */
+    out.rooms = {};
+    ['stories', 'findings', 'trace', 'tc', 'reference'].forEach(k => {
+      if (!cont.querySelector('[data-req="' + k + '"]')) { sayR('there is no "' + k + '" room at all'); return; }
+      reqSetView(k);
+      const shown = [...cont.querySelectorAll('[data-req]')]
+        .filter(v => getComputedStyle(v).display !== 'none').map(v => v.dataset.req);
+      const el = cont.querySelector('[data-req="' + k + '"]');
+      const chars = el ? el.textContent.replace(/\s+/g, ' ').trim().length : 0;
+      out.rooms[k] = shown.join('+') + ' (' + chars + ' chars)';
+      if (shown.length !== 1 || shown[0] !== k)
+        sayR('asking for "' + k + '" shows ' + (shown.length ? shown.join(' + ') : 'nothing')
+          + ' — panels painted before the markup that holds them leaves every room on screen at once');
+      if (chars < 40)
+        sayR('the "' + k + '" room is effectively empty (' + chars + ' characters), so the tab leading to it '
+          + 'reads as a broken link');
+    });
+    /* ARRIVAL. Every id in the routing table is something a drill-in somewhere
+       else in the app asks for by name; a room that swallows one of them is a
+       dead link the person who clicked it cannot diagnose. */
+    out.routes = {};
+    Object.keys(REQ_VIEW_OF).forEach(id => {
+      reqSetView('stories');
+      reqScrollTo(id);
+      out.routes[id] = reqView;
+      if (reqView !== REQ_VIEW_OF[id])
+        sayR('a drill-in asking for "' + id + '" lands in "' + reqView + '" instead of "'
+          + REQ_VIEW_OF[id] + '"');
+      /* SOME OF THESE ARE CONDITIONAL, and rightly so — a coverage banner
+         exists only when coverage is short. Demanding that every routed id be
+         present on a clean plan is the check asserting that the plan is
+         broken, so presence is required only of the panels that are always
+         drawn, and the rest are checked only if they turned up. */
+      const el = document.getElementById(id);
+      const always = ['traceMatrix', 'tcListPanel', 'nfrPanel', 'depPanel', 'acceptancePanel',
+                      'reqEpicsAnchor', 'reqFindings'];
+      if (!el) {
+        if (always.indexOf(id) >= 0)
+          sayR('"' + id + '" is in the routing table and nowhere in the page');
+      } else if (getComputedStyle(el).display === 'none' && !el.closest('details'))
+        sayR('"' + id + '" is routed to and still not shown');
+    });
+    // the two launcher buttons and the story deep link still work
+    reqSetView('stories'); reqOpenView('trace');
+    if (reqView !== 'trace') sayR('the traceability launcher no longer opens the matrix');
+    reqCloseView('trace');
+    if (reqView !== 'stories') sayR('Back from the matrix does not return to the stories');
+    const sid = ((reqs.stories || [])[0] || {}).id;
+    if (sid) { reqSetView('trace'); openReqStory(sid);
+      if (reqView !== 'stories') sayR('a deep link to a story does not return to the room stories live in'); }
+    /* THE COUNTS STAY WHERE THEY ARE READ. #reqContainer's text is what the
+       "the number you print is the number that exists" check reads back; a
+       redesign that moves the headline figures out of it does not break a
+       number, it silently empties an assertion. */
+    reqSetView('stories');
+    /* MEASURED ON THE READINGS THEMSELVES, not on the container's text. Written
+       the loose way this passed against a build with the whole readings line
+       deleted — the feature-scope sentence below it also says "13 stories", so
+       the assertion was satisfied by a different sentence entirely. */
+    const nums = cont.querySelector('.rq-nums');
+    out.countInContainer = nums ? (nums.textContent.match(/(\d+)\s+stor(?:y|ies)\b/) || [])[0] || null : null;
+    if (!nums)
+      sayR('the headline figures are not inside #reqContainer. That is where a reader looks for them and '
+        + 'where the check that reconciles a printed count against the real one reads them back — outside '
+        + 'it, that check matches some other sentence and quietly stops testing anything');
+    else if (!out.countInContainer)
+      sayR('the readings line carries no "N stories" figure');
+    else if (Number(out.countInContainer.match(/\d+/)[0]) !== (reqs.stories || []).length)
+      sayR('the readings line says ' + out.countInContainer + ' and the plan holds '
+        + (reqs.stories || []).length);
+    /* THE BADGE AGREES WITH THE ROOM. A badge that can be wrong about its own
+       contents is worse than no badge. */
+    const findEl = cont.querySelector('[data-req="findings"]');
+    const badge = [...bar.querySelectorAll('.stab')].find(t => /Findings/.test(t.textContent));
+    const bN = badge && badge.querySelector('.stab-n') ? Number(badge.querySelector('.stab-n').textContent) : 0;
+    const clean = !!(findEl && findEl.querySelector('.rq-clear'));
+    out.findingsBadge = bN; out.findingsClean = clean;
+    if (bN && clean)
+      sayR('the strip says ' + bN + ' finding(s) and the room says there is nothing to fix');
+    if (!bN && !clean)
+      sayR('the strip carries no findings badge and the room is not the clean state either — one of them is '
+        + 'lying about what is waiting');
+    if (clean && findEl.textContent.replace(/\s+/g, ' ').trim().length < 80)
+      sayR('the clean Findings room says almost nothing. Silence is indistinguishable from "not checked", '
+        + 'and the reader needs to know which checks passed, not merely that nothing is shown');
+    /* THE BUDGET. The complaint was a measurement. */
+    reqSetView('stories');
+    const view = document.getElementById('view-req');
+    const first = document.querySelector('.story-card');
+    if (!first) sayR('no story card is rendered, so the height budget below measures nothing');
+    else {
+      const px = Math.round(first.getBoundingClientRect().top - view.getBoundingClientRect().top);
+      out.chromeAboveFirstStory = px;
+      if (px > 420)
+        sayR(px + 'px of chrome sits above the first story card. It was 759 and the redesign brought it to '
+          + 'about 300; anything past 420 means the surface is re-accumulating and the tab called Stories is '
+          + 'showing something else again');
+    }
+    return { contradictions: badR, counts: out };
+  });
+  RQ.contradictions.forEach(x => bad.push(x));
+  note.storiesTab = RQ.counts;
+
   /* ═══ COMPARING TWO CONTRACTS IS NOT COMPARING TWO FILES ════════════════
      A unified diff prints every differing sentence TWICE — once struck, once
      added — which for prose means a fee moving from $6,571 to $6,668 arrives
