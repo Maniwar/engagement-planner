@@ -263,8 +263,114 @@ function serveApp() {
       say('Trunk', 'Erin pushed onto a trunk she had never pulled and it was accepted — her entries now '
         + 'claim parents nobody else has, which is the hole the format exists to prevent');
 
+    /* AWAITED. Written as a bare (async () => {})() it was fire-and-forget:
+       the evaluate returned before a single assertion inside it had run, the
+       findings landed in a `bad` nobody was still holding, and the sweep
+       reported green having tested nothing. The same shape as every other
+       silent-assertion bug in this session, and it took printing the output
+       to see it rather than reading the code. */
+    await (async () => {
+      const t0 = await trunkRead(handle);
+      const tip0 = trunkTip(t0);
+      if (!tip0 || !tip0.doc) { bad.push('Auto sync :: the trunk has no tip to build a conflict from'); return; }
+
+      /* Both sides move the SAME field, which is what makes it contested. */
+      const mine = tasks.find(x => !x.isSummary && !x.milestone);
+      if (!mine) { bad.push('Auto sync :: no activity to contest'); return; }
+      const theirDoc = JSON.parse(JSON.stringify(tip0.doc));
+      const theirs = (theirDoc.tasks || []).find(x => x.id === mine.id);
+      if (!theirs) { bad.push('Auto sync :: the trunk tip does not hold the activity under test'); return; }
+      theirs.name = 'THEY RENAMED IT';
+      mine.name = 'I RENAMED IT DIFFERENTLY';
+      calculate(); pushVersion('edit', 'my rename');
+      const entry = { vid: 'vCONFLICT', pvid: tip0.vid, at: new Date().toISOString(),
+        by: 'other@example.com', byName: 'Other Person', kind: 'edit', note: 'their rename', doc: theirDoc };
+      t0.log.push(entry);
+      await trunkWrite(handle, t0);
+
+      const relNow = trunkRelation(await trunkRead(handle)).relation;
+      out.autoConflictRelation = relNow;
+      if (relNow !== 'diverged')
+        bad.push('Auto sync :: the two sides read as "' + relNow + '" rather than diverged, so the tick below '
+          + 'is not being asked the question this block exists to ask');
+
+      trunkAuto = true; trunkPaused = ''; trunkLastLocal = 0;
+      const before = mine.name;
+      await trunkAutoTick();
+      out.autoPausedOn = trunkPaused;
+      out.autoKeptMyName = tasks.find(x => x.id === mine.id).name === before;
+      if (trunkPaused !== 'conflict')
+        bad.push('Auto sync :: two people renamed the same activity and the loop did not stop — it reported "'
+          + (trunkPaused || 'nothing') + '". Unattended, it is about to choose between two people\'s edits, '
+          + 'and whichever it drops is gone without anybody being told');
+      if (!out.autoKeptMyName)
+        bad.push('Auto sync :: the loop changed this activity\'s name by itself while the change was '
+          + 'contested. Nothing may be applied until a person has seen it');
+
+      /* and once paused it stays paused, rather than trying again on the next
+         tick and applying what it just refused to apply */
+      await trunkAutoTick();
+      if (tasks.find(x => x.id === mine.id).name !== before)
+        bad.push('Auto sync :: a second tick applied what the first one refused — pausing has to mean '
+          + 'paused until a person acts, not "wait one cycle"');
+
+      /* ── AND IT MUST ACTUALLY SEND, WHEN THERE IS NOTHING TO ARGUE ABOUT ──
+         The hidden-tab guard was first checked from the CONFLICTED state above,
+         which cannot see it: the tick pauses on the conflict before it ever
+         reaches the visibility test, so removing that test entirely left the
+         check green. The premise was wrong, not the guard.
+
+         So the conflict is cleared first and the plan is put back in step with
+         the trunk. From there the tick genuinely wants to write, which is the
+         only state in which "it did not write" means anything — and the same
+         setup proves the other half nobody had tested: that automatic sync
+         SENDS. A loop that only ever receives keeps one person up to date and
+         everybody else stale. */
+      trunkPaused = '';
+      const tipNow = trunkTip(await trunkRead(handle));
+      hydrate(JSON.parse(JSON.stringify(tipNow.doc))); calculate();
+      adoptVersions((await trunkRead(handle)).log || []);
+      out.autoRelAfterCatchUp = trunkRelation(await trunkRead(handle)).relation;
+      if (out.autoRelAfterCatchUp !== 'same')
+        bad.push('Auto sync :: after taking the trunk tip the plan reads "' + out.autoRelAfterCatchUp
+          + '" rather than in step, so the send test below is starting from the wrong place');
+
+      editName(A_ID, 'AUTO SEND ME');
+      trunkLastLocal = Date.now() - 60000;          // settled long ago
+      const beforeHidden = (await trunkRead(handle)).log.length;
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      await trunkAutoTick();
+      out.autoHiddenWrote = (await trunkRead(handle)).log.length !== beforeHidden;
+      if (out.autoHiddenWrote)
+        bad.push('Auto sync :: a hidden tab wrote to the shared file. A background tab racing somebody '
+          + 'else is a conflict nobody can see happening, and nobody is there to answer for it');
+
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      trunkLastLocal = Date.now() - 60000;
+      await trunkAutoTick();
+      out.autoSent = (await trunkRead(handle)).log.length > beforeHidden;
+      if (!out.autoSent)
+        bad.push('Auto sync :: the plan moved, settled, and the visible tab sent nothing. A loop that only '
+          + 'ever receives keeps one person current and everybody else stale, which is the problem it was '
+          + 'built to end');
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════
+       The loop exists because pressing Pull and Push forever is a chore. It is
+       allowed to be quiet about everything unambiguous — behind, or diverged
+       with nothing contested — and it must STOP the moment two people have
+       changed the same field.
+
+       That is the property worth a test, because it is the one whose failure is
+       silent and expensive: a machine picking between two people's edits,
+       unattended, loses somebody's work and nobody finds out until they look
+       for something they wrote. Every other failure of this loop is visible —
+       it did not sync, and you press the button.
+
+       Driven, not inspected: a real conflict is created in a real trunk file
+       and the tick is called. */
     return { bad, out };
   }, DATA);
 

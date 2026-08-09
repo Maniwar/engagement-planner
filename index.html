@@ -3628,6 +3628,7 @@
           <button class="btn-ghost btn-sm" id="trunkNewBtn" onclick="trunkConnect('new')" style="border:none;color:var(--text)" title="Creates a NEW .json file — type a name and pick a folder everybody syncs. That file becomes the shared history; you are the first one in it."><span class="ico" aria-hidden="true">🌳</span> Start a team trunk…</button>
           <button class="btn-ghost btn-sm" id="trunkBtn" onclick="trunkConnect('join')" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🔗</span> Join a team trunk…</button>
           <div id="trunkOps" style="display:none">
+            <button class="btn-ghost btn-sm" id="trunkAutoBtn" onclick="trunkAutoSet(!trunkAuto)" style="border:none;color:var(--text)"><span class="ico" aria-hidden="true">🔄</span> Auto sync: on</button>
             <button class="btn-ghost btn-sm" onclick="trunkPull()" style="border:none;color:var(--text)" title="Read the shared file and take anything newer. If you have changed nothing since you last shared, it applies straight through — nothing of yours can be lost."><span class="ico" aria-hidden="true">⬇</span> Pull latest</button>
             <button class="btn-ghost btn-sm" onclick="trunkPush()" style="border:none;color:var(--text)" title="Append your versions to the shared file. Refuses if the trunk has moved since you last pulled, because appending onto a history missing somebody else's work is what creates a gap."><span class="ico" aria-hidden="true">⬆</span> Push mine</button>
           </div>
@@ -4871,7 +4872,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0452</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0526</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5163,6 +5164,7 @@ Or say what you want, in your own words:
     /* Minted once per plan and copied with it, so two files can be known to be
        two copies of the same engagement rather than two unrelated projects. */
     let planLineage = '';
+    let planForkedFrom = '';   // the lineage this plan was duplicated out of, if any
     let resourceLoad = null; // computed per-day allocation / over-allocation
     // reserves/buffers: value + unit ('percent' of CPM duration, or a duration unit)
     let reserves = {
@@ -5855,6 +5857,7 @@ Or say what you want, in your own words:
       // leaveProjectScope handles only state that is NOT serialized. sowDraft
       // and sowBaseline are, which is why a COPY keeps them and a fresh project
       // has them cleared by the block below — neither needs help here.
+      const prevLineage = planLineage;      // read BEFORE the scope is dropped
       leaveProjectScope();
       resetUndo();
       if (!fromCurrent) {
@@ -5869,6 +5872,19 @@ Or say what you want, in your own words:
         renderHolidayChips();
         document.getElementById('weekendDays').value = '0,6'; loadWeekendFromField(); renderWorkweekToggles();
       } else {
+        /* A COPY IS A FORK, AND IT HAS TO REMEMBER WHAT IT FORKED FROM.
+           leaveProjectScope blanks planLineage — correctly, since two projects
+           in one browser must not be one engagement — so the copy mints a new
+           one and the trunk then reads it as unrelated. That is the right
+           verdict and it was delivered with the wrong sentence: "it was not
+           started from a copy of this plan", said to a plan that was started
+           from exactly that. Reported as "i renamed the engagement now it's
+           refusing to pull thinking it's a different engagement" — the rename
+           was innocent; the duplicate is what forked it.
+
+           Remembering the parent lineage costs one string and turns a dead end
+           into a question somebody can answer. */
+        planForkedFrom = prevLineage || '';
         document.getElementById('projectName').value = (document.getElementById('projectName').value || 'Project') + ' (copy)';
       }
       saveLocal();
@@ -6331,9 +6347,47 @@ Or say what you want, in your own words:
       } catch (e) {}
       updateTrunkBtn();
     }
+    /* ═══ TWO PEOPLE CALLED MANI ARE TWO PEOPLE ══════════════════════════════
+       Asked directly: "what happens when people use the same name from
+       different locations". The key was `email || name || writerId`, so two
+       people who typed the same first name and no email collapsed into ONE
+       identity in the trunk. The chain itself survives that — it is keyed on
+       version ids, not on people — so nothing corrupts. What breaks is every
+       sentence about WHO: "Bob changed the estimate" when it was the other
+       Bob, and a merge that says one person moved when two did.
+
+       An email is a real key and stays the key when it is given. A NAME is not
+       a key — it is a label, and treating a label as an identity is the same
+       class of mistake as keying activities by name, which this codebase has
+       already been bitten by in the change-order diff.
+
+       So when there is no email the per-browser writer id joins the key. Two
+       Manis are then distinct without either of them doing anything, the
+       display stays "Mani" for both, and the log can say so. The cost is that
+       one person on two machines with no email reads as two people — which is
+       the safe direction to be wrong in: over-counting authors is confusing,
+       merging two authors into one is a false statement about who did what.
+       Giving an email collapses them back, and the tooltip says that. */
     function trunkIdentity() {
       const n = trunkWho(), e = trunkWhoEmail();
-      return { name: n, email: e, label: n || e || '', key: (e || n || diskWriterId()).toLowerCase() };
+      const key = e ? e.toLowerCase()
+        : n ? n.toLowerCase() + '#' + diskWriterId()
+        : diskWriterId();
+      return { name: n, email: e, label: n || e || '', key: key };
+    }
+    /* Same label, different keys — the log can prove it, so it should say it
+       rather than let two people read each other's work as their own. */
+    function trunkNameClashes(t) {
+      const byLabel = new Map();
+      ((t && t.log) || []).forEach(e => {
+        const lbl = String(e.byName || '').trim();
+        if (!lbl) return;
+        if (!byLabel.has(lbl)) byLabel.set(lbl, new Set());
+        byLabel.get(lbl).add(String(e.by || ''));
+      });
+      const out = [];
+      byLabel.forEach((keys, lbl) => { if (keys.size > 1) out.push({ label: lbl, n: keys.size }); });
+      return out;
     }
     function editIdentity() {
       const cur = trunkIdentity();
@@ -6398,7 +6452,11 @@ Or say what you want, in your own words:
        another copy's history in a file. */
     function trunkRelation(t) {
       if (!t || t._format !== TRUNK_FORMAT) return { relation: 'notatrunk' };
-      if (planLineage && t.lineage && planLineage !== t.lineage) return { relation: 'unrelated' };
+      /* A FORK IS NOT A STRANGER. Both are "different lineage", and telling a
+         person their copy "was not started from a copy of this plan" — when it
+         was started from exactly that — is a dead end delivered as a fact. */
+      if (planLineage && t.lineage && planLineage !== t.lineage)
+        return { relation: (planForkedFrom && planForkedFrom === t.lineage) ? 'fork' : 'unrelated' };
       const theirVids = [].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid));
       const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
       if (!theirVids.length) return { relation: 'empty' };
@@ -6464,6 +6522,7 @@ Or say what you want, in your own words:
          gone red on a build where nothing was wrong with the trunk. */
       if (typeof fsPerm !== 'function' || typeof handle.queryPermission !== 'function') return true;
       const ok = await fsPerm(handle, 'readwrite');
+      if (ok && trunkPaused === 'permission') { trunkPaused = ''; trunkAutoStart(); updateTrunkBtn(); }
       if (!ok) {
         alert('This browser will not let the page reach "' + (handle.name || 'the trunk file') + '" any more.'
           + '\n\nPermission to a file is dropped when the tab closes, so it has to be given again — and it '
@@ -6538,15 +6597,21 @@ Or say what you want, in your own words:
               + 'Ask whoever wrote it to push again — their copy still has it. Nothing here is corrupted; a piece is simply missing.');
           }
           const rel = trunkRelation(t);
-          if (rel.relation === 'unrelated') {
-            alert('That trunk belongs to a different engagement.\n\nIt was not started from a copy of this plan, so '
-              + 'merging it would make every activity look like an addition. Open it as its own project instead.');
+          if (rel.relation === 'fork') {
+            if (!(await trunkAdoptFork(t))) return;
+          } else if (rel.relation === 'unrelated') {
+            alert('That trunk belongs to a different engagement.\n\nNothing in its history appears anywhere in '
+              + 'this plan\'s, so merging it would make every activity look like an addition. Open it as its own '
+              + 'project instead.\n\n(If this plan is a COPY of that engagement, duplicate it again from the '
+              + 'original — a copy remembers what it was copied from and can adopt the trunk.)');
             return;
           }
         }
         trunkHandle = h;
         try { await idbSet('trunk.handle', h); } catch (e) {}
-        updateTrunkBtn();
+        try { trunkAuto = (localStorage.getItem('pertGantt.trunkAuto') || '1') === '1'; } catch (e) {}
+        trunkPaused = '';
+        updateTrunkBtn(); trunkAutoStart();
         /* Branching on the FILE, not on the button. An empty file is a start
            whichever picker opened it, and a file with a history is a join even
            if Start was pressed — the second one is somebody about to overwrite
@@ -6555,6 +6620,137 @@ Or say what you want, in your own words:
         else if (creating) { flashSaved('🌳 "' + h.name + '" already has a history — connected to it instead of starting over'); await trunkPull(true); }
         else { flashSaved('🌳 Connected to "' + h.name + '"'); await trunkPull(true); }
       } catch (e) { /* picker cancelled */ }
+    }
+    /* ═══ A COPY THAT WANTS TO BE THE ONE THAT SYNCS ═════════════════════════
+       Duplicating a project forks it — two plans in one browser must not be one
+       engagement, and that part is right. What was missing is the way back for
+       the case that actually happens: you duplicated, worked in the copy,
+       renamed it, and the copy is now the plan you care about. The trunk knew
+       only "different lineage" and said so as a verdict.
+
+       Adopting is deliberate and it is a one-way door for THIS plan, so it asks
+       plainly and says what stops being true afterwards: the original keeps its
+       own lineage and stops being the one this trunk belongs to. */
+    /* ═══ SYNC SHOULD NOT BE A CHORE ════════════════════════════════════════
+       Asked, and it is the right question: "why do we have a push and pull
+       button, we just need to make sure everyone stays in sync — why not make
+       that automatic and painless."
+
+       Because the first version had to be RIGHT before it could be quiet. Every
+       piece it needs was built for the manual buttons: a chain that can say
+       ahead, behind, diverged or the same; a merge that separates fields THEY
+       moved from fields WE BOTH moved; a push that refuses to append onto a
+       history it cannot see itself in. With those, "automatic" is a policy on
+       top rather than a new mechanism, and the policy is short:
+
+         TAKE what is unambiguous. Behind, or diverged with nothing contested —
+         that is the common case by design, and it is exactly what the manual
+         path already applies without asking.
+
+         SEND what is finished. When the plan has moved and settled, and we are
+         not behind.
+
+         NEVER decide a disagreement. One contested field and the loop stops and
+         says so. A machine picking between two people's edits, unattended, is
+         the one thing this must not do — losing somebody's work quietly is
+         worse than any amount of button pressing.
+
+       Three guards that are not optional:
+
+         · only while the tab is VISIBLE. A background tab writing to a shared
+           file is a race nobody can see happening.
+         · never while a dialog or an inline editor is open. Hydrating the plan
+           under somebody's cursor discards what they were typing.
+         · a debounce after the last edit, so a push is a thought that finished
+           rather than a keystroke.
+
+       The buttons stay. Automatic is a default, not a removal — and when the
+       loop stops for a conflict, the buttons are what you reach for. */
+    const TRUNK_POLL_MS = 15000;
+    const TRUNK_QUIET_MS = 6000;      // a push is a thought that finished
+    let trunkAuto = true, trunkTimer = null, trunkLastLocal = 0, trunkPaused = '';
+    function trunkAutoSet(on) {
+      trunkAuto = !!on;
+      try { localStorage.setItem('pertGantt.trunkAuto', trunkAuto ? '1' : '0'); } catch (e) {}
+      trunkPaused = '';
+      updateTrunkBtn();
+      if (trunkAuto) { trunkAutoStart(); flashSaved('🔄 Keeping in step with the trunk automatically'); }
+      else { clearInterval(trunkTimer); trunkTimer = null; flashSaved('Automatic sync off — Pull and Push by hand'); }
+    }
+    function trunkAutoStart() {
+      clearInterval(trunkTimer);
+      if (!trunkHandle || !trunkAuto) return;
+      trunkTimer = setInterval(trunkAutoTick, TRUNK_POLL_MS);
+    }
+    /* Any edit that reaches storage is an edit; saveLocal is the one funnel
+       every one of them already goes through, so nothing has to remember to
+       report itself here. */
+    function trunkNoteLocalEdit() { trunkLastLocal = Date.now(); }
+    function trunkBusyEditing() {
+      if (document.querySelector('.modal-overlay.open')) return true;
+      const a = document.activeElement;
+      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'
+        || a.isContentEditable)) return true;
+      return false;
+    }
+    async function trunkAutoTick() {
+      if (!trunkAuto || !trunkHandle || trunkBusy) return;
+      if (document.hidden) return;                 // never from a tab nobody is looking at
+      if (trunkPaused) return;                     // a conflict is waiting for a person
+      if (trunkBusyEditing()) return;
+      let t = null;
+      try { t = await trunkRead(trunkHandle); } catch (e) {
+        /* A dropped permission is not a sync failure to shout about on a timer.
+           It stops the loop and says so once; the buttons ask for it back. */
+        trunkPaused = 'permission';
+        updateTrunkBtn();
+        return;
+      }
+      if (!t) return;
+      const rel = trunkRelation(t);
+      if (rel.relation === 'fork' || rel.relation === 'unrelated' || rel.relation === 'notatrunk') {
+        trunkPaused = 'lineage'; updateTrunkBtn(); return;
+      }
+      if (rel.relation === 'behind') { await trunkPull(true); trunkAutoStart(); return; }
+      if (rel.relation === 'diverged') {
+        const tip = trunkTip(t);
+        const r = tip && tip.doc ? mergeCompute(tip.doc) : null;
+        const clean = r && !r.noBase && !(r.conflicts || []).length && !(r.collisions || []).length;
+        if (!clean) {
+          /* THE ONE CASE A MACHINE MUST NOT DECIDE. */
+          trunkPaused = 'conflict';
+          updateTrunkBtn();
+          flashSaved('⚠ Somebody changed the same fields you did — automatic sync stopped. Press Pull to review it.');
+          return;
+        }
+        await trunkPull(true);
+        trunkAutoStart();
+        return;
+      }
+      if (rel.relation === 'ahead' || rel.relation === 'same') {
+        /* Send only what has settled. `same` still needs the check: the plan can
+           have moved since the last version was filed, and trunkEnsureTip mints
+           one at push time. */
+        if (!trunkLastLocal || Date.now() - trunkLastLocal < TRUNK_QUIET_MS) return;
+        const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
+        const moved = !last || JSON.stringify(last.snap) !== JSON.stringify(snapshotPlan());
+        if (rel.relation === 'ahead' || moved) { trunkLastLocal = 0; await trunkPush(true); trunkAutoStart(); }
+      }
+    }
+    async function trunkAdoptFork(t) {
+      const nm = (t && t.name) ? '"' + t.name + '"' : 'that trunk';
+      if (!confirm('This plan is a COPY of the engagement in ' + nm + '.\n\nDuplicating a project splits it '
+        + 'off deliberately — two plans in one browser must not be one engagement — which is why the trunk '
+        + 'will not take it.\n\nMake THIS plan the one that syncs with that trunk?\n\nIt adopts the trunk\'s '
+        + 'history, so everything already in it becomes part of this plan\'s past. The project you copied FROM '
+        + 'keeps its own lineage and is no longer the one this trunk belongs to.')) return false;
+      planLineage = t.lineage;
+      planForkedFrom = '';
+      const took = adoptVersions((t.log || []));
+      saveLocal();
+      flashSaved('🌳 Adopted the trunk\'s lineage' + (took ? ' and ' + took + ' version' + (took === 1 ? '' : 's') : '')
+        + ' — Pull and Push work from here');
+      return true;
     }
     async function trunkPull(quiet) {
       if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
@@ -6567,7 +6763,12 @@ Or say what you want, in your own words:
         const rel = trunkRelation(t);
         if (rel.relation === 'same') { flashSaved('✓ In step with the trunk' + (chk.ok ? '' : ' — but it has ' + chk.gaps.length + ' gap(s), see Connect')); return; }
         if (rel.relation === 'ahead') { flashSaved('You are ' + rel.ahead + ' ahead of the trunk — push to share it'); return; }
-        if (rel.relation === 'unrelated') { alert('That trunk is a different engagement.'); return; }
+        if (rel.relation === 'fork') {
+          if (!(await trunkAdoptFork(t))) return;
+          return trunkPull(quiet);
+        }
+        if (rel.relation === 'unrelated') { alert('That trunk is a different engagement — nothing in its '
+          + 'history is anywhere in this plan\'s, so merging it would read every activity as an addition.'); return; }
         const tip = trunkTip(t);
         if (!tip || !tip.doc) {
           alert('The newest entry in the trunk has no plan attached — its payload was compacted away, which should '
@@ -6670,6 +6871,10 @@ Or say what you want, in your own words:
         if (!t) t = { _format: TRUNK_FORMAT, lineage: planLineageId(),
                       name: document.getElementById('projectName').value || 'Untitled', base: null, log: [] };
         const rel = trunkRelation(t);
+        if (rel.relation === 'fork') {
+          if (!(await trunkAdoptFork(t))) { trunkBusy = false; return; }
+          trunkBusy = false; return trunkPush(quiet);
+        }
         if (rel.relation === 'unrelated') { alert('That trunk is a different engagement — refusing to push onto it.'); return; }
         if (rel.relation === 'behind' || rel.relation === 'diverged') {
           alert('The trunk has moved on since you last pulled'
@@ -6736,6 +6941,34 @@ Or say what you want, in your own words:
           + 'new one, use Start a team trunk above.';
       const g = document.getElementById('trunkOps');
       if (g) g.style.display = trunkHandle ? '' : 'none';
+      /* THE LOOP HAS TO BE VISIBLE OR IT IS SPOOKY. Something that rewrites a
+         shared file on your behalf must say that it is on, what it last decided,
+         and how to stop it — otherwise the honest reaction to a plan that
+         changed by itself is to distrust the tool. */
+      const ab = document.getElementById('trunkAutoBtn');
+      if (ab) {
+        const paused = trunkPaused;
+        ab.textContent = !trunkAuto ? '⏸ Auto sync: off'
+          : paused === 'conflict' ? '⚠ Auto sync: paused, needs you'
+          : paused === 'permission' ? '⚠ Auto sync: waiting for permission'
+          : paused === 'lineage' ? '⚠ Auto sync: that trunk is another engagement'
+          : '🔄 Auto sync: on';
+        ab.style.color = paused ? 'var(--warn)' : 'var(--text)';
+        ab.title = !trunkAuto
+          ? 'Off. Pull and Push are the only way the trunk moves. Click to have it kept in step for you.'
+          : paused === 'conflict'
+            ? 'Somebody changed the same fields you did. Nothing has been applied and nothing will be until '
+              + 'you press Pull and decide — a machine choosing between two people\'s edits unattended is the '
+              + 'one thing this must never do.'
+          : paused === 'permission'
+            ? 'The browser dropped this page\'s permission to the file, which happens when the tab closes. '
+              + 'Press Pull or Push once and allow it.'
+          : paused === 'lineage'
+            ? 'The file in front of it belongs to a different engagement, so nothing is being taken from it.'
+          : 'Checks the trunk every ' + (TRUNK_POLL_MS / 1000) + 's while this tab is visible. Takes anything '
+            + 'newer when nothing is contested, and sends yours once it has settled. It stops and asks the '
+            + 'moment two people have changed the same field. Click to turn it off.';
+      }
     }
     async function setupDiskAutosave() {
       if (!window.showSaveFilePicker) { alert('Direct on-disk autosave needs Chrome or Edge. Everything is still saved in the browser database (no 5 MB limit) — and Export ▸ Download backup (.json) works everywhere for manual backups.'); return; }
@@ -6777,6 +7010,10 @@ Or say what you want, in your own words:
     async function restoreDiskHandle() {
       try { const h = await idbGet('disk.handle'); if (h && h.queryPermission) diskFileHandle = h; } catch (e) {}
       try { const th = await idbGet('trunk.handle'); if (th && th.queryPermission) trunkHandle = th; } catch (e) {}
+      try { trunkAuto = (localStorage.getItem('pertGantt.trunkAuto') || '1') === '1'; } catch (e) {}
+      /* NOT started here. A restored handle has no permission until somebody
+         presses something, so a loop begun on page load would spend its life
+         failing quietly. The first Pull or Push re-grants it and starts it. */
       updateDiskBtn(); updateTrunkBtn();
       // the watched file survives a reload too — the handle is stored beside this one
       try { if (typeof fsRestore === 'function') fsRestore(); } catch (e) {}
@@ -6889,7 +7126,11 @@ Or say what you want, in your own words:
         }).catch(() => {});
       }
     }
+    /* One funnel. Every edit in the product already lands here on its way to
+       storage, so the auto-sync loop learns about all of them without a single
+       call site being changed — and a new feature is covered the day it saves. */
     function saveLocal() {
+      try { trunkNoteLocalEdit(); } catch (e) {}
       try {
         const data = serialize();
         const json = JSON.stringify(data);
@@ -7001,7 +7242,7 @@ Or say what you want, in your own words:
         // the version chain travels with the plan. A history that lives only in
         // one browser session is not a history — the whole point of parenting
         // versions is that a later reader can walk back through them.
-        planVersions, nextVersionNo, planLineage: planLineageId(), signoffs, nextSignoffNo,
+        planVersions, nextVersionNo, planLineage: planLineageId(), planForkedFrom, signoffs, nextSignoffNo,
         collapsedIds: [...collapsedIds],
         tasks: tasks.map(t => ({
           id: t.id, name: t.name, o: t.o, m: t.m, p: t.p, milestone: t.milestone,
@@ -7220,6 +7461,7 @@ Or say what you want, in your own words:
          offered as a merge. Files written before this simply have none, and
          the relation reports 'unknown' rather than guessing. */
       planLineage = String(data.planLineage || '');
+      planForkedFrom = String(data.planForkedFrom || '');
       planVersions = Array.isArray(data.planVersions)
         ? data.planVersions.filter(x => x && x.snap && Number.isFinite(+x.v))
             .map(x => ({ v: +x.v, at: String(x.at || ''), kind: String(x.kind || 'snapshot'),
