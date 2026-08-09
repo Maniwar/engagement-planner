@@ -1921,13 +1921,37 @@ const SELECTED = (() => {
    own ability to fail is proven differently and better: it plants both defects
    it hunts into synthetic files on every run and requires itself to name them,
    so that proof happens on every commit rather than only under FULL=1. */
-const CHECKS = QUICK ? ['run-test-plan.js']
-  : ['run-test-plan.js', 'golden-reference.js', 'contradiction-sweep.js',
+/* ═══ EVERY SWEEP, NOT A LIST SOMEBODY REMEMBERED TO EXTEND ════════════════
+   This was a hardcoded array of twenty files. The commit gate globs
+   tests/*sweep*.js and therefore runs twenty-two, so two sweeps were in the
+   gate and invisible to the engine — and a check the engine never runs cannot
+   kill a mutant, which means SURVIVED meant "none of these twenty noticed"
+   while the output said "nothing in the suite noticed".
+
+   That is not a small difference. It was found the honest way: five survivors
+   from the full run were guarded by a new sweep, the five were re-run, and all
+   five survived again — because the file that guards them was not on the list.
+   A list maintained by hand drifts the moment somebody adds a file, and the
+   drift is silent and flatters the result.
+
+   So the list is DERIVED, the same way the gate derives its own, with the
+   tuned order kept in front: the entries below are ordered by how often they
+   are the killer, which is worth preserving, and anything on disk that is not
+   named here is appended rather than dropped. New sweep, covered that day. */
+const ORDERED = ['run-test-plan.js', 'golden-reference.js', 'contradiction-sweep.js',
      'schedule-sweep.js', 'drawn-surfaces-sweep.js', 'pricing-sweep.js',
-     'resourcing-sweep.js', 'persistence-sweep.js', 'export-sweep.js', 'undo-sweep.js', 'baseline-sweep.js', 'cross-surface-sweep.js', 'task-editor-sweep.js',
+     'resourcing-sweep.js', 'persistence-sweep.js', 'export-sweep.js', 'undo-sweep.js',
+     'baseline-sweep.js', 'cross-surface-sweep.js',
      'client-facing-sweep.js', 'dialog-sweep.js', 'chart-reconciliation-sweep.js',
      'bank-sweep.js', 'corrupt-file-sweep.js', 'dynamic-prose-sweep.js', 'navigation-sweep.js',
      'error-boundary-sweep.js', 'revenue-sweep.js'];
+const ON_DISK = (() => {
+  try { return fs.readdirSync(__dirname).filter(f => /sweep.*\.js$/.test(f)); }
+  catch (e) { return []; }
+})();
+const CHECKS = QUICK ? ['run-test-plan.js']
+  : ORDERED.filter(f => f === 'run-test-plan.js' || f === 'golden-reference.js' || ON_DISK.indexOf(f) >= 0)
+      .concat(ON_DISK.filter(f => ORDERED.indexOf(f) < 0));
 
 /* Which check is EXPECTED to notice. This is a running order, not a shortcut:
    if the named check does not go red the mutant still walks every other one, so

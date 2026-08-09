@@ -1,55 +1,54 @@
 {
- "at": "2026-08-07T20:08:23.508Z",
- "full": true,
+ "at": "2026-08-09T04:51:44.382Z",
+ "full": false,
  "ran": 5,
  "of": 340,
  "rows": [
   {
-   "what": "chart: the bars ship with no key, so the geometry is a guess",
-   "by": "drawn-surfaces-sweep.js",
+   "what": "revenue: a receipt leaks into actual cost, so CPI is computed on a mixed basis",
+   "by": "effort-basis-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "QA reference · Plan vs actual :: the bars carry no VISIBLE key, so a reader has to infer that the track is the plan and that the schedule bar is a different geo",
-    "Real export · Plan vs actual :: the bars carry no VISIBLE key, so a reader has to infer that the track is the plan and that the schedule bar is a different geom",
-    "3d open × 200% = 6d of work — Alice 100% + Bob 100%. More th",
-    "3.17d open × 200% = 6.33d of work — PMO 100% + A. Rivera 100"
+    "Actual cost :: recording a client RECEIPT of 37545 changed this activity's actual cost from 3600 to 37545. What the client paid you is not what the work cost yo",
+    "Actual cost :: actual cost is now exactly the amount the client paid, so cost has been replaced by revenue outright"
    ]
   },
   {
-   "what": "card: the Budget pair and its delta go back to different references",
-   "by": "run-test-plan.js",
-   "survived": false,
-   "skipped": false,
-   "findings": []
-  },
-  {
-   "what": "card: the Budget card paints the project red while the verdict does not",
-   "by": "run-test-plan.js",
+   "what": "effort: a lone part-time person keeps only units/100 of the time they logged",
+   "by": "effort-basis-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "The card and the Plan-truth bar colour one project one way"
+    "Logged effort :: one person is on this activity, at 20%, and they are credited with 0.2 of the time they logged. A lone participant's share is all of it whateve",
+    "Logged effort :: two people at equal allocations each carry half the logged time; this one carries 0.2. Shares are normalised against the team on the activity, "
    ]
   },
   {
-   "what": "effort: a roster role is cut off by its own box with the full text nowhere",
-   "by": "resourcing-sweep.js",
+   "what": "effort: actual cost multiplies logged time by the allocation a second time",
+   "by": "effort-basis-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Roster :: 6 role(s) are cut off by their own input and the full text is nowhere — not in the title, not anywhere on the row. A truncation is only honest when th",
-    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
-    " 📅 PMO — Jul 23, 2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Di"
+    "Actual cost :: four days were logged by somebody allocated 20% and the cost came back as 720 against a rate x days of 3600. The allocation has been applied to a"
    ]
   },
   {
-   "what": "plan vs actual: the Effort spent card totals spans",
-   "by": "run-test-plan.js",
+   "what": "effort: the estimate bank files a calendar span against logged work",
+   "by": "effort-basis-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "The Effort spent card compares work against work"
+    "Estimate bank :: the bank files 3.167 against this activity, which is its calendar SPAN. The work logged against it will be effort, so the bank would be compari"
+   ]
+  },
+  {
+   "what": "plan truth: the scope panel calls a sum of spans effort",
+   "by": "effort-basis-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "Plan truth :: the scope panel says the plan holds 45.1, which is the sum of the SPANS. The effort is 50.3. Adding spans across activities that run in parallel i"
    ]
   }
  ]
