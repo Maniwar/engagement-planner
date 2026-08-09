@@ -1182,6 +1182,92 @@ const { chromium } = requirePlaywright();
     if (out.bulkDeleted < 2) say4('bulk delete removed ' + out.bulkDeleted + ' entries');
     if (raid.some(r => /^ZZ /.test(r.title))) say4('bulk delete left some of the selected entries behind');
     setRaidTab('all');
+
+    /* ═══ SEVERITY IS THE AXIS, SO IT HAS TO BE READABLE AND RIGHT ════════
+       The score sat fourth across the row as a small pill, and three rows in
+       four showed an em-dash instead — the ranking axis of a risk log drawn as
+       the quietest mark on the line. It leads now, as an instrument.
+
+       Three things are checked, and only the first is about appearance:
+
+         · the number equals probability × impact. It is the one figure in this
+           log somebody quotes in a steering meeting, and a wrong one is worse
+           than none.
+         · BOTH FACTORS are on the row. 12 is 4×3 or 3×4 or 2×6, and which one
+           decides what you do — a near-certain nuisance and a remote
+           catastrophe score the same and want opposite responses. A bare 12 is
+           unarguable, which is the failure mode of every risk score anybody has
+           ever ignored.
+         · the band follows the thresholds rather than a colour. Asserted at
+           15 and at 8 by CLASS, not by hex, so a restyle does not go red and a
+           moved boundary does.
+
+       Entries planted with known factors instead of read off whatever the
+       fixture happens to hold, so the expected answer is arithmetic. */
+    (() => {
+      const keep = raid.slice();
+      raid.length = 0;
+      const own = Object.keys(resources || {})[0] || '';
+      const mk = (id, type, p, i, st) => ({ id: id, type: type, title: 'SEV probe ' + id,
+        probability: p, impact: i, owner: own, status: st, mitigation: 'x', links: [] });
+      raid.push(mk(8801, 'Risk', 5, 5, 'Open'));        // 25 → hot, and washed
+      raid.push(mk(8802, 'Risk', 4, 2, 'Open'));        //  8 → warm, the lower edge
+      raid.push(mk(8803, 'Issue', 3, 5, 'Open'));       // 15 → hot, the exact boundary
+      raid.push(mk(8804, 'Risk', 1, 5, 'Open'));        //  5 → cool
+      raid.push(mk(8805, 'Risk', 5, 5, 'Closed'));      // 25 but settled → no wash
+      raid.push(mk(8806, 'Decision', 3, 3, 'Closed'));  // not scored at all
+      setRaidTab('all'); setRaidQuery(''); renderRaid();
+      const rowOf = id => [...document.querySelectorAll('#raidContainer tbody tr')]
+        .find(tr => /SEV probe/.test(tr.textContent) && tr.textContent.indexOf('probe ' + id) >= 0);
+      const seen = {};
+      [[8801, 25, 'is-hot'], [8802, 8, 'is-warm'], [8803, 15, 'is-hot'], [8804, 5, 'is-cool']].forEach(([id, score, band]) => {
+        const tr = rowOf(id);
+        if (!tr) { say4('a planted entry did not render at all'); return; }
+        const sev = tr.querySelector('.rd-sev');
+        if (!sev) { say4('a risk scoring ' + score + ' has no severity mark on its row — the axis the whole '
+          + 'log is sorted on is not drawn'); return; }
+        const txt = sev.textContent.replace(/\s+/g, '');
+        seen[id] = txt + ' ' + sev.className;
+        if (txt.indexOf(String(score)) < 0)
+          say4('probability × impact is ' + score + ' and the row reads "' + txt + '" — this is the number '
+            + 'somebody quotes in a steering meeting');
+        const r = raid.find(x => x.id === id);
+        if (txt.indexOf(r.probability + '\u00d7' + r.impact) < 0)
+          say4('the row shows ' + score + ' without showing ' + r.probability + '\u00d7' + r.impact
+            + '. A bare score is unarguable: ' + score + ' can be a near-certain nuisance or a remote '
+            + 'catastrophe, and those want opposite responses');
+        if (!sev.classList.contains(band))
+          say4('a score of ' + score + ' is banded "' + sev.className + '" and should be ' + band
+            + ' — 15 and over acts now, 8 to 14 wants a written response, below that is watched');
+      });
+      out.severity = seen;
+      const hot = rowOf(8801), settled = rowOf(8805), dec = rowOf(8806);
+      if (hot && !hot.classList.contains('is-hot'))
+        say4('the worst entry in the log carries no row marking, so the top of the log is only findable by '
+          + 'reading it');
+      if (settled && settled.classList.contains('is-hot'))
+        say4('a CLOSED 25 is washed as though it still needed attention — a heat map that ignores status '
+          + 'points at work already done');
+      if (dec) {
+        if (dec.querySelector('.rd-sev'))
+          say4('a decision carries a probability × impact score. It was taken; it is not more or less likely');
+        const cell = dec.querySelector('.rd-sev-c');
+        const t = cell ? cell.textContent.trim() : '';
+        out.notScored = t;
+        if (/^[—–-]?$/.test(t))
+          say4('an unscored entry shows "' + t + '" in the severity column, which reads as missing data '
+            + 'rather than as the deliberate blank it is');
+      }
+      /* the rail is keyed to the kind, so five kinds are separable down one
+         edge without reading forty chips */
+      const rails = new Set([...document.querySelectorAll('#raidContainer tbody tr.rd-row')]
+        .map(tr => tr.getAttribute('data-rt')));
+      out.rails = [...rails].join(',');
+      if (rails.size < 3) say4('the rows carry ' + rails.size + ' distinct kind markers across a log holding '
+        + new Set(raid.map(r => r.type)).size + ' kinds');
+      raid.length = 0; keep.forEach(r => raid.push(r));
+      renderRaid();
+    })();
     return { contradictions: bad4, counts: out };
   });
   RD.contradictions.forEach(x => bad.push(x));

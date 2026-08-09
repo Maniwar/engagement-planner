@@ -1259,6 +1259,40 @@ const QA = JSON.parse(fs.readFileSync(
               + 'row\'s OWN duration, work and cost live, and nothing on it says the milestone itself is '
               + 'still zero. That is exactly the reading #84 exists to prevent');
 
+          /* ── EVERY FIGURE ON THE BAND SAYS WHAT IT IS ──────────────────
+             The done/total ratio shipped unlabelled beside three labelled
+             figures, and was read exactly as an unlabelled ratio deserves:
+             "milestones says 0/4 activities, but it looks like more". The
+             count was right — the four are the ones that CHAIN into the gate,
+             not everything printed above it — but neither the number nor its
+             hover could be checked against the plan.
+
+             So: no bare figure, and the ratio's tooltip has to NAME what it
+             counted. A count you cannot audit is a count you argue with. */
+          const figs = [...band.querySelectorAll('.ms-gf')];
+          out.gateFigs = figs.length;
+          const unlabelled = figs.filter(g => !g.querySelector('i') || !g.querySelector('i').textContent.trim());
+          if (unlabelled.length)
+            say('Gate band', unlabelled.length + ' figure(s) on the band carry no word saying what they are. '
+              + 'Beside labelled neighbours an unlabelled number reads as a different kind of thing — this is '
+              + 'how "0/4" became a question about whether the gate was wrong');
+          const ratio = figs.find(g => /^\d+\/\d+$/.test((g.querySelector('b') || {}).textContent || ''));
+          if (!ratio)
+            say('Gate band', 'the band never says how many of the activities behind the gate are finished, '
+              + 'which is the only figure on it that changes as the work is done');
+          else {
+            const tip2 = ratio.getAttribute('title') || '';
+            const anyName = [...leaves.values()].some(x => tip2.indexOf(x.name) >= 0);
+            out.gateNames = tip2.split('\n').length;
+            if (!anyName)
+              say('Gate band', 'the finished-count names none of the activities it counted, so a reader who '
+                + 'thinks the number looks wrong has no way to check it. It reads: "' + tip2.slice(0, 90) + '"');
+            if (!/depend|chain|lead|link/i.test(tip2))
+              say('Gate band', 'the finished-count never says that it follows DEPENDENCY links rather than '
+                + 'position in the list — which is the whole reason a plausible-looking activity sitting above '
+                + 'the gate is not in the count');
+          }
+
           /* ── and it must not be said twice ─────────────────────────────── */
           const nameCell = tr.querySelector('td[data-name-id]');
           if (nameCell && nameCell.querySelector('.ms-reach'))

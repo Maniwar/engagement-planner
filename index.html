@@ -701,6 +701,103 @@
     .pv-slip-early { border-radius: 4px 0 0 4px; background: var(--success); }
     @media print { .pv-fill, .pv-over, .pv-slip { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 
+    /* ═══ THE RAID LOG ═══════════════════════════════════════════════════
+       A LEFT RAIL, so the five kinds are separable before a word is read. The
+       type chip already carries the colour; a rail repeats it at the edge of
+       the row, which is what lets you find every exclusion in a log of forty by
+       running your eye down one line instead of reading forty chips. */
+    .rd-row > td:first-child { box-shadow: inset 3px 0 0 var(--rail, transparent); }
+    .rd-row[data-rt="Risk"]       { --rail: #f59e0b; }
+    .rd-row[data-rt="Issue"]      { --rail: #dc2626; }
+    .rd-row[data-rt="Assumption"] { --rail: #6366f1; }
+    .rd-row[data-rt="Decision"]   { --rail: #16a34a; }
+    .rd-row[data-rt="Exclusion"]  { --rail: #94a3b8; }
+    .rd-row.is-closed { opacity: 0.55; }
+    /* Only 15-and-over, and only while it is still open. A heat map where every
+       row is warm is a background colour, not a reading. */
+    /* A FLAT TINT, not a gradient. Each <td> paints its own background, so a
+       left-to-right gradient restarted in every cell and the row came out
+       striped — the fade looked deliberate at the first column and like a
+       rendering fault by the fourth. */
+    .rd-row.is-hot > td { background: #fff6f6; }
+    /* ── the severity instrument ──────────────────────────────────────────
+       Number, track, factors — stacked, so the column is narrow and the three
+       readings are one object. Tabular numerals because a column of scores is
+       compared vertically. */
+    td.rd-sev-c { width: 74px; text-align: center; vertical-align: middle; }
+    .rd-sev { display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 3px 7px 4px; border-radius: 9px; cursor: help; min-width: 52px;
+      border: 1px solid var(--sv-b); background: var(--sv-bg); }
+    .rd-sev > b { font-size: 1.02rem; font-weight: 800; line-height: 1; color: var(--sv-fg);
+      font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    /* Wider and taller than the first attempt, which drew three lit pips at
+       6×3 and read as an ellipsis — a track has to look like a track or it is
+       just punctuation under a number. */
+    .rd-seg { display: inline-flex; gap: 2px; }
+    .rd-seg > i { width: 7px; height: 5px; border-radius: 1.5px; background: var(--sv-tr);
+      box-shadow: inset 0 0 0 1px rgb(15 23 42 / .05); }
+    .rd-seg > i.on { background: var(--sv-fg); box-shadow: none; }
+    .rd-pxi { font-size: 0.6rem; font-weight: 700; color: var(--sv-fg); opacity: .75;
+      font-variant-numeric: tabular-nums; }
+    .rd-pxi > em { font-style: normal; opacity: .55; margin: 0 1px; }
+    .rd-sev.is-hot  { --sv-bg: #fee2e2; --sv-b: #fca5a5; --sv-fg: #b91c1c; --sv-tr: #fbcfcf; }
+    .rd-sev.is-warm { --sv-bg: #fef3c7; --sv-b: #fcd34d; --sv-fg: #b45309; --sv-tr: #fae4ad; }
+    .rd-sev.is-cool { --sv-bg: #dcfce7; --sv-b: #86efac; --sv-fg: #15803d; --sv-tr: #bbf7d0; }
+    /* "not scored" rather than an em-dash. A dash in a numeric column reads as
+       missing data, and this is a deliberate blank: the reader should learn the
+       rule once and stop wondering. */
+    .rd-nosev { font-size: 0.62rem; color: var(--slack); cursor: help; font-style: italic;
+      white-space: nowrap; }
+    /* ── the entry block: type, title, analysis, links ────────────────────── */
+    /* Widths, because dropping two columns handed the slack to whichever cell
+       happened to be widest — the owner column ended up 190px of air with an
+       avatar at one end and a name at the other. The entry block is the one
+       that should get the room. */
+    td.rd-entry, th.rd-entry-h { max-width: 34rem; min-width: 18rem; }
+    /* text-align:left explicitly. The person block is a flex row, so the avatar
+       sat correctly at the left while the name and role — both plain blocks —
+       centred themselves over it under the table's inherited alignment, leaving
+       a gap in the middle of every owner cell. */
+    .rd-own, td.rd-own { width: 12.5rem; text-align: left; }
+    .rd-resp, td.rd-resp { width: 20rem; }
+    .rd-stat, td.rd-stat { width: 7.5rem; }
+    .rd-out, td.rd-out { width: 11rem; }
+    /* Chip and tense side by side HERE ONLY. Stacked, they cost the entry
+       block a whole line before the title, which is the line the row height is
+       made of; the form and the SOW keep the stacked version where vertical
+       room is not the scarce thing. */
+    .rd-entry > .raid-kind-cell { flex-direction: row; align-items: baseline; gap: 0.35rem;
+      margin-bottom: 1px; }
+    .rd-title { font-weight: 650; line-height: 1.3; }
+    .rd-links { margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;
+      font-size: var(--t-xs); }
+    .rd-links:empty { display: none; }
+    /* ── a status is a state, not a form field ────────────────────────────
+       These were two native <select>s per row, which on a log of twenty is
+       forty chrome-drawn dropdowns and reads as a data-entry screen rather than
+       a log you look at. Same element, same handler, same keyboard behaviour —
+       drawn as a chip that carries its own value in colour, with the caret kept
+       so it still says "this opens". */
+    select.rd-sel { appearance: none; -webkit-appearance: none; border-radius: 999px;
+      font-size: var(--t-xs); font-weight: 700; padding: 2px 1.15rem 2px 0.5rem; height: auto;
+      border: 1px solid var(--sl-b, var(--border)); background-color: var(--sl-bg, #f8fafc);
+      color: var(--sl-fg, var(--text)); cursor: pointer; line-height: 1.5;
+      background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position: right 0.52rem center, right 0.38rem center;
+      background-size: 4px 4px, 4px 4px; background-repeat: no-repeat; }
+    select.rd-sel:hover { filter: brightness(0.97); }
+    select.rd-sel:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+    .rd-st-open       { --sl-bg: #fef3c7; --sl-b: #fcd34d; --sl-fg: #92400e; }
+    .rd-st-mitigating { --sl-bg: #dbeafe; --sl-b: #bfdbfe; --sl-fg: #1d4ed8; }
+    .rd-st-closed     { --sl-bg: #f1f5f9; --sl-b: #e2e8f0; --sl-fg: #475569; }
+    /* An outcome that TURNED is the one that explains a number somewhere else
+       in this product, so it is the one worth a colour. Not-recorded stays
+       deliberately plain: it is an absence, and dressing it up would make an
+       unanswered question look answered. */
+    .rd-turned { --sl-bg: #fee2e2; --sl-b: #fca5a5; --sl-fg: #b91c1c; }
+    .rd-didnt  { --sl-bg: #dcfce7; --sl-b: #bbf7d0; --sl-fg: #15803d; }
+    .rd-unrec  { --sl-bg: #fff; --sl-b: var(--border); --sl-fg: var(--muted); font-weight: 500; }
     .raid-sub { font-weight: 400; font-size: var(--t-xs); color: var(--muted); margin-top: 0.15rem;
       line-height: 1.35; }
     .raid-sub-k { text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.62rem;
@@ -4634,7 +4731,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0031</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0045</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -12256,6 +12353,59 @@ Or say what you want, in your own words:
         + 'behind it and it is display only — it never enters the schedule, the critical path or the '
         + 'price, all of which already count these same activities once each.';
     }
+    /* WHICH activities, by name. A count can only be checked against the plan
+       if you can see what it counted, and "4" against a list where five things
+       sit above the gate is unfalsifiable from the outside.
+
+       The distinction that closes it: this follows DEPENDENCY LINKS, not
+       position in the list. An activity printed above a milestone is not
+       upstream of it unless something chains it there, so a task hanging off
+       the side of the network — the usual case, and the one with visible slack
+       — is correctly not counted, and now says so instead of leaving the reader
+       to wonder whether the gate or the number is wrong. */
+    function milestoneReachWho(t) {
+      const r = milestoneReach(t);
+      if (!r || !r.n) return 'Nothing feeds this gate yet.';
+      const byId = {}; tasks.forEach(x => { byId[x.id] = x; });
+      const seen = new Set(), found = [];
+      let doneN = 0;
+      const take = x => { if (!x || x.milestone || x.isSummary || seen.has(x.id)) return;
+        seen.add(x.id);
+        const fin = (Number(x.percentComplete) || 0) >= 100;
+        if (fin) doneN++;
+        found.push({ wbs: String(x.wbs || ''), fin: fin,
+          line: (fin ? '\u2713 ' : '\u00b7 ') + (x.wbs ? x.wbs + ' ' : '') + x.name }); };
+      const walked = new Set();
+      const walk = id => {
+        if (walked.has(id)) return;
+        walked.add(id);
+        const x = byId[id]; if (!x) return;
+        if (x.isSummary) leafDescendants(x.id).forEach(k => { take(k); (k.predecessors || []).forEach(q => walk(q.id)); });
+        else take(x);
+        (x.predecessors || []).forEach(q => walk(q.id));
+      };
+      (t.predecessors || []).forEach(q => walk(q.id));
+      /* IN PLAN ORDER. The walk comes out depth-first from the gate backwards,
+         which is the order the graph was traversed and no order a reader has —
+         "3.4, 3.3.3, 3.3.2.10, 2.1, 1.2" reads as a shuffle. Sorted by WBS, the
+         list reads like the plan does and can be checked against it line by
+         line, which is the entire job of naming them. */
+      const seg = w => w.split('.').map(x => parseInt(x, 10) || 0);
+      found.sort((a, b) => {
+        const A = seg(a.wbs), B = seg(b.wbs);
+        for (let i = 0; i < Math.max(A.length, B.length); i++) {
+          if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) - (B[i] || 0);
+        }
+        return a.line.localeCompare(b.line);
+      });
+      const names = found.map(x => x.line);
+      const show = names.slice(0, 12);
+      return doneN + ' of ' + names.length + ' finished.\n\n' + show.join('\n')
+        + (names.length > show.length ? '\n… and ' + (names.length - show.length) + ' more' : '')
+        + '\n\nThese are the activities that lead INTO the gate through the dependency links, not '
+        + 'everything printed above it. An activity with slack, hanging off the side of the network, is '
+        + 'not counted here — nothing waits on it to reach this gate.';
+    }
     /* The compact form for the row: elapsed, work, money, progress. */
     function milestoneReachChips(t) {
       const r = milestoneReach(t);
@@ -12379,7 +12529,15 @@ Or say what you want, in your own words:
             + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies') + '. This is effort in the plan\'s unit, '
             + 'which is a different quantity from the elapsed span beside it.')
         + f('cost', fmtMoney(r.cost), fmtMoney(r.cost) + ' of planned cost behind this gate')
-        + '<span class="ms-gn" title="' + escapeHtml(ringTip) + '">' + r.done + '/' + r.n + '</span>'
+        /* LABELLED, like the three beside it. It shipped as a bare "0/4" and was
+           read as "0 of 4" of something unnamed — reported as "milestones says
+           0/4 activities, but it looks like more", which is the right question
+           to ask of an unlabelled ratio sitting next to three labelled ones.
+           The word says which of the two numbers is which, and the tooltip
+           NAMES the activities, because the reason the count looks low is
+           almost always that something sitting above the gate in the list does
+           not actually lead into it. */
+        + f('done', r.done + '/' + r.n, milestoneReachWho(t))
         + '</span>');
     }
     function plannedEffortUnit(t, useBaseline) {
@@ -29691,6 +29849,56 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
       return `<span class="risk-tag" style="background:${col[0]};color:${col[1]}" title="${escapeHtml(
         'Probability ' + p + ' × impact ' + i + ' = ' + score + ' (max 25) — ' + band + '. Both are 1–5; edit them on this entry.')}">${score}</span>`;
     }
+    /* ═══ SEVERITY AS AN INSTRUMENT ═════════════════════════════════════════
+       The score was a small pill reading "12", fourth across the row, and three
+       rows out of four showed an em-dash instead. That is the ranking axis of a
+       risk log rendered as the quietest mark on the line.
+
+       A number out of nowhere is also unarguable. 12 is 4×3 or 3×4 or 2×6, and
+       which one it is decides what you DO — a near-certain nuisance and a
+       remote catastrophe score the same and want opposite responses. So the two
+       factors are on the row rather than in a tooltip, and the five-segment
+       track shows where 12 sits on a scale that stops at 25, which no bare
+       number can say.
+
+       Only risks and issues carry it. The others are not unscored by oversight:
+       a decision is not more or less likely, it was taken. That cell says so
+       instead of showing a dash that looks like missing data. */
+    function raidSeverityCell(r) {
+      if (r.type !== 'Risk' && r.type !== 'Issue') {
+        return '<span class="rd-nosev" title="' + escapeHtml('Probability × impact only scores things that '
+          + 'might still cost you something. An assumption, a decision and an exclusion are not scored — a '
+          + 'decision is not more or less likely, it was taken.') + '">not scored</span>';
+      }
+      const p = Math.max(1, Math.min(5, r.probability || 3));
+      const i = Math.max(1, Math.min(5, r.impact || 3));
+      const score = p * i;
+      const band = score >= 15 ? 'hot' : score >= 8 ? 'warm' : 'cool';
+      const say = score >= 15 ? 'top of the log — act now'
+        : score >= 8 ? 'worth a written response' : 'watch it';
+      const tip = 'Probability ' + p + ' × impact ' + i + ' = ' + score + ' out of 25 — ' + say
+        + '.\n\nBoth are 1–5 and both are edited on the entry. The two factors are shown because the '
+        + 'product hides them: a near-certain nuisance and a remote catastrophe can both score 12 and want '
+        + 'opposite responses.';
+      /* Five segments, filled to the band the score falls in. A track that stops
+         at 25 is the thing a bare number cannot say. */
+      const lit = Math.max(1, Math.ceil(score / 5));
+      let seg = '';
+      for (let k = 1; k <= 5; k++) seg += '<i' + (k <= lit ? ' class="on"' : '') + '></i>';
+      return '<span class="rd-sev is-' + band + '" title="' + escapeHtml(tip) + '">'
+        + '<b>' + score + '</b>'
+        + '<span class="rd-seg" aria-hidden="true">' + seg + '</span>'
+        + '<span class="rd-pxi">' + p + '<em>×</em>' + i + '</span>'
+        + '</span>';
+    }
+    /* The top of the log should be findable without reading it. Only the band
+       that says "act now" gets a row wash — a heat map where every row is warm
+       is a background colour, not a reading. */
+    function raidHeat(r) {
+      if (r.type !== 'Risk' && r.type !== 'Issue') return '';
+      if (r.status === 'Closed') return '';
+      return ((r.probability || 3) * (r.impact || 3)) >= 15 ? ' is-hot' : '';
+    }
     /* WHAT THE WORD MEANS, IN THE ROW. Five identical grey pills were a legend
        nobody had: the definitions lived in the column header's tooltip, which is
        exactly where a client reading the log will not look, and the five kinds
@@ -29990,19 +30198,34 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
       const rows = vis.slice().sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9) || ((b.probability * b.impact) - (a.probability * a.impact))).map(r => {
         const t = r.taskId ? tasks.find(x => x.id === r.taskId) : null;
         const closed = r.status === 'Closed';
-        return `<tr style="${closed ? 'opacity:0.55' : ''}">
+        /* ═══ ONE ENTRY, ONE BLOCK ══════════════════════════════════════════
+           The log had ten columns, and the three that describe WHAT AN ENTRY IS
+           — its type, its title, and the work it is about — were spread across
+           three of them with the score wedged in between. So a reader assembling
+           one entry read left, right, back left. Type and links fold into the
+           title cell, which is where they were always about to be read anyway,
+           and the column count drops from ten to eight.
+
+           SEVERITY LEADS. This is a risk log: probability × impact is the axis
+           the whole thing is sorted on, and it sat fourth as a small pill. It is
+           the first thing after the checkbox now, and it is drawn as an
+           instrument rather than a number. */
+        return `<tr class="rd-row${closed ? ' is-closed' : ''}${raidHeat(r)}" data-rt="${escapeHtml(String(r.type || ''))}">
           <td style="width:26px"><input type="checkbox" ${raidSel.has(r.id) ? 'checked' : ''} onchange="raidToggleSel(${r.id}, this.checked)" aria-label="Select entry" /></td>
-          <td>${raidTypeChip(r)}</td>
-          <td style="font-weight:600">${escapeHtml(r.title)}${raidTitleSubHtml(r)}</td>
-          <td>${raidScoreBadge(r)}</td>
-          <td style="font-size:0.8rem">${personCell(r.owner)}</td>
-          <td style="font-size:0.8rem">${raidLinkChips(r, false)}</td>
+          <td class="rd-sev-c">${raidSeverityCell(r)}</td>
+          <td class="rd-entry">
+            ${raidTypeChip(r)}
+            <div class="rd-title">${escapeHtml(r.title)}</div>
+            ${raidTitleSubHtml(r)}
+            <div class="rd-links">${raidLinkChips(r, false)}</div>
+          </td>
+          <td class="rd-own" style="font-size:0.8rem">${personCell(r.owner)}</td>
           ${/* A BLANK HERE IS THE POINT OF THE COLUMN. An open risk with nothing
                 written in it is the entry that most needs attention, and it
                 rendered as the emptiest cell on the row — indistinguishable
                 from a decision, which legitimately has none. Named, and only
                 for the kinds that are supposed to carry a plan. */''}
-          <td style="font-size:0.8rem;max-width:300px">${r.mitigation
+          <td class="rd-resp" style="font-size:0.8rem">${r.mitigation
             ? escapeHtml(r.mitigation)
             : (r.type === 'Risk' || r.type === 'Issue') && !closed
               ? `<button type="button" class="io-flag rd-plan" onclick="aiBrainstormMitigations(${r.id})" title="${escapeHtml(
@@ -30010,11 +30233,11 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
                   + 'exists to hold. Click to have the AI draft one for THIS entry: what will be done, which lever it pulls, '
                   + 'and the signal to watch for. Nothing you wrote is ever replaced.')}">✨ no plan yet</button>`
               : '<span class="help-text">—</span>'}</td>
-          <td>${r.type === 'Exclusion'
+          <td class="rd-stat">${r.type === 'Exclusion'
             ? `<span class="help-text" title="An exclusion is a boundary, not something anybody works down. It has no lifecycle: it either prints in the SOW\u2019s Out of Scope section or it is deleted.">in the SOW</span>`
-            : `<select class="mini-inp" style="width:auto" onchange="setRaidStatus(${r.id}, this.value)"${raidStatusOf(r.status) ? '' : ` title="Stored status is “${escapeHtml(String(r.status || ''))}”, which this log does not recognise — pick one of the three to fix it."`}>
+            : `<select class="mini-inp rd-sel rd-st-${escapeHtml(String(r.status || 'x').toLowerCase())}" style="width:auto" onchange="setRaidStatus(${r.id}, this.value)"${raidStatusOf(r.status) ? '' : ` title="Stored status is “${escapeHtml(String(r.status || ''))}”, which this log does not recognise — pick one of the three to fix it."`}>
             ${(raidStatusOf(r.status) ? '' : `<option selected>${escapeHtml(String(r.status || '(blank)'))}</option>`)}${RAID_STATUSES.map(st => `<option ${st === r.status ? 'selected' : ''}>${st}</option>`).join('')}</select>`}</td>
-          <td>${raidOutcomeCell(r)}</td>
+          <td class="rd-out">${raidOutcomeCell(r)}</td>
           <td style="white-space:nowrap">
             <button class="btn-sm btn-secondary" onclick="openRaidForm(${r.id})">Edit</button>
             <button class="btn-sm btn-danger" onclick="deleteRaidEntry(${r.id})" aria-label="Delete RAID entry">✕</button>
@@ -30058,7 +30281,7 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
         </div>
         ${vis.length ? '' : '<p class="help-text">Nothing matches this filter. ' + raid.length + ' entr' + (raid.length === 1 ? 'y' : 'ies') + ' in the log.</p>'}
         <div class="table-wrap"><table>
-        <thead><tr><th style="width:26px"><input type="checkbox" ${allVisSelected ? 'checked' : ''} onchange="raidSelectAllVisible(this.checked)" title="Select everything this filter shows" aria-label="Select all shown" /></th><th title="Risk (might happen) · Assumption (planning on it) · Issue (happening now) · Decision · Exclusion (out of scope — feeds the SOW)">Type</th><th>Title</th><th title="Probability × Impact (1–5 each). 15+ red = act now">Score</th><th>Owner</th><th title="Linked plan task, if any">Task</th><th>Mitigation / detail</th><th title="Open → Mitigating → Closed. How much attention it still needs, not how it turned out.">Status</th><th title="How it TURNED OUT, which status cannot say: “Closed” reads the same whether a risk never happened or happened and was handled, and whether a decision still stands or was reversed. Only an entry that turned is shown as the cause of a number.">How it turned out</th><th></th></tr></thead>
+        <thead><tr><th style="width:26px"><input type="checkbox" ${allVisSelected ? 'checked' : ''} onchange="raidSelectAllVisible(this.checked)" title="Select everything this filter shows" aria-label="Select all shown" /></th><th title="Probability × Impact, 1–5 each. 15+ acts now, 8–14 wants a written response, below that is watched. Only risks and issues are scored — a decision is not more or less likely, it was taken.">Severity</th><th class="rd-entry-h" title="What it is, what it says, and the work it is about. Risk (might happen) · Issue (happening now) · Assumption (relied on) · Decision (settled) · Exclusion (out of scope — feeds the SOW)">Entry</th><th class="rd-own">Owner</th><th class="rd-resp">Response / detail</th><th class="rd-stat" title="Open → Mitigating → Closed. How much attention it still needs, not how it turned out.">Status</th><th class="rd-out" title="How it TURNED OUT, which status cannot say: “Closed” reads the same whether a risk never happened or happened and was handled, and whether a decision still stands or was reversed. Only an entry that turned is shown as the cause of a number.">How it turned out</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>`;
       renderRaidBulkBar();
       renderPricing();
@@ -30103,7 +30326,8 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
             + r.id + ')" title="' + escapeHtml('This turned, so it is now a live problem. Draft the Issue it became, '
             + 'linked back to this entry and to everything this entry touches.') + '">Raise the issue</button>'
         : '';
-      return '<select class="mini-inp" style="width:auto" onchange="setRaidOutcome(' + r.id + ', this.value)"'
+      return '<select class="mini-inp rd-sel' + (cur ? (cur.explains ? ' rd-turned' : ' rd-didnt') : ' rd-unrec')
+        + '" style="width:auto" onchange="setRaidOutcome(' + r.id + ', this.value)"'
         + (cur ? '' : ' title="' + escapeHtml('Nobody has recorded whether this turned. Until somebody does it is '
             + 'shown as watched, never as the reason a number moved.') + '"')
         + '><option value=""' + (cur ? '' : ' selected') + '>Not recorded</option>'
