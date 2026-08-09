@@ -34,7 +34,21 @@ const { AUDIT } = require('./geometry-lib.js');
     ['crushed',  '<table style="table-layout:fixed;width:14px"><tr><td style="width:10px;overflow:hidden">A. Rivera</td></tr></table>'],
     ['overhang', '<div class="table-wrap" style="overflow:visible;width:200px"><table style="width:900px"><tr><td>x</td></tr></table></div>'],
     ['page',     '<div style="width:3000px;height:4px"></div>'],
-    ['truncated','<div style="width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Signed-off scope confirmation note from the CEO</div>']
+    ['truncated','<div style="width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Signed-off scope confirmation note from the CEO</div>'],
+    /* The two shapes the probe was blind to until a person found one by hand.
+       ESCAPES is the roster's company picker exactly: an inline width larger
+       than the cell that was supposed to bound it, which no question about
+       clipping, crushing or trapping can see because the box is not too small
+       for its content — it is too big for its container. */
+    ['escapes',  '<table style="table-layout:fixed;width:120px"><tr><td style="width:60px">'
+               + '<select style="width:150px"><option>— none —</option></select></td></tr></table>'],
+    /* COLLIDE is what that overflow then does: lands on the control in the next
+       column, so a click aimed at one opens the other. Two cells, because
+       controls overlapping INSIDE one field are a composition somebody chose
+       and reporting those produced 22 findings and no defects. */
+    ['collide',  '<table style="table-layout:fixed;width:200px"><tr>'
+               + '<td style="width:60px"><select style="width:150px"><option>— none —</option></select></td>'
+               + '<td style="width:60px"><input value="100"></td></tr></table>']
   ];
   const res = {};
   for (const [kind, html] of cases) {

@@ -61,7 +61,12 @@ const { AUDIT } = require('./geometry-lib.js');
      answer to long free text, and a probe that reddens a commit over one is a
      probe people start passing --no-verify around. It is printed so a person can
      judge whether a column is doing its job, and that judgement stays theirs. */
-  const HARD = ['clipped', 'crushed', 'overhang', 'trapped', 'page', 'threw'];
+  /* escapes and collide are HARD. A control wider than the cell meant to bound
+     it, or one covering another control across a column boundary, is not a
+     matter of taste like an ellipsis — it is a click landing on the wrong
+     thing, which is how the roster's company picker came to open a company
+     list when somebody aimed at the capacity figure beside it. */
+  const HARD = ['clipped', 'crushed', 'overhang', 'trapped', 'page', 'threw', 'escapes', 'collide'];
   const byKind = {};
   findings.forEach(f => { (byKind[f.kind] = byKind[f.kind] || []).push(f); });
   console.log('=== ' + findings.length + ' finding(s) ===');
