@@ -427,6 +427,34 @@ function serveApp() {
       else if (kin.relation !== 'kin')
         bad.push('Kinship :: a shared-history trunk under a foreign stamp reports "' + kin.relation
           + '", which is neither the refusal nor the offer to reconcile');
+      /* ═══ SAME LINEAGE, NO SHARED VERSION ═══════════════════════════════
+         The state a person actually hit, reproduced exactly: both sides carry
+         the SAME lineage and neither holds a version the other has. That is
+         what copying a project produces once each copy has saved — and it was
+         answered with "belongs to a different engagement", contradicting the
+         lineage the same dialog printed two lines above.
+
+         Two copies of one engagement are joinable. Refusing is the one answer
+         that is wrong, so this asserts the verdict is neither the refusal nor
+         a silent merge, but the offer to join. */
+      planLineage = 'L-shared-stamp';
+      const twin = { _format: TRUNK_FORMAT, lineage: 'L-shared-stamp', name: 'VenesaCRM (copy)',
+                     base: null, log: [{ vid: 'v-theirs-only', pvid: null, by: 'w2', byName: 'M. Berenji' }] };
+      const relT = trunkRelation(twin);
+      out.twinRelation = relT.relation;
+      out.twinShared = relT.kin ? relT.kin.shared : null;
+      if (relT.relation === 'unrelated')
+        bad.push('Kinship :: two copies of ONE engagement — same lineage, neither holding a version the '
+          + 'other has — are called different engagements. That is what copying a project produces, the '
+          + 'dialog says so in the same breath as printing one lineage for both sides, and the person is '
+          + 'left with no way to join them');
+      else if (relT.relation !== 'twin')
+        bad.push('Kinship :: same lineage with no shared version reports "' + relT.relation + '", which is '
+          + 'neither the refusal nor the offer to join');
+      if (typeof trunkAdoptTwin !== 'function')
+        bad.push('Kinship :: there is no way to join two copies of one engagement, so the verdict is a '
+          + 'diagnosis with no treatment');
+
       /* AND A GENUINE STRANGER IS STILL REFUSED. A check that only proves the
          permissive half would pass on a build that accepted everything. */
       const stranger = { _format: TRUNK_FORMAT, lineage: 'L-unrelated', name: 'Someone else\'s project',

@@ -488,9 +488,16 @@
        moved, and which way. Position comes from two custom properties the paint
        sets from the live geometry, so it is correct at any label length and any
        zoom without a magic number anywhere. */
-    #reqTabBar { position: relative; }
-    #reqTabBar .stab[aria-selected="true"] { border-bottom-color: transparent; }
-    #reqTabBar::after { content: ''; position: absolute; left: 0; bottom: -1px; height: 2px;
+    /* ONE STRIP, ONE BEHAVIOUR. This shipped bolted to #reqTabBar, which made
+       the Stories tab the only place in the application where the mark travels
+       — reported as "the tab animation slides, but only on stories tab not on
+       others", which is the precise cost of writing a behaviour against an id
+       instead of against the thing it is a behaviour OF. Every .stab-bar gets
+       it, so Analytics, the contract sections and the team sections move the
+       same way and nobody has to wonder why one of them is different. */
+    .stab-bar { position: relative; }
+    .stab-bar .stab[aria-selected="true"] { border-bottom-color: transparent; }
+    .stab-bar::after { content: ''; position: absolute; left: 0; bottom: -1px; height: 2px;
       width: var(--tw, 0px); transform: translateX(var(--tx, 0px)); background: var(--primary);
       border-radius: 2px 2px 0 0; opacity: var(--to, 0);
       transition: transform .26s var(--easeo), width .26s var(--easeo), opacity .18s ease; }
@@ -507,7 +514,7 @@
       transition: transform .5s var(--easeo); }
     /* A BADGE THAT APPEARS SHOULD BE SEEN TO APPEAR. Findings arriving on the
        strip is news; it pops once rather than materialising silently. */
-    #reqTabBar .stab-n.stab-warn { animation: popIn .22s var(--easeo); }
+    .stab-bar .stab-n.stab-warn { animation: popIn .22s var(--easeo); }
     /* The figures roll when they change (reqRollNums), so a story added on
        another tab is visibly counted rather than silently different. */
     .rq-n > b { transition: color .3s ease; }
@@ -5022,7 +5029,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2137</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2150</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6625,7 +6632,29 @@ Or say what you want, in your own words:
       if (mySet.has(theirTipV)) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };
       let base = null;
       for (let i = myVids.length - 1; i >= 0; i--) if (theirSet.has(myVids[i])) { base = myVids[i]; break; }
-      if (!base) return { relation: 'unrelated' };
+      if (!base) {
+        /* ═══ SAME ENGAGEMENT, TWO HISTORIES THAT NEVER MET ══════════════════
+           Reported as "the rename is still messing with the trunk", and the
+           diagnostic dialog settled it: both sides printed the SAME lineage and
+           "versions in common: 0" — and were then told they belonged to
+           different engagements, which contradicted the evidence in the same
+           box two lines above.
+
+           The rename was never the cause. This is what a COPY does. Duplicate a
+           project (the trunk here was literally named "… (copy)"), let each
+           side save once, and you have one engagement in two files whose
+           version chains have no point of contact — no shared vid, so no common
+           base, so the ancestry walk falls through to its last line.
+
+           That last line was doing two jobs. "No common base" between DIFFERENT
+           lineages is a stranger. Between the SAME lineage it is a twin, and a
+           twin is joinable: take the other side's chain as history, keep your
+           own work on top, push. Refusing is the one answer that is wrong. */
+        const k = trunkKinship(t);
+        if (planLineage && t.lineage && planLineage === t.lineage)
+          return { relation: 'twin', kin: k };
+        return { relation: 'unrelated', kin: k };
+      }
       return { relation: 'diverged', baseVid: base,
                ahead: myVids.length - 1 - myVids.indexOf(base),
                behind: theirVids.length - 1 - theirVids.indexOf(base) };
@@ -6756,6 +6785,8 @@ Or say what you want, in your own words:
           const rel = trunkRelation(t);
           if (rel.relation === 'fork') {
             if (!(await trunkAdoptFork(t))) return;
+          } else if (rel.relation === 'twin') {
+            if (!(await trunkAdoptTwin(t, rel.kin))) return;
           } else if (rel.relation === 'kin') {
             if (!(await trunkAdoptLineage(t, rel.kin))) return;
           } else if (rel.relation === 'unrelated') {
@@ -6871,7 +6902,7 @@ Or say what you want, in your own words:
       const rel = trunkRelation(t);
       /* ADOPTING A LINEAGE IS A DECISION, so the unattended loop stops and
          says so rather than making it. Same rule as a contested merge. */
-      if (rel.relation === 'fork' || rel.relation === 'kin'
+      if (rel.relation === 'fork' || rel.relation === 'kin' || rel.relation === 'twin'
           || rel.relation === 'unrelated' || rel.relation === 'notatrunk') {
         trunkPaused = 'lineage'; updateTrunkBtn(); return;
       }
@@ -6948,6 +6979,32 @@ Or say what you want, in your own words:
     /* SAME PAST, DIFFERENT STAMP. Not a copy — a copy knows what it was copied
        from and takes the fork route above. This is one engagement whose two
        files disagree about their own name for it, and the fix is to agree. */
+    /* Joining a twin. Nothing is discarded on either side: their chain becomes
+       this plan's history, this plan's own version stays on top of it, and the
+       next push sends it. The alternative on offer — start a separate trunk —
+       is the honest other option and is said out loud, because a dialog with
+       one button is not a choice. */
+    async function trunkAdoptTwin(t, k) {
+      const nm = (t && t.name) ? '"' + t.name + '"' : 'that trunk';
+      if (!confirm('This plan and ' + nm + ' are the SAME engagement — both carry lineage '
+        + k.myLineage + ' — but their version histories have never met: neither side holds a single '
+        + 'version the other has.\n\n' + trunkKinshipEvidence(k)
+        + '\n\nThat is what copying a project does. Each copy saved its own first version, so there is no '
+        + 'shared point to merge from.\n\nJoin them?\n\nThe trunk\'s history is adopted as this plan\'s '
+        + 'past and your own work stays on top of it, so nothing on either side is thrown away. If you would '
+        + 'rather keep them apart, cancel and connect to a different file — two trunks for two copies is a '
+        + 'perfectly good answer.')) return false;
+      const took = adoptVersions((t.log || []));
+      if (!took) {
+        alert('The trunk had no version to adopt, so there is still nothing shared to push onto. Push to a '
+          + 'trunk one of these two copies started.');
+        return false;
+      }
+      saveLocal();
+      flashSaved('🌳 Joined — the trunk\'s ' + took + ' version' + (took === 1 ? '' : 's')
+        + ' are now this plan\'s history, and yours sit on top');
+      return true;
+    }
     async function trunkAdoptLineage(t, k) {
       if (!confirm('This plan and that trunk carry different lineage stamps, but they share '
         + k.shared + ' version' + (k.shared === 1 ? '' : 's') + ' of history — so they ARE the same '
@@ -6996,6 +7053,10 @@ Or say what you want, in your own words:
         }
         if (rel.relation === 'kin') {
           if (!(await trunkAdoptLineage(t, rel.kin))) return;
+          return trunkPull(quiet);
+        }
+        if (rel.relation === 'twin') {
+          if (!(await trunkAdoptTwin(t, rel.kin))) return;
           return trunkPull(quiet);
         }
         if (rel.relation === 'unrelated') {
@@ -7175,6 +7236,10 @@ Or say what you want, in your own words:
         }
         if (rel.relation === 'kin') {
           if (!(await trunkAdoptLineage(t, rel.kin))) { trunkBusy = false; return; }
+          trunkBusy = false; return trunkPush(quiet);
+        }
+        if (rel.relation === 'twin') {
+          if (!(await trunkAdoptTwin(t, rel.kin))) { trunkBusy = false; return; }
           trunkBusy = false; return trunkPush(quiet);
         }
         if (rel.relation === 'unrelated') {
@@ -8295,8 +8360,9 @@ Or say what you want, in your own words:
       // the activity table is kept live rather than re-rendered, so a fold made
       // while looking at the chart has to be caught up here
       if (name === 'tasks') flushTaskTableIfStale();
-      // the strip measures zero while its tab is hidden, so place it on arrival
-      if (name === 'req') requestAnimationFrame(() => reqMoveUnderline());
+      /* Sub-tab strips measure zero while their tab is hidden, so every mark on
+         the page is placed once the destination is actually on screen. */
+      requestAnimationFrame(stabUnderlineAll);
       if (name === 'wbs') guardRender('renderWBS', renderWBS);
       if (name === 'req') guardRender('renderReqs', renderReqs);
       /* `&& calculated` meant a project with NO activities never wrote to these
@@ -17909,6 +17975,7 @@ Or say what you want, in your own words:
           + (c && c.n ? '<span class="stab-n' + (c.warn ? ' stab-warn' : '') + '" title="'
               + escapeHtml(c.tip || '') + '">' + escapeHtml(String(c.n)) + '</span>' : '') + '</button>';
       }).join('');
+      stabUnderline(bar);
       const intro = document.getElementById('anIntro');
       const cur = AN_TABS.find(t => t.k === anTab);
       if (intro) { intro.textContent = cur ? cur.intro : ''; intro.style.display = cur ? '' : 'none'; }
@@ -17997,6 +18064,7 @@ Or say what you want, in your own words:
           + (c && c.n ? '<span class="stab-n' + (c.warn ? ' stab-warn' : '') + '" title="'
               + escapeHtml(c.tip || '') + '">' + escapeHtml(String(c.n)) + '</span>' : '') + '</button>';
       }).join('');
+      stabUnderline(bar);
       const intro = document.getElementById('csIntro');
       const cur = CS_TABS.find(t => t.k === csTab);
       if (intro) { intro.textContent = cur ? cur.intro : ''; intro.style.display = cur ? '' : 'none'; }
@@ -19465,6 +19533,7 @@ Or say what you want, in your own words:
           + (c && c.n ? '<span class="stab-n' + (c.warn ? ' stab-warn' : '') + '" title="'
               + escapeHtml(c.tip || '') + '">' + c.n + '</span>' : '') + '</button>';
       }).join('');
+      stabUnderline(bar);
       const cur = RES_TABS.find(t => t.k === resTab);
       if (intro) { intro.textContent = cur ? cur.intro : ''; intro.style.display = cur ? '' : 'none'; }
     }
@@ -23997,25 +24066,35 @@ Write the test cases for the criteria above, following the contract exactly. Ret
           + (c && c.n ? '<span class="stab-n' + (c.warn ? ' stab-warn' : '') + '" title="'
               + escapeHtml(c.tip || '') + '">' + escapeHtml(String(c.n)) + '</span>' : '') + '</button>';
       }).join('');
-      reqMoveUnderline(bar);
+      stabUnderline(bar);
     }
     /* WHERE THE UNDERLINE GOES, measured rather than guessed. Reading the live
        box means it is right for any label, any font size, any zoom and any
        translation — the alternative is a table of offsets that goes wrong the
        first time a word gets longer. Hidden when nothing is selected, so it
        never sits under a tab that is not there. */
-    function reqMoveUnderline(bar) {
-      const el = bar || document.getElementById('reqTabBar');
+    function stabUnderline(bar) {
+      const el = typeof bar === 'string' ? document.getElementById(bar) : bar;
       if (!el) return;
       const on = el.querySelector('.stab[aria-selected="true"]');
       if (!on) { el.style.setProperty('--to', '0'); return; }
       const b2 = on.getBoundingClientRect(), p = el.getBoundingClientRect();
-      if (!b2.width) { el.style.setProperty('--to', '0'); return; }   // laid out while hidden
+      /* A strip laid out inside a hidden tab measures zero. Placing the mark at
+         zero width would make it grow from nothing the first time you arrive,
+         which reads as a glitch rather than as a move, so it stays hidden until
+         there is a real box to sit under. */
+      if (!b2.width) { el.style.setProperty('--to', '0'); return; }
       el.style.setProperty('--tx', Math.round(b2.left - p.left) + 'px');
       el.style.setProperty('--tw', Math.round(b2.width) + 'px');
       el.style.setProperty('--to', '1');
     }
-    window.addEventListener('resize', () => reqMoveUnderline());
+    /* Every strip on the page, for the two events that move all of them at
+       once: arriving at a tab (the strips inside it were measuring zero) and a
+       resize (labels rewrap). */
+    function stabUnderlineAll() {
+      document.querySelectorAll('.stab-bar').forEach(b2 => stabUnderline(b2));
+    }
+    window.addEventListener('resize', stabUnderlineAll);
     /* THE FIGURES ROLL WHEN THEY CHANGE. Not on every render — a number that
        animates when nothing happened is noise — and not on first paint either,
        because there is nothing to have changed FROM. Only a real movement is

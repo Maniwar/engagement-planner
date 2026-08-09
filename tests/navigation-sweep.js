@@ -1117,6 +1117,65 @@ const { chromium } = requirePlaywright();
   H.contradictions.forEach(x => bad.push(x));
   note.sowPanel = H.counts;
 
+  /* ═══ ONE STRIP, ONE BEHAVIOUR, EVERYWHERE ═══════════════════════════════
+     The travelling underline shipped bolted to #reqTabBar, so the Stories tab
+     became the only place in the application where the active mark moved.
+     Reported as "the tab animation slides, but only on stories tab not on
+     others" — which is the exact cost of writing a behaviour against an id
+     rather than against the thing it is a behaviour OF.
+
+     Asserted per strip and by MOVEMENT, not by the presence of a rule: the mark
+     is placed from the live box, so the only honest question is whether it ends
+     up somewhere different when a different tab is chosen. */
+  const STRIPS = await page.evaluate(async () => {
+    const badS = [];
+    const out = {};
+    /* PUT EVERYTHING BACK. This block clicks through four strips, which moves
+       four pieces of sub-tab state and leaves the app on the last tab it
+       visited — and the RAID block further down promptly reported "0 of 5
+       links" because it was looking at a log filtered by a sub-tab this check
+       had changed. A check that leaves the application somewhere the next one
+       does not expect reports a defect that does not exist. */
+    const keep = { tab: (document.querySelector('.tab.active') || {}).dataset,
+                   cs: typeof csTab !== 'undefined' ? csTab : null,
+                   res: typeof resTab !== 'undefined' ? resTab : null,
+                   an: typeof anTab !== 'undefined' ? anTab : null,
+                   req: typeof reqView !== 'undefined' ? reqView : null };
+    const cases = [
+      ['req', 'reqTabBar'], ['analytics', 'anTabBar'], ['raid', 'csTabBar'], ['resources', 'resTabBar']
+    ];
+    for (const [tab, id] of cases) {
+      switchTab(tab);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const el = document.getElementById(id);
+      if (!el) { badS.push('Sub-tab strips :: ' + id + ' is gone'); continue; }
+      const btns = [...el.querySelectorAll('.stab')];
+      if (btns.length < 2) { out[id] = 'SKIPPED-' + btns.length + '-tabs'; continue; }
+      const read = () => el.style.getPropertyValue('--tx') + '/' + el.style.getPropertyValue('--tw');
+      /* ON ARRIVAL IT MUST ALREADY BE PLACED. A strip laid out inside a hidden
+         tab measures zero, so a mark placed only at paint time sits at width 0
+         until something else happens — the tab looks like it has no active
+         section at all. */
+      if (el.style.getPropertyValue('--to') !== '1')
+        badS.push('Sub-tab strips :: ' + id + ' shows no active mark on arrival, so the strip does not say '
+          + 'which section you are in until you click something');
+      const seen = [];
+      btns.slice(0, 3).forEach(b2 => { b2.click(); seen.push(read()); });
+      out[id] = seen.join(' → ');
+      if (new Set(seen).size < 2)
+        badS.push('Sub-tab strips :: the mark on ' + id + ' does not move between tabs — it is either '
+          + 'missing or pinned, and the Stories tab is the only strip that behaves');
+    }
+    if (keep.cs != null && typeof setCsTab === 'function') setCsTab(keep.cs);
+    if (keep.res != null && typeof setResTab === 'function') setResTab(keep.res);
+    if (keep.an != null && typeof setAnTab === 'function') setAnTab(keep.an);
+    if (keep.req != null && typeof reqSetView === 'function') reqSetView(keep.req);
+    if (keep.tab && keep.tab.tab) switchTab(keep.tab.tab);
+    return { contradictions: badS, counts: out };
+  });
+  STRIPS.contradictions.forEach(x => bad.push(x));
+  note.subTabStrips = STRIPS.counts;
+
   /* ═══ FIVE ROOMS, AND NOTHING LOST BEHIND A DOOR ═════════════════════════
      "This UI takes up a lot of space we have been using tabs in other areas."
      759px of chrome sat above the first story card: a four-line explainer, six
