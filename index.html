@@ -4920,7 +4920,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1705</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1738</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -18394,6 +18394,23 @@ Or say what you want, in your own words:
         svg += `<line x1="${PAD}" y1="${y + ROWH}" x2="${W - PAD}" y2="${y + ROWH}" stroke="#f1f5f9" stroke-width="1"/>`;
         const isSum = t.isSummary;
         const tx = PAD + 4 + depth * 14 + 14;
+        if (i === 0) {
+          // captions once, in the header band, so the columns are named. OUTSIDE
+          // the row group below — they belong to the header, and riding along
+          // with row 0 during a glide is how a column heading ends up halfway
+          // down the chart.
+          svg += `<text x="${PAD + LABELW - 12}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">DONE</text>`;
+          svg += `<text x="${PAD + LABELW - 46}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">WORK</text>`;
+          svg += `<text x="${PAD + LABELW - 84}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">OPEN</text>`;
+        }
+        /* ═══ THE ROW MOVES AS A ROW ═══════════════════════════════════════
+           Everything the row header draws lives in ONE group, because the
+           expand animation slides groups and a row split across several of
+           them comes apart in flight: the name glided while its own estimates,
+           its owner chip and its twisty had already snapped to the new
+           position. Reported as the expansion "no longer smooth" — it was
+           never one movement, it was one movement and a jump-cut. */
+        svg += `<g data-gopen="${t.id}" data-grole="row" style="cursor:pointer">`;
         // collapse twisty for summaries (clickable)
         if (isSum) {
           const open = !collapsedIds.has(t.id);
@@ -18408,23 +18425,44 @@ Or say what you want, in your own words:
         const doneMark = (t.percentComplete >= 100) ? '✓ ' : '';
         /* the budget has to cover the prefixes the renderer adds too (the ✓ and
            the ◆), or a finished activity spills two characters into the avatar */
-        const prefixCh = doneMark.length + (t.milestone ? 2 : 0);
-        const maxCh = Math.max(8, Math.floor(availPx / 6.6) - prefixCh);
+        /* AND THE SUFFIX TOO. The "(+18)" a collapsed phase carries was appended
+           AFTER the name had been cut to fit, so the budget covered everything
+           except the part most likely to overflow — a phase with eighteen
+           children spilled its child count straight through the OPEN column,
+           where it read as part of the number. The ✓ and the ◆ were already
+           counted; this is the same fix for the other end of the string. */
+        const suffix = (isSum && collapsedIds.has(t.id)) ? ' (+' + leafDescendants(t.id).length + ')' : '';
+        const reserveCh = doneMark.length + (t.milestone ? 2 : 0) + suffix.length;
+        const maxCh = Math.max(8, Math.floor(availPx / 6.6) - reserveCh);
         const nmBase = t.milestone ? t.name.replace(/^◆\s*/, '') : t.name; // renderer adds its own ◆
         const nm = nmBase.length > maxCh ? nmBase.slice(0, Math.max(6, maxCh - 1)) + '…' : nmBase;
-        svg += `<g data-gopen="${t.id}" style="cursor:pointer"><text x="${tx}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="${isSum ? 12 : 11.5}" font-weight="${isSum ? 700 : 400}" fill="${t.percentComplete >= 100 ? '#16a34a' : '#1e293b'}">${escapeXml(doneMark)}${t.milestone ? '◆ ' : ''}${escapeXml(nm)}${isSum && collapsedIds.has(t.id) ? ' (+' + leafDescendants(t.id).length + ')' : ''}</text><title>${escapeXml(t.name)} — click to edit</title></g>`;
+        svg += `<text x="${tx}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="${isSum ? 12 : 11.5}" font-weight="${isSum ? 700 : 400}" fill="${t.percentComplete >= 100 ? '#16a34a' : '#1e293b'}">${escapeXml(doneMark)}${t.milestone ? '◆ ' : ''}${escapeXml(nm)}${escapeXml(suffix)}</text><title>${escapeXml(t.name)} — click to edit</title>`;
         // owner chip + pct at right edge of label column
         const chipX = PAD + LABELW - 148;
         if (t.owner && !isSum) {
           svg += `<circle cx="${chipX}" cy="${y + ROWH / 2}" r="8.5" fill="${ownerColor(t.owner)}"/><text x="${chipX}" y="${y + ROWH / 2 + 3}" font-family="${FF}" font-size="7.5" font-weight="700" fill="white" text-anchor="middle">${escapeXml(ownerInitials(t.owner))}</text>`;
         }
+        /* ═══ A MILESTONE HAS NO DURATION, WHICH IS NOT THE SAME AS NOTHING TO
+               SAY ═══════════════════════════════════════════════════════════
+           Reported: "the open and work items are just blank here on the gantt."
+           They were, and for the same reason they were five em-dashes in the
+           activity table before the gate band replaced them: the columns ask
+           how long this is open and how much work is in it, and a zero-duration
+           checkpoint answers nought to both. The activity table already stopped
+           printing that nought and started printing what it takes to REACH the
+           gate — span, work, cost, done — so the chart says the same thing in
+           the two columns it has, out of the same milestoneReach() so the two
+           surfaces cannot disagree.
+
+           The ink is the muted one and the tooltip names the change of meaning,
+           because these are readings of the gate's upstream, not of the row —
+           the same distinction the phase roll-ups on either side of them make. */
+        const msR = t.milestone ? milestoneReach(t) : null;
         const pct = t.percentComplete || 0;
-        svg += `<text x="${PAD + LABELW - 12}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${pct >= 100 ? '#16a34a' : pct > 0 ? '#2563eb' : '#94a3b8'}" text-anchor="end">${pct}%</text>`;
-        if (i === 0) {
-          // captions once, in the header band, so the two columns are named
-          svg += `<text x="${PAD + LABELW - 12}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">DONE</text>`;
-          svg += `<text x="${PAD + LABELW - 46}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">WORK</text>`;
-          svg += `<text x="${PAD + LABELW - 84}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">OPEN</text>`;
+        if (msR && msR.n) {
+          svg += `<text x="${PAD + LABELW - 12}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${msR.pct >= 100 ? '#16a34a' : msR.pct > 0 ? '#2563eb' : '#94a3b8'}" text-anchor="end">${msR.done}/${msR.n}<title>${escapeXml(milestoneReachWho(t))}</title></text>`;
+        } else {
+          svg += `<text x="${PAD + LABELW - 12}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${pct >= 100 ? '#16a34a' : pct > 0 ? '#2563eb' : '#94a3b8'}" text-anchor="end">${pct}%</text>`;
         }
         /* OPEN, the calendar span this is available for — the number that used
            to sit unlabelled on the bar. Beside WORK on purpose: equal at 100%
@@ -18432,6 +18470,8 @@ Or say what you want, in your own words:
            this application most often has to make legible. */
         if (!t.milestone && (t.te || 0) > 0) {
           svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="${t.isSummary ? '#94a3b8' : '#64748b'}" text-anchor="end">${escapeXml(fmtDurCell(t.te))}</text>`;
+        } else if (msR && msR.n && msR.span != null) {
+          svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${msR.span}d<title>${escapeXml(msR.span + ' calendar days from the first thing upstream starting to this gate. Calendar days, not working days, and NOT the sum of the durations — work upstream of a gate runs in parallel.')}</title></text>`;
         }
         /* EFFORT, in its own column. The bar says how long the activity is open;
            this says how much work is inside it, which is a different number
@@ -18452,7 +18492,10 @@ Or say what you want, in your own words:
         if (!t.milestone) {
           const eff = t.isSummary ? plannedEffortUnit(t) : workingDaysToUnit(plannedEffortDays(t));
           if (eff > 0) svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="${t.isSummary ? '#94a3b8' : '#64748b'}" text-anchor="end">${escapeXml(fmtDurCell(eff))}</text>`;
+        } else if (msR && msR.n && msR.effort > 0) {
+          svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${escapeXml(fmtDurCell(msR.effort))}<title>${escapeXml(milestoneReachTip(t))}</title></text>`;
         }
+        svg += `</g>`;
       });
 
       // label column divider — draggable to resize the title column
@@ -18783,7 +18826,7 @@ Or say what you want, in your own words:
         tipParts.push('Click to open / edit (WBS dictionary & stories inside)');
         const tip = tipParts.join('\n');
         if (t.isSummary) {
-          svg += `<g data-gopen="${t.id}" style="cursor:pointer"><rect x="${bx}" y="${y + 10}" width="${bw}" height="7" rx="2" fill="#1e293b"/>` +
+          svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer"><rect x="${bx}" y="${y + 10}" width="${bw}" height="7" rx="2" fill="#1e293b"/>` +
             `<rect x="${bx}" y="${y + 10}" width="3" height="13" fill="#1e293b"/><rect x="${bx + bw - 3}" y="${y + 10}" width="3" height="13" fill="#1e293b"/>` +
             /* The progress fill sits in the TOP of the bar, so the 3px
                criticality strip along the bottom cannot erase it. Both are true
@@ -18796,7 +18839,7 @@ Or say what you want, in your own words:
           const done = t.percentComplete >= 100;
           const cx = msAnchorX(t), cy = y + ROWH / 2; // boundary or end-of-day — see msAnchorX
           const msLabelRight = (cx + 84) < (W - PAD);
-          svg += `<g data-gopen="${t.id}" style="cursor:pointer"><rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" rx="2" transform="rotate(45 ${cx} ${cy})" fill="${done ? '#16a34a' : '#7c3aed'}"/>` +
+          svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer"><rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" rx="2" transform="rotate(45 ${cx} ${cy})" fill="${done ? '#16a34a' : '#7c3aed'}"/>` +
             `<text x="${msLabelRight ? cx + 14 : cx - 14}" y="${cy + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${done ? '#16a34a' : '#6d28d9'}" ${msLabelRight ? '' : 'text-anchor="end"'}>${done ? '✓ ' : ''}${escapeXml(fmtNice(t.finishDate))}</text>` +
             `<title>${escapeXml(tip)}</title></g>`;
         } else {
@@ -18823,7 +18866,7 @@ Or say what you want, in your own words:
           }
           if (slackW > 2) svg += `<rect x="${bx + bw}" y="${y + 10}" width="${slackW}" height="8" rx="3" fill="url(#g-hatchS)" opacity="0.5"><title>Slack / float</title></rect>`;
           const pctw = bw * Math.min(100, t.percentComplete || 0) / 100;
-          svg += `<g data-gopen="${t.id}" style="cursor:pointer">`;
+          svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer">`;
           if (done) svg += `<rect x="${bx}" y="${y + 7}" width="${bw}" height="${BAR_H}" rx="4" fill="#15803d"/>`;
           else {
             svg += `<rect x="${bx}" y="${y + 7}" width="${bw}" height="${BAR_H}" rx="4" fill="${crit ? '#fca5a5' : '#93c5fd'}"/>`;
@@ -39184,28 +39227,135 @@ Return ONLY JSON: {"narrative":"the three paragraphs separated by \\n\\n"}`;
       };
       requestAnimationFrame(tick);
     }
-    // Gantt bars GLIDE to their new positions after a recalc (translate-only
-    // FLIP on the per-task <g> groups — widths snap, positions animate)
-    let _gGeom = null;
+    /* ═══ EXPANDING A PHASE IS ONE MOVEMENT, NOT TWO ═══════════════════════
+       Reported: "the animation on expanding the gantt is no longer smooth as
+       it should be."
+
+       The chart was re-drawn from scratch on every toggle and a FLIP put the
+       surviving rows back where they had been so they could slide to their new
+       places. Two things were wrong with that, and both of them are about
+       IDENTITY rather than timing.
+
+       ONE ROW, TWO GROUPS, ONE KEY. Every task draws two <g data-gopen>
+       elements — the name in the row header and the bar out on the timeline —
+       and the geometry map was keyed by the task id alone, so the bar's
+       measurement overwrote the label's. Every label was then animated with
+       the BAR's displacement. Rows that only move down happen to survive that,
+       which is why it went unnoticed; the moment a bar moves sideways because
+       a date changed, the label is dragged with it by a distance that was
+       never its own. The key is now the id AND the role.
+
+       AND THE ROWS THAT ARRIVE DID NOT MOVE AT ALL. A FLIP can only animate
+       something that exists on both sides of the render. Expanding a phase
+       creates its children, so they appeared fully formed at their final
+       positions while everything below them slid 70px over a third of a
+       second. Three rows popping against six gliding is a flicker; a real
+       phase reads "(+18)", so eighteen rows detonate in the middle of a slide.
+       That is the "not smooth", and it gets worse the bigger the phase.
+
+       So arrivals now UNFURL from the row that revealed them, and departures
+       FOLD BACK INTO it — a ghost of the outgoing markup stays behind to make
+       the trip, because by the time this runs the real elements are gone. The
+       anchor is found geometrically (the nearest surviving row above), which
+       means it is the parent phase without this needing to know anything about
+       the task tree.
+
+       One timeline drives all of it. The old code started a separate rAF loop
+       per group — forty independent clocks, each free to land on a different
+       frame — and a single driver is both cheaper and, more to the point,
+       synchronised. */
+    let _gGeom = null, _gAnim = 0;
+    const GLIDE_MS = 320;
+    function gKey(g) { return g.dataset.gopen + '·' + (g.dataset.grole || 'x'); }
     function ganttGlide() {
-      const cont = document.getElementById('ganttContainer'); if (!cont) { _gGeom = null; return; }
+      const cont = document.getElementById('ganttContainer');
+      if (!cont) { _gGeom = null; return; }
+      const svg = cont.querySelector('svg');
+      // a toggle during a run supersedes it: drop its ghosts, take its number
+      const token = ++_gAnim;
+      cont.querySelectorAll('.g-ghost').forEach(x => x.remove());
       const groups = [...cont.querySelectorAll('g[data-gopen]')];
       const next = {};
-      groups.forEach(g => { try { const bb = g.getBBox(); next[g.dataset.gopen] = { x: bb.x, y: bb.y }; } catch (e) {} });
-      if (_gGeom && motionOK()) {
-        groups.forEach(g => {
-          const prev = _gGeom[g.dataset.gopen], now2 = next[g.dataset.gopen];
-          if (!prev || !now2) return;
-          const dx = prev.x - now2.x, dy = prev.y - now2.y;
-          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-          const t0 = performance.now();
-          const step = nw => { const k = Math.min(1, (nw - t0) / 300), e = 1 - Math.pow(1 - k, 3);
-            g.setAttribute('transform', 'translate(' + (dx * (1 - e)) + ',' + (dy * (1 - e)) + ')');
-            if (k < 1) requestAnimationFrame(step); else g.removeAttribute('transform'); };
-          requestAnimationFrame(step);
-        });
-      }
+      groups.forEach(g => {
+        let bb; try { bb = g.getBBox(); } catch (e) { return; }
+        next[gKey(g)] = { x: bb.x, y: bb.y, html: g.outerHTML };
+      });
+      const prev = _gGeom;
       _gGeom = next;
+      if (!prev || !svg || !motionOK()) return;
+
+      /* Where a row that is arriving or leaving should come from and go to:
+         the nearest row ABOVE it that is in both renders. For an expansion
+         that is the phase whose twisty was clicked, without this having to ask
+         which one it was. */
+      const survivors = Object.keys(next).filter(k => prev[k]);
+      const anchorFor = y => {
+        let best = null;
+        survivors.forEach(k => {
+          const yy = next[k].y;
+          if (yy <= y + 1 && (best === null || yy > best)) best = yy;
+        });
+        return best === null ? y : best;
+      };
+
+      const movers = [], entrants = [], leavers = [];
+      groups.forEach(g => {
+        const k = gKey(g), n = next[k], p = prev[k];
+        if (!n) return;
+        if (p) {
+          const dx = p.x - n.x, dy = p.y - n.y;
+          if (Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5) movers.push({ g: g, dx: dx, dy: dy });
+        } else {
+          entrants.push({ g: g, dy: anchorFor(n.y) - n.y });
+        }
+      });
+      Object.keys(prev).forEach(k => {
+        if (next[k] || !prev[k].html) return;
+        const holder = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        holder.setAttribute('class', 'g-ghost');
+        holder.style.pointerEvents = 'none';
+        holder.innerHTML = prev[k].html;
+        svg.appendChild(holder);
+        leavers.push({ g: holder, dy: anchorFor(prev[k].y) - prev[k].y });
+      });
+      if (!movers.length && !entrants.length && !leavers.length) return;
+
+      /* Set the starting pose NOW, not on the first frame. A rAF callback runs
+         after the browser has already painted, so anything posed inside one
+         flashes at its destination for a frame first — which is the very
+         artefact this exists to remove. */
+      entrants.forEach(a => {
+        a.g.setAttribute('transform', 'translate(0,' + a.dy + ')');
+        a.g.setAttribute('opacity', '0');
+      });
+
+      const ease = k => 1 - Math.pow(1 - k, 3);
+      const t0 = performance.now();
+      const step = nw => {
+        if (token !== _gAnim) return;                 // a newer render owns the chart
+        const k = Math.min(1, (nw - t0) / GLIDE_MS), e = ease(k), done = k >= 1;
+        movers.forEach(m => {
+          if (done) m.g.removeAttribute('transform');
+          else m.g.setAttribute('transform', 'translate(' + (m.dx * (1 - e)) + ',' + (m.dy * (1 - e)) + ')');
+        });
+        entrants.forEach(a => {
+          if (done) { a.g.removeAttribute('transform'); a.g.removeAttribute('opacity'); }
+          else {
+            a.g.setAttribute('transform', 'translate(0,' + (a.dy * (1 - e)) + ')');
+            // opacity leads the movement, so a row is readable before it lands
+            a.g.setAttribute('opacity', String(Math.min(1, e * 1.6)));
+          }
+        });
+        leavers.forEach(l => {
+          if (done) l.g.remove();
+          else {
+            l.g.setAttribute('transform', 'translate(0,' + (l.dy * e) + ')');
+            l.g.setAttribute('opacity', String(Math.max(0, 1 - e * 1.35)));
+          }
+        });
+        if (!done) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
     }
     // scroll + row-flash preserving wrappers (rebuilt tables no longer jump)
     window.__rowFlash = null;

@@ -1267,6 +1267,125 @@ const QA = JSON.parse(fs.readFileSync(
           switchTab('tasks'); renderTaskTable();
         })();
 
+        /* ═══ ONE ROW MOVES AS ONE ROW ═════════════════════════════════════
+           The expand animation slides <g data-gopen> groups from where they
+           were to where they are. That only reads as one movement if a row IS
+           one group: it shipped as two — the name in one, the bar in another,
+           with the estimates, the owner chip and the twisty in neither — so
+           expanding a phase slid the names while every number beside them
+           jump-cut. Reported as "the animation on expanding the gantt is no
+           longer smooth".
+
+           Two identities are asserted, both about the groups rather than about
+           any pixel: every group carries a ROLE so the FLIP can tell the row
+           from the bar (keyed on the task id alone, the bar's measurement
+           overwrote the row's and every row was animated with the bar's
+           displacement), and the row group actually CONTAINS the row — if the
+           estimates are outside it, they are not coming along. */
+        (() => {
+          switchTab('gantt');
+          setCollapseLevel(0);
+          const svg = document.querySelector('#view-gantt svg');
+          if (!svg) { say('Gantt', 'no chart drew at all'); return; }
+          const gs = [...svg.querySelectorAll('g[data-gopen]')];
+          const noRole = gs.filter(g => !g.dataset.grole);
+          out.ganttRoles = gs.length + ' groups, roles ' + [...new Set(gs.map(g => g.dataset.grole || '-'))].join('/');
+          if (noRole.length)
+            say('Gantt', noRole.length + ' animated group(s) carry no role, so the glide cannot tell a row '
+              + 'from its bar and keys them both on the task id — one measurement overwrites the other and '
+              + 'the row is animated with a displacement that was never its own');
+          const seen = {};
+          gs.forEach(g => { const k = g.dataset.gopen + '·' + (g.dataset.grole || ''); seen[k] = (seen[k] || 0) + 1; });
+          const collide = Object.keys(seen).filter(k => seen[k] > 1);
+          if (collide.length)
+            say('Gantt', collide.length + ' animation key(s) are used twice (' + collide.slice(0, 3).join(', ')
+              + '), so those groups share one remembered position');
+          /* The row group has to hold the whole row. Measured by content, not
+             by counting elements: the estimate figures and the owner chip must
+             be INSIDE it, or they stay behind when it moves. */
+          const rowG = gs.filter(g => g.dataset.grole === 'row');
+          out.ganttRowGroups = rowG.length;
+          if (!rowG.length) say('Gantt', 'no row group exists, so nothing but the bars can animate');
+          else {
+            const withNums = rowG.filter(g => g.querySelectorAll('text').length >= 2).length;
+            out.ganttRowsCarryingFigures = withNums + '/' + rowG.length;
+            if (withNums < Math.ceil(rowG.length * 0.6))
+              say('Gantt', 'only ' + withNums + ' of ' + rowG.length + ' row groups contain more than the '
+                + 'name, so the estimates beside it are outside the thing that moves and will jump-cut '
+                + 'while the name glides');
+          }
+        })();
+
+        /* ═══ A MILESTONE HAS NO DURATION, NOT NOTHING TO SAY ═══════════════
+           Reported: "the open and work items are just blank here on the gantt."
+           The activity table stopped printing em-dashes in those columns and
+           started printing what it takes to REACH the gate. The chart has the
+           same two columns and had left them empty, so the same row said two
+           different things on two surfaces. Both must come out of
+           milestoneReach(), which is what makes them agree. */
+        (() => {
+          switchTab('gantt');
+          setCollapseLevel(0);
+          const ms = tasks.filter(t => t.milestone);
+          if (!ms.length) { out.ganttMilestone = 'SKIPPED-no-milestone-in-this-plan'; return; }
+          const svg = document.querySelector('#view-gantt svg');
+          const drawn = ms.filter(t => svg.querySelector('g[data-gopen="' + t.id + '"][data-grole="row"]'));
+          if (!drawn.length) { out.ganttMilestone = 'SKIPPED-no-milestone-row-at-L1'; return; }
+          const t = drawn.find(x => { const r = milestoneReach(x); return r && r.n; }) || drawn[0];
+          const r = milestoneReach(t);
+          const g = svg.querySelector('g[data-gopen="' + t.id + '"][data-grole="row"]');
+          const txt = [...g.querySelectorAll('text')].map(x => x.textContent).join(' ');
+          out.ganttMilestone = t.name.slice(0, 20) + ' → ' + txt.replace(/\s+/g, ' ').trim().slice(0, 46);
+          if (!r || !r.n) return;                     // nothing feeds it: nothing to print
+          if (txt.indexOf(r.done + '/' + r.n) < 0)
+            say('Gantt', 'the milestone row shows no count of the activities behind the gate. The activity '
+              + 'table says ' + r.done + '/' + r.n + ' for the same gate, so the two surfaces disagree about '
+              + 'the same row');
+          if (r.span != null && txt.indexOf(r.span + 'd') < 0)
+            say('Gantt', 'the milestone row leaves the OPEN column empty. A checkpoint has no duration, but '
+              + 'the run up to it does — ' + r.span + ' calendar days — and the column is blank instead');
+          if (r.effort > 0 && !/\d/.test(txt.replace(r.done + '/' + r.n, '')))
+            say('Gantt', 'the milestone row leaves the WORK column empty, so the work behind the gate is '
+              + 'unsayable on the chart that gets exported');
+        })();
+
+        /* ═══ THE NAME PLUS WHAT THE RENDERER ADDS TO IT ═══════════════════
+           The child count on a collapsed phase was appended AFTER the name had
+           been cut to fit, so the budget covered everything except the part
+           most likely to overflow: a phase with eighteen children pushed
+           "(+18)" straight through the OPEN column, where it read as part of
+           the number beside it. */
+        (() => {
+          switchTab('gantt');
+          setCollapseLevel(0);
+          const svg = document.querySelector('#view-gantt svg');
+          const rows = [...svg.querySelectorAll('g[data-gopen][data-grole="row"]')];
+          const bad = [];
+          rows.forEach(g => {
+            const ts = [...g.querySelectorAll('text')];
+            const name = ts[0];
+            if (!name || !/\(\+\d+\)/.test(name.textContent)) return;
+            const nb = name.getBBox();
+            ts.slice(1).forEach(o => {
+              if (o.getAttribute('text-anchor') !== 'end') return;
+              const ob = o.getBBox();
+              if (nb.x + nb.width > ob.x + 0.5)
+                bad.push(name.textContent.trim().slice(0, 26) + ' over "' + o.textContent.trim() + '"');
+            });
+          });
+          out.ganttSuffixOverlap = bad.length ? bad.slice(0, 3) : 'none';
+          if (bad.length)
+            say('Gantt', 'a collapsed phase pushes its child count into the column beside it: ' + bad[0]
+              + '. The count is part of what the row prints, so it has to be part of what the row is '
+              + 'allowed to print');
+          /* Put the tree and the tab back. These three blocks all work at L1,
+             and leaving the app there made the gate-band block below report a
+             milestone for having no row — it had one, three levels down inside
+             a phase these blocks had collapsed. */
+          setCollapseLevel(Infinity);
+          switchTab('tasks'); renderTaskTable();
+        })();
+
         /* ═══ THE GATE BAND ════════════════════════════════════════════════
            A milestone row used to be an activity row with five em-dashes where
            the estimates go, and the one thing it had to say — what it took to
