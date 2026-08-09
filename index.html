@@ -65,6 +65,15 @@
     .btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; }
     .btn-ghost { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.3); }
     .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+    /* ── THE SAME CLASS, ON A WHITE GROUND ─────────────────────────────────
+       .btn-ghost above is written for the dark header bar. Used in a dialog it
+       paints white on white and the control disappears; every panel call site
+       has quietly worked around it with an inline colour, and the one that
+       forgot shipped a promise in the prose ("use ↑ ↓ to reorder") above two
+       buttons nobody could see. A dialog body is always white, so it can carry
+       the correction rather than each button remembering to. */
+    .modal .btn-ghost { color: var(--text); border-color: var(--border); }
+    .modal .btn-ghost:hover { background: #f1f5f9; }
     .header-actions label.btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; border-radius: 8px; text-transform: none; letter-spacing: 0; font-weight: 600; cursor: pointer; margin: 0; }
     .btn-danger { background: #fee2e2; color: #b91c1c; }
     .btn-danger:hover { background: #fecaca; }
@@ -403,6 +412,30 @@
       padding: 0.5rem 0.6rem; font-size: var(--t-sm);
     }
     .export-panel button:hover, .export-panel label.menu-row:hover { background: #f1f5f9; }
+    /* ═══ THE MONEY READING ABOVE THE SOW ════════════════════════════════ */
+    .sb-wrap { border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.75rem 0.6rem;
+      margin: 0 0 0.6rem; background: linear-gradient(180deg, #fdfefe, #f5f8fb); }
+    .sb-head { display: flex; align-items: baseline; gap: 0.5rem; font-size: var(--t-sm); margin-bottom: 0.4rem; }
+    .sb-terms { font-size: var(--t-xs); color: var(--muted); }
+    .sb-row { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+    /* ONE track, two fills. Received is a SUBSET of invoiced — money you have
+       been paid is money you asked for — and two side-by-side bars would let a
+       reader add them together and double-count the book. */
+    .sb-track { position: relative; display: inline-block; width: 190px; height: 9px; border-radius: 5px;
+      background: #e6ecf3; box-shadow: inset 0 0 0 1px rgb(15 23 42 / .06); flex: none; cursor: help; }
+    .sb-track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+    .sb-inv { background: #93c5fd; }
+    .sb-paid { background: linear-gradient(90deg, #34d399, #059669); }
+    .sb-f { display: inline-flex; flex-direction: column; line-height: 1.08; cursor: help; }
+    .sb-f > i { font-style: normal; font-size: 0.56rem; letter-spacing: 0.07em; text-transform: uppercase;
+      font-weight: 700; color: #94a3b8; }
+    .sb-f > b { font-size: var(--t-sm); font-weight: 700; color: #334155; font-variant-numeric: tabular-nums; }
+    .sb-f.is-inv > b { color: #1d4ed8; }
+    .sb-f.is-paid > b { color: #047857; }
+    .sb-f.is-warn > b { color: #b45309; }
+    .sb-f.is-quiet > i, .sb-f.is-quiet > b { color: var(--muted); font-weight: 600; }
+    .sb-note { display: block; font-size: var(--t-xs); color: var(--muted); margin-top: 0.45rem; }
+    .sb-note.is-warn { color: #b45309; font-weight: 600; }
     .menu-foot { font-size: var(--t-xs); color: var(--muted); line-height: 1.45;
       padding: 0.4rem 0.6rem 0.15rem; margin-top: 0.3rem; border-top: 1px solid var(--border); }
     .menu-foot:empty { display: none; }
@@ -4687,6 +4720,16 @@ Or say what you want, in your own words:
                "how can i go between viewing the change order and the SOW that
                was there before ect? I don't see a obvious way to switch". -->
           <div id="docSwitch" class="doc-switch no-print"></div>
+          <!-- ═══ WHERE THE MONEY ACTUALLY IS ═════════════════════════════
+               OUTSIDE #sowContainer on purpose, and twice over. The panel puts
+               sowDraft's HTML into that container and reads it back out when
+               somebody edits in place, so anything injected inside it would be
+               saved into the draft and then printed. And it SHOULD not be in
+               the draft: a Statement of Work describes the deal, and a client
+               reading their own contract has no business being shown your
+               receivables position. This is the drafter's reading of a document
+               the drafter is about to send. -->
+          <div id="sowBilling" class="no-print"></div>
           <!-- A contract read through a 560px window inside a panel three times
                its width is a contract nobody reads. The page gets the height of
                the viewport and the document is centred in it like a page, so the
@@ -4828,7 +4871,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0127</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0256</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6388,6 +6431,49 @@ Or say what you want, in your own words:
       }
       return t;
     }
+    /* ═══ A STORED HANDLE IS NOT A GRANTED HANDLE ════════════════════════════
+       Reported live, on push: "Failed to execute 'getFile' on
+       'FileSystemFileHandle': The request is not allowed by the user agent or
+       the platform in the current context."
+
+       The handle survives a reload — that is the whole point of keeping it in
+       IndexedDB — but the PERMISSION does not. Chrome drops the grant when the
+       tab closes, so the restored handle is a valid object pointing at a real
+       file that the page is no longer allowed to touch. The first Pull or Push
+       after a reload therefore threw a raw DOMException at the reader, in a
+       dialog that names an internal method and says nothing about what to do.
+
+       The permission has to be re-requested, and requestPermission only works
+       inside a USER GESTURE — which Pull and Push are, and which the restore on
+       page load is not. So the ask happens here, at the moment somebody presses
+       the button, rather than at restore time where the browser would refuse it.
+
+       fsPerm already existed for the watch-a-file route and does exactly this.
+       The trunk simply never called it: two routes to one browser API, one of
+       them written months after the other, and the second did not inherit what
+       the first had learned. */
+    async function trunkPermit(handle) {
+      if (!handle) return false;
+      /* NOTHING TO ASK IS NOT A REFUSAL. fsPerm answers false when a handle has
+         no queryPermission at all, which is right for its own caller — it is
+         asking "may I" of something that cannot be asked. But an OPFS handle
+         has no queryPermission BECAUSE it needs no grant: the page owns that
+         storage outright. Passing that false straight through would have
+         refused every pull and push on the origin-private filesystem, which is
+         what trunk-sweep drives five people through, and the sweep would have
+         gone red on a build where nothing was wrong with the trunk. */
+      if (typeof fsPerm !== 'function' || typeof handle.queryPermission !== 'function') return true;
+      const ok = await fsPerm(handle, 'readwrite');
+      if (!ok) {
+        alert('This browser will not let the page reach "' + (handle.name || 'the trunk file') + '" any more.'
+          + '\n\nPermission to a file is dropped when the tab closes, so it has to be given again — and it '
+          + 'can only be asked for when you press something, which is why it is asked now rather than when '
+          + 'the page loaded.\n\nPress Pull or Push again and allow it, or use Join a team trunk to point at '
+          + 'the file once more. Nothing has been lost: your work is saved in this browser and the trunk file '
+          + 'is untouched.');
+      }
+      return ok;
+    }
     async function trunkRead(handle) {
       const f = await handle.getFile();
       const txt = await f.text();
@@ -6472,6 +6558,7 @@ Or say what you want, in your own words:
     }
     async function trunkPull(quiet) {
       if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
+      if (!(await trunkPermit(trunkHandle))) return;
       if (trunkBusy) return; trunkBusy = true;
       try {
         const t = await trunkRead(trunkHandle);
@@ -6571,6 +6658,7 @@ Or say what you want, in your own words:
     }
     async function trunkPush(quiet) {
       if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
+      if (!(await trunkPermit(trunkHandle))) return;
       if (trunkBusy) return; trunkBusy = true;
       try {
         trunkEnsureTip();
@@ -31943,8 +32031,15 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
            its control, so a move button placed in one would reorder the section
            AND tick it off in the same press. Only the checkbox and its text are
            the label now; the buttons sit outside it. */
+        /* AN EXPLICIT COLOUR, because .btn-ghost is a HEADER class: it paints
+           white text on a transparent ground with a translucent white border,
+           which is right on the dark header bar and invisible everywhere else.
+           These buttons rendered white-on-white inside a white dialog —
+           present, focusable, clickable and unreadable — under a sentence
+           promising "use ↑ ↓ to reorder". Reported as "buttons to reorder are
+           not visible", which is exactly what it was: not missing, unpainted. */
         const mv = (dir, glyph, tip, dis) =>
-          `<button type="button" class="btn-sm btn-ghost" style="padding:0 0.35rem;line-height:1.4;${dis ? 'opacity:0.25;cursor:default' : ''}"
+          `<button type="button" class="btn-sm btn-ghost" style="padding:0 0.35rem;line-height:1.4;color:var(--text);border-color:var(--border);${dis ? 'opacity:0.25;cursor:default' : ''}"
              ${dis ? 'disabled' : ''} onclick="sowMoveSection('${sec.key}',${dir})"
              title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${glyph}</button>`;
         /* flex:0 0 auto on the control and the number, or the checkbox stretches
@@ -32256,6 +32351,106 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
         ${pay.msUndated ? `<p style="font-size:12px;color:#b45309;margin:4px 0 0"><b>${pay.msUndated} milestone${pay.msUndated === 1 ? ' has' : 's have'} no date</b> and therefore carr${pay.msUndated === 1 ? 'ies' : 'y'} no payment above. Date ${pay.msUndated === 1 ? 'it' : 'them'} in the plan and regenerate.</p>` : ''}
         <p style="font-size:11px;color:#64748b;margin:4px 0 0">Dates are derived from the plan as it currently stands; invoice dates move with the schedule and are confirmed against the accepted milestone dates.</p>`;
     }
+    /* ═══ THE SOW SAYS WHAT IS OWED; NOTHING SAID WHAT HAS BEEN PAID ═════════
+       The payment schedule commits the client to a set of amounts on a set of
+       dates. Every one of those dates then passes, and the document went on
+       describing the deal as though it were still unsigned — the drafter had a
+       contract in front of them and no way to see, from the contract, whether
+       any of it had been collected. The figures existed: activities carry
+       invoiced and paid amounts with dates, and revenueRecord already totals
+       them for the receivables export. Nothing joined the two.
+
+       ── WHAT THIS DELIBERATELY DOES NOT DO ────────────────────────────────
+       It does NOT attribute individual invoices to individual payment rows.
+       Invoices are recorded against ACTIVITIES; payment rows are dates derived
+       from the revenue curve. Mapping one to the other means guessing which
+       row an invoice "belongs" to, and a guess printed beside a contractual
+       amount reads as a fact. So the totals are stated for the engagement, and
+       each ROW carries only what can be known exactly without any matching:
+       whether its date has passed.
+
+       That still answers the question a drafter actually has — three payments
+       are past due and only one invoice has gone out — while refusing to
+       invent the part it cannot know.
+
+       ── AND IT IS NOT IN THE DOCUMENT ─────────────────────────────────────
+       A Statement of Work describes the deal. The client reading their own
+       contract has no business being shown your receivables position, and the
+       panel writes sowDraft back out of #sowContainer when somebody edits in
+       place — so anything rendered inside it would be saved into the draft and
+       then sent. This renders to its own element, outside, marked no-print. */
+    function sowBillingState() {
+      let pay = null;
+      try { pay = sowPaymentPlan(); } catch (e) { pay = null; }
+      if (!pay || pay.kind === 'none' || !pay.rows.length) return null;
+      let rec = null;
+      try { rec = revenueRecord(leafTasks()); } catch (e) { rec = null; }
+      const today = stripTime(new Date()).getTime();
+      const rows = pay.rows.map(r => ({
+        when: r.when, event: r.event, amount: r.amount,
+        due: r.day <= today,
+        daysPast: r.day <= today ? calDaysBetween(new Date(r.day), new Date(today)) : 0
+      }));
+      const duePast = rows.filter(x => x.due);
+      return {
+        kind: pay.kind, label: pay.label, days: pay.days,
+        committed: pay.scheduled, rows: rows,
+        dueCount: duePast.length, dueAmount: duePast.reduce((a, x) => a + x.amount, 0),
+        next: rows.find(x => !x.due) || null,
+        invoiced: rec ? rec.billed : 0, received: rec ? rec.paid : 0,
+        outstanding: rec ? rec.billedUnpaid : 0,
+        doneUnbilled: rec ? rec.doneUnbilled : 0,
+        anyRecord: !!(rec && rec.anyRecord)
+      };
+    }
+    function renderSowBilling() {
+      const host = document.getElementById('sowBilling');
+      if (!host) return;
+      const b = sowBillingState();
+      if (!b) { host.innerHTML = ''; return; }
+      const pct = v => b.committed > 0 ? Math.max(0, Math.min(100, v / b.committed * 100)) : 0;
+      const f = (label, val, cls, tip) => '<span class="sb-f' + (cls ? ' ' + cls : '') + '" title="'
+        + escapeHtml(tip) + '"><i>' + label + '</i><b>' + escapeHtml(val) + '</b></span>';
+      /* Two bars on ONE track, not two tracks. Received is a subset of invoiced
+         — money you have been paid is money you asked for — and drawing them
+         side by side would let a reader add them together. */
+      const bar = '<span class="sb-track" title="' + escapeHtml('Invoiced ' + fmtMoney(b.invoiced)
+          + ' and received ' + fmtMoney(b.received) + ' against a committed ' + fmtMoney(b.committed)
+          + '. Received is part of invoiced, not additional to it.')
+        + '"><i class="sb-inv" style="width:' + pct(b.invoiced).toFixed(1) + '%"></i>'
+        + '<i class="sb-paid" style="width:' + pct(b.received).toFixed(1) + '%"></i></span>';
+      const line = !b.anyRecord
+        ? '<span class="sb-note">Nothing has been invoiced against this schedule yet — record invoices on the '
+          + 'activities and this fills in.</span>'
+        : b.dueCount
+          ? '<span class="sb-note' + (b.invoiced + 0.005 < b.dueAmount ? ' is-warn' : '') + '">'
+            + b.dueCount + ' payment' + (b.dueCount === 1 ? '' : 's') + ' now due or past ('
+            + escapeHtml(fmtMoney(b.dueAmount)) + ' of the schedule)'
+            + (b.invoiced + 0.005 < b.dueAmount
+                ? ' — and ' + escapeHtml(fmtMoney(b.dueAmount - b.invoiced)) + ' of that has never been invoiced.'
+                : '.')
+            + '</span>'
+          : '<span class="sb-note">Nothing is due yet' + (b.next ? '; the first payment falls on '
+              + escapeHtml(b.next.when) + '.' : '.') + '</span>';
+      host.innerHTML = '<div class="sb-wrap">'
+        + '<div class="sb-head"><b>Against this payment schedule</b>'
+        + '<span class="sb-terms">' + escapeHtml(b.label) + '</span></div>'
+        + '<div class="sb-row">' + bar
+        + f('committed', fmtMoney(b.committed), '', 'The total the payment schedule below commits the client to.')
+        + f('invoiced', fmtMoney(b.invoiced), b.invoiced > 0 ? 'is-inv' : '',
+            'Recorded as invoiced across the plan\'s activities. Not matched row by row — invoices are '
+            + 'recorded against activities and the rows are dates derived from the curve, so attributing one '
+            + 'to the other would be a guess printed beside a contractual amount.')
+        + f('received', fmtMoney(b.received), b.received > 0 ? 'is-paid' : '',
+            'Recorded as received. This is part of invoiced, not additional to it.')
+        + f('outstanding', fmtMoney(b.outstanding), b.outstanding > 0.005 ? 'is-warn' : '',
+            'Invoiced and not yet received. Work you have not invoiced is NOT in this figure — money you '
+            + 'have not asked for is not money owed to you.')
+        + (b.doneUnbilled > 0.005 ? f('finished, unbilled', fmtMoney(b.doneUnbilled), 'is-quiet',
+            'Finished work with no invoice recorded against it. Not yet owed to you, and the usual reason a '
+            + 'book looks healthier than it is.') : '')
+        + '</div>' + line + '</div>';
+    }
     // Appendix B: user stories & acceptance criteria (from the Requirements tab),
     // grouped by epic — the operative definition of "delivered" per deliverable.
     function sowStoriesAppendix() {
@@ -32387,6 +32582,7 @@ Do not write payment terms or exclusions — both are generated from the project
       saveLocal();
       setDocView('sow');
       renderSowHistory();
+      renderSowBilling();
       /* Two things the drafter has to be told, because the document itself
          cannot say them without saying them to the client as well. */
       const warn = [];
@@ -32449,6 +32645,13 @@ Do not write payment terms or exclusions — both are generated from the project
       return (draftChangeOrder._pending && draftChangeOrder._pending.no) || null;
     }
     function setDocView(v) { docView = v; paintDocView(); }
+    /* Repainted with the panel, not only when a draft is generated: the figures
+       come from the ACTIVITIES, which change all day without anybody touching
+       the SOW. A money reading that only updates when you regenerate the
+       document is a money reading that is wrong most of the time. */
+    { const _sd = typeof setDocView === 'function' ? setDocView : null;
+      if (_sd) setDocView = function () { const r = _sd.apply(this, arguments);
+        try { renderSowBilling(); } catch (e) {} return r; }; }
     function paintDocView() {
       const strip = document.getElementById('docSwitch');
       const cont = document.getElementById('sowContainer');
