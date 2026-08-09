@@ -769,18 +769,55 @@
     .rd-entry > .raid-kind-cell { flex-direction: row; align-items: baseline; gap: 0.35rem;
       margin-bottom: 1px; }
     .rd-title { font-weight: 650; line-height: 1.3; }
-    .rd-links { margin-top: 0.35rem; display: inline-flex; flex-wrap: wrap; gap: 0.25rem; align-items: baseline;
-      font-size: var(--t-xs); }
+    /* ═══ ONE BOX PER LINK ════════════════════════════════════════════════
+       "this looks like 1 item now in one pill" — and it did. Flat marks own no
+       edge, so binding them into one strip to stop them reading as a subtitle
+       gave two links a single outline and made them read as one thing with a
+       long name.
+
+       The number of boxes has to equal the number of things. Everywhere else in
+       this product a mark LABELS the row it sits in, and chrome round it is
+       noise; here it POINTS SOMEWHERE ELSE, which is a different job and wants
+       to look pressable. So the boundary is per link, and the gap between two
+       tokens is roughly twice the gap inside one — the ratio that reads as
+       grouping without a container drawing it. */
+    .rd-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.4rem;
+      align-items: center; font-size: var(--t-xs); }
     .rd-links:empty { display: none; }
-    /* the strip only exists when there is something IN it — an empty box round
-       a "+ link" ghost would be a container advertising its own emptiness */
-    .rd-links:has(.ek) { background: #f8fafc; border: 1px solid var(--border); border-radius: 9px;
-      padding: 2px 0.5rem 3px; box-shadow: inset 0 1px 0 #fff; }
-    .rd-links:has(.ek):hover { border-color: #cbd5e1; }
-    .rd-lk-lbl { font-style: normal; font-size: 0.58rem; letter-spacing: 0.07em; text-transform: uppercase;
-      font-weight: 700; color: var(--muted); margin-right: 0.1rem; }
-    .rd-links .ek { margin-right: 0.15rem; }
-    .rd-links .ek:last-child { margin-right: 0; }
+    .rd-lk { display: inline-flex; align-items: baseline; gap: 0.3rem; max-width: 15.5rem; min-width: 0;
+      padding: 2px 0.5rem 3px 0.42rem; border-radius: 7px; cursor: pointer;
+      border: 1px solid var(--lk-b, var(--border)); background: var(--lk-bg, #f8fafc);
+      font: inherit; font-size: var(--t-xs); line-height: 1.45; text-align: left;
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .7); position: relative; }
+    .rd-lk:hover { border-color: var(--lk-fg); box-shadow: 0 1px 3px rgb(15 23 42 / .1); }
+    .rd-lk:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+    .rd-lk > .lk-g { flex: none; font-size: 0.82em; font-weight: 800; color: var(--lk-fg); line-height: 1; }
+    .rd-lk > .lk-id { flex: none; font-weight: 700; color: var(--lk-fg);
+      font-variant-numeric: tabular-nums; }
+    .rd-lk > .lk-nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; font-weight: 400; color: #475569; }
+    /* Colour by kind, so a run of links is separable before a word is read.
+       These are the only place in the product where the entity KINDS carry a
+       colour of their own; everywhere else the mark labels a row that already
+       has a context, and here several kinds sit side by side with none. */
+    .ek-k-wp { --lk-bg: #eff6ff; --lk-b: #bfdbfe; --lk-fg: #1d4ed8; }
+    .ek-k-ph { --lk-bg: #f1f5f9; --lk-b: #cbd5e1; --lk-fg: #475569; }
+    .ek-k-ms { --lk-bg: #fffbeb; --lk-b: #fcd34d; --lk-fg: #b45309; }
+    .ek-k-tc { --lk-bg: #ecfeff; --lk-b: #a5f3fc; --lk-fg: #0e7490; }
+    .ek-k-us { --lk-bg: #f5f3ff; --lk-b: #ddd6fe; --lk-fg: #6d28d9; }
+    .ek-k-ac { --lk-bg: #eef2ff; --lk-b: #c7d2fe; --lk-fg: #4338ca; }
+    .ek-k-ep { --lk-bg: #faf5ff; --lk-b: #e9d5ff; --lk-fg: #7e22ce; }
+    /* the wording changed since the link was made: the token still works, and
+       says so without pretending to be broken */
+    .rd-lk.is-stale { --lk-bg: #fffbeb; --lk-b: #fde68a; --lk-fg: #92400e; }
+    .rd-lk.is-stale::after { content: "≠"; font-weight: 700; margin-left: 0.1rem; }
+    /* the target is gone. Not pressable, struck, and it says what it WAS —
+       the only thing left that can tell somebody what the entry was about. */
+    .rd-lk.is-dead { --lk-bg: #fef2f2; --lk-b: #fecaca; --lk-fg: #b91c1c; cursor: help; }
+    .rd-lk.is-dead > .lk-nm { color: #b91c1c; }
+    /* the overflow lives in the row and is revealed in place */
+    .rd-links .lk-extra { display: none; }
+    .rd-links.is-all .lk-extra { display: inline-flex; }
     /* A GHOST, not a sentence. "Nothing linked yet." was a full line of prose in
        a column of one-line rows, and it is the wrong shape for what it is: an
        entry linked to nothing is the one that cannot explain a number later, so
@@ -4761,7 +4798,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0104</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0115</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -29266,35 +29303,58 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
       return out;
     }
     /* ═══ WHAT THIS ENTRY TOUCHES ════════════════════════════════════════════
-       "the activity pills don't look like they're great ways to link, visually
-       it doesn't look impressive."
+       Two rounds of this, and the second correction is the interesting one.
 
-       They were bespoke pale-blue pills carrying a whole sentence, capped at
-       14rem, cut mid-word with no ellipsis showing — so one read
-       "1 Kickoff call with CEO — Confirm Sco|" and the story beside it opened
-       "— conduct the kickoff call with the CE|", a fragment starting at a dash.
-       Two identical-looking pills, neither legible, neither saying what KIND of
-       thing it pointed at except through a 9px letter.
+       ROUND ONE. The links were bespoke pale-blue pills carrying a whole
+       sentence, capped at 14rem, cut mid-word with no ellipsis reaching the
+       screen — one read "1 Kickoff call with CEO — Confirm Sco|" and the story
+       beside it opened "— conduct the kickoff call with the CE|", a fragment
+       starting at a dash. Two identical-looking pills, neither legible, neither
+       saying what KIND of thing it pointed at. Reported as "the activity pills
+       don't look like they're great ways to link". So they became the product's
+       own entity marks — the A / S / C / T / P / M vocabulary every other
+       surface draws — flat, with no box, because that flatness was a deliberate
+       decision made across the app.
 
-       The product already has the right component and this one place was not
-       using it. ekTok is the entity mark every other surface draws — the same
-       A / S / C / T / P / M glyphs on the activity table, the WBS, the Gantt and
-       the story cards — kind-coloured, with the identifier separated from the
-       name, its own truncation, and a tooltip that carries the full text. A
-       link to activity 1.1 should look like activity 1.1 looks everywhere else
-       in the product; that is what makes it recognisable rather than decorative.
+       ROUND TWO, reported immediately: "this looks like 1 item now in one pill."
+       And it did. Flat marks have no boundary of their own, so to stop them
+       reading as a subtitle of the title above I had wrapped the row in one
+       recessed strip — which gave two links a single outline and made them read
+       as ONE thing with a long name. The label word at its head only reinforced
+       it: LINKED became the prefix of a single pill rather than a heading over
+       several.
 
-       Capped at three. A risk touching eight things turned the row into a
-       paragraph of pills, and past about three the reader has stopped reading
-       them individually anyway — so the rest collapse into one token that names
-       them all on hover and opens the entry to see them properly.
+       The mistake was treating "flat marks everywhere" as a rule that outranks
+       what the marks are DOING here. Everywhere else a mark LABELS the row it
+       sits in — it names the thing you are already looking at, and chrome round
+       it would be noise. Here it POINTS SOMEWHERE ELSE. That is a different
+       job: it has to look like something you can press, and one per target, or
+       the count is wrong at a glance. So each link is its own bounded, tinted,
+       pressable token — and the boundary is per-link, which is the whole point,
+       because the number of boxes has to equal the number of things.
 
-       And nothing linked is now an INVITATION rather than a sentence. "Nothing
-       linked yet." was a full line of prose in a column of one-line rows, and a
-       RAID entry linked to nothing is the one that cannot explain any number
-       later; the dashed ghost matches the "+ link" the activity table already
-       uses for exactly the same absence. */
+       The mark vocabulary is unchanged: the same glyph, the same identifier
+       first, the same truncation with the full text one hover away. What
+       changed is that each one now owns its own edge. Colour comes from the
+       kind, so a run of links is separable before a word of it is read.
+
+       Capped at three; the rest collapse into one token that names them all on
+       hover. Nothing linked shows a dashed ghost, because an entry linked to
+       nothing is the one that can never explain a number later. */
     const RAID_RAIL_MAX = 3;
+    /* No re-render: the extras are already in the row, so this is a class flip
+       and the reveal is instant. A re-render here would also drop any other
+       row a reader had opened, which is the kind of thing that makes people
+       stop opening them. */
+    function raidLinksToggle(btn, n) {
+      const box = btn.closest('.rd-links');
+      if (!box) return;
+      const on = box.classList.toggle('is-all');
+      btn.textContent = on ? 'show fewer' : '+' + n + ' more';
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      btn.title = on ? 'Collapse back to the first ' + RAID_RAIL_MAX
+        : 'Show the other ' + n + ' thing' + (n === 1 ? '' : 's') + ' this entry touches, here in the row.';
+    }
     function raidLinkRail(r) {
       const ls = raidLinks(r);
       if (!ls.length) {
@@ -29307,33 +29367,54 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
         const g = raidResolve(l);
         const kindName = (RAID_LINK_KINDS[l.k] || {}).label || l.k;
         if (!g) {
-          return '<span class="ek ek-dead" title="' + escapeHtml(kindName + ' link to something no longer in '
-            + 'this plan. It was "' + (l.was || l.id) + '" when this entry was written.')
-            + '"><span class="ek-g" aria-hidden="true">?</span><span class="ek-id"><s>'
-            + escapeHtml(String(l.was || l.id).slice(0, 18)) + '</s></span></span>';
+          /* ACTIONABLE, not just reported. A broken trace is the one link on
+             the row somebody has to do something about, and it was the only
+             one you could not click. */
+          return '<button type="button" class="rd-lk is-dead" onclick="openRaidForm(' + r.id + ')" title="'
+            + escapeHtml(kindName + ' link to something no longer in this plan. It was "'
+              + (l.was || l.id) + '" when this entry was written.'
+              + '\n\nClick to open the entry and re-point or remove it.')
+            + '"><b class="lk-g" aria-hidden="true">?</b><s class="lk-nm">'
+            + escapeHtml(String(l.was || l.id).slice(0, 24)) + '</s></button>';
         }
-        return ekTok(g.kind || 'wp', g.ref, g.name, { xs: true, max: 20, onclick: g.open,
-          cls: g.stale ? 'ek-stale' : '',
-          tip: kindName + ' ' + g.ref + ' — ' + g.name
+        const k = EK[g.kind || 'wp'] || EK.wp;
+        /* A story's text is a clause — "conduct the kickoff call with the CEO" —
+           so as a label it opened lower-case mid-sentence and read as a
+           fragment of the row above rather than as the name of a thing. */
+        const nm = String(g.name || '');
+        const shownNm = nm ? nm.charAt(0).toUpperCase() + nm.slice(1) : '';
+        return '<button type="button" class="rd-lk ek-k-' + (g.kind || 'wp')
+          + (g.stale ? ' is-stale' : '') + '" onclick="' + g.open + '" title="'
+          + escapeHtml(k.w + ' ' + g.ref + ' — ' + nm
             + (g.stale ? '\n\n≠ the wording changed since this was linked. It read "' + l.was + '".' : '')
-            + '\n\nClick to open it.' });
+            + '\n\nClick to open it.') + '">'
+          + '<b class="lk-g" aria-hidden="true">' + k.g + '</b>'
+          + '<span class="ek-sr">' + escapeHtml(k.w) + ' </span>'
+          + '<b class="lk-id">' + escapeHtml(String(g.ref)) + '</b>'
+          + (shownNm ? '<span class="lk-nm">' + escapeHtml(ekStrip(shownNm)) + '</span>' : '')
+          + '</button>';
       };
-      /* A LABEL, AND A STRIP TO SIT IN. The marks alone were correct and still
-         ambiguous: "P 3.1 Build / Configure" sitting under a title reads as
-         part of the entry — the phase it belongs to, a category, a subtitle —
-         rather than as a pointer to somewhere else. One word says why they are
-         there, and the recessed strip binds them into one object attached to
-         the entry, the same idiom the milestone gate band uses.
-
-         The marks themselves keep the app's mark design exactly: no pill, no
-         backplate. That was a deliberate decision everywhere else in the
-         product and a link should look like the thing it links to. */
-      const shown = '<i class="rd-lk-lbl">linked</i>' + ls.slice(0, RAID_RAIL_MAX).map(tok).join('');
-      const rest = ls.slice(RAID_RAIL_MAX);
+      /* GROUPED BY KIND, so three activities and a story read as "three
+         activities and a story" rather than as four things in the order
+         somebody happened to link them. Stable within a kind: the order they
+         were linked in is the order they were thought of in. */
+      const KORD = { act: 0, story: 1, ac: 2, co: 3, raid: 4 };
+      const sorted = ls.map((l, ix) => ({ l: l, ix: ix }))
+        .sort((a, b) => ((KORD[a.l.k] == null ? 9 : KORD[a.l.k]) - (KORD[b.l.k] == null ? 9 : KORD[b.l.k]))
+          || (a.ix - b.ix))
+        .map(x => x.l);
+      /* EVERY token is rendered; the overflow is hidden in CSS and revealed in
+         place. "+4 more" used to open the edit form — a modal, a scroll and a
+         close, to answer "what are the other four". Nothing about that is a
+         look; you are just reading. The extras are in the DOM either way, so
+         the reveal is instant and Ctrl+F finds them. */
+      const shown = sorted.map((l, ix) => ix < RAID_RAIL_MAX ? tok(l)
+        : tok(l).replace('class="rd-lk', 'class="lk-extra rd-lk')).join('');
+      const rest = sorted.slice(RAID_RAIL_MAX);
       const more = rest.length
-        ? '<button type="button" class="rd-link-more" onclick="openRaidForm(' + r.id + ')" title="'
-          + escapeHtml(rest.map(l => { const g = raidResolve(l); return g ? g.ref + ' — ' + g.name : (l.was || l.id); })
-              .join('\n') + '\n\nClick to open the entry and see every link.')
+        ? '<button type="button" class="rd-link-more" aria-expanded="false" onclick="raidLinksToggle(this, '
+          + rest.length + ')" title="' + escapeHtml('Show the other ' + rest.length + ' thing'
+            + (rest.length === 1 ? '' : 's') + ' this entry touches, here in the row.')
           + '">+' + rest.length + ' more</button>'
         : '';
       return shown + more;

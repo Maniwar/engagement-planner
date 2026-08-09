@@ -1311,14 +1311,23 @@ const { chromium } = requirePlaywright();
 
       const many = rowOf('many');
       if (!many) { say4('a planted entry with links did not render'); return; }
-      const marks = [...many.querySelectorAll('.rd-links .ek')];
-      out.linkRail = marks.length + ' marks, ' + (many.querySelector('.rd-link-more') ? 'collapsed' : 'flat');
-      if (!marks.length)
-        say4('an entry linked to ' + leaves.length + ' activities draws no entity marks at all — the links '
-          + 'are back to being bespoke pills, or gone');
+      /* ONE BOX PER LINK. The first version of this rail drew flat marks bound
+         into a single strip, and was read exactly as that looks: "this looks
+         like 1 item now in one pill". The number of bounded, pressable objects
+         has to equal the number of things linked, or the count is wrong at a
+         glance no matter what the text says. */
+      const all = [...many.querySelectorAll('.rd-links .rd-lk')];
+      const marks = all.filter(x => !x.classList.contains('lk-extra'));
+      out.linkRail = marks.length + ' shown of ' + all.length
+        + (many.querySelector('.rd-link-more') ? ', collapsed' : ', flat');
+      if (!all.length)
+        say4('an entry linked to ' + leaves.length + ' activities draws no link tokens at all');
+      if (all.length !== leaves.length)
+        say4('the entry links ' + leaves.length + ' activities and the row holds ' + all.length
+          + ' tokens — one bounded object per link is the whole point; anything else and the reader counts wrong');
       if (marks.length > 4)
-        say4('all ' + marks.length + ' links are drawn on the row. Past about three the reader has stopped '
-          + 'reading them individually and the entry has become a paragraph of chips');
+        say4(marks.length + ' links are shown at once. Past about three the reader has stopped reading them '
+          + 'individually and the entry has become a paragraph of chips');
       const first = marks[0];
       if (first) {
         const shown = first.textContent.replace(/\s+/g, ' ').trim();
@@ -1337,12 +1346,32 @@ const { chromium } = requirePlaywright();
       if (marks.length < leaves.length && !more)
         say4('links were dropped from the row with nothing saying how many — a row that quietly shows three '
           + 'of five reads as an entry that touches three things');
-      if (more && !/\d/.test(more.getAttribute('title') || ''))
-        say4('the collapsed links are not named anywhere, so what they are is unreachable without opening '
-          + 'the entry and hunting');
+      /* AND THE REST OPEN WHERE THEY ARE. "+4 more" used to open the edit
+         form: a modal, a scroll and a close, to answer "what are the other
+         four" — a reading question answered with an editing gesture. */
+      if (more) {
+        const wasVis = many.querySelectorAll('.rd-lk').length
+          - many.querySelectorAll('.lk-extra').length;
+        more.click();
+        const nowVis = [...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length;
+        out.linkExpand = wasVis + '→' + nowVis + ' "' + more.textContent.trim() + '"';
+        if (nowVis <= wasVis)
+          say4('pressing "+' + (leaves.length - wasVis) + ' more" showed nothing new in the row. Answering '
+            + '"what else does this touch" should not cost a modal, a scroll and a close');
+        if (nowVis !== leaves.length)
+          say4('expanded, the row shows ' + nowVis + ' of ' + leaves.length + ' links');
+        if (/more/.test(more.textContent))
+          say4('the control still reads "' + more.textContent.trim() + '" after expanding, so there is no '
+            + 'way to tell it is open or to put it back');
+        if (more.getAttribute('aria-expanded') !== 'true')
+          say4('the expander never reports its state, so a screen reader is told nothing happened');
+        more.click();
+        if ([...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length !== wasVis)
+          say4('it does not collapse again');
+      }
 
       const dead = rowOf('dead');
-      const deadMark = dead && dead.querySelector('.rd-links .ek');
+      const deadMark = dead && dead.querySelector('.rd-links .rd-lk');
       out.deadLink = deadMark ? deadMark.className : '(none)';
       if (!deadMark) say4('a link pointing at a deleted activity draws nothing at all, so a broken trace is '
         + 'indistinguishable from no trace');
