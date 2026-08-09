@@ -391,6 +391,48 @@ function serveApp() {
           + 'built to end');
     })();
 
+    /* ═══ HALF A LOOP MUST NOT LOOK LIKE A WHOLE ONE ══════════════════════
+       Watching a colleague's file is inbound only: it reads their changes and
+       writes nothing back. Somebody who sets that up and stops there receives
+       everything and sends nothing, while the other person watches a file that
+       never moves and concludes the tool is broken.
+
+       The chip is the only thing that can say so, and it said nothing — it
+       reported the half that WAS set up. The fix draws a warning and a way to
+       finish the pair, and this asserts the DIFFERENCE between the two states
+       rather than any wording: with an outbound handle the chip is quiet, and
+       without one it offers the control that completes the loop. */
+    (() => {
+      const keptTheirs = fsTheirs, keptHandle = diskFileHandle, keptPending = fsPending;
+      const el = document.getElementById('syncChip');
+      if (!el) {
+        bad.push('Sync chip :: there is no chip element to report the state of the loop at all');
+        return;
+      }
+      fsPending = null;
+      fsTheirs = { name: 'their-plan.json', handle: {} };
+      diskFileHandle = null;
+      renderSyncChip();
+      const oneWay = el.innerHTML;
+      diskFileHandle = {};                       // the outbound half now exists
+      renderSyncChip();
+      const bothWays = el.innerHTML;
+      fsTheirs = keptTheirs; diskFileHandle = keptHandle; fsPending = keptPending;
+      renderSyncChip();
+      out.chipOneWayOffersFix = /setupDiskAutosave/.test(oneWay);
+      out.chipQuietWhenPaired = !/setupDiskAutosave/.test(bothWays);
+      if (oneWay === bothWays)
+        bad.push('Sync chip :: receiving somebody\'s changes while sending none of your own draws exactly '
+          + 'the same chip as a working pair. The one state a person cannot discover for themselves is the '
+          + 'one the chip refuses to distinguish');
+      if (!out.chipOneWayOffersFix)
+        bad.push('Sync chip :: the one-way state is drawn with no way out of it — a warning that names no '
+          + 'next step leaves the reader knowing they are broken and not how to stop being broken');
+      if (!out.chipQuietWhenPaired)
+        bad.push('Sync chip :: a fully paired loop still offers to set up the half that already exists, so '
+          + 'the warning means nothing');
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════

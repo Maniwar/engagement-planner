@@ -233,6 +233,72 @@ const DATA = FIXTURE();
               + 'missing from the appendix it points readers to: ' + notInAppendix.slice(0, 6).join(', '));
         }
       }
+      /* ═══ WHAT ASKING FOR DELIVERY-SIDE STORIES ACTUALLY BUYS ═════════════
+         The rule that a story is "referenced" when the document quotes its
+         quality attribute is only CONSULTED when somebody has ticked "include
+         delivery-side stories" — the default appendix is client-facing stories
+         and nothing else. So a mutant that stopped NFR-carrying stories
+         entering the referenced set changed nothing in the default
+         configuration and survived a 340-mutant run: the setting the rule
+         serves was never turned on.
+
+         Turned on here, with an internal story whose ONLY claim on the
+         document is a quality attribute — and the construction is asserted
+         before anything is concluded from it. */
+      (() => {
+        const keptFlag = pricing.sowDeliveryStories;
+        const guinea = ((reqs && reqs.stories) || []).find(s2 => storyAudience(s2) === 'internal');
+        if (!guinea) {
+          say('SOW document', 'the fixture holds no internal story, so "include delivery-side stories" '
+            + 'cannot be shown to include anything and the setting is untested');
+          return;
+        }
+        const keptNfrs = guinea.nfrs, keptAss = guinea.assumptions;
+        guinea.nfrs = ['ZZ probe attribute: responses under 2 seconds'];
+        guinea.assumptions = [];
+        pricing.sowDeliveryStories = true;
+        const onPrinted = sowPrintedStoryIds();
+        const onHtml = build();
+        pricing.sowDeliveryStories = false;
+        const offPrinted = sowPrintedStoryIds();
+        guinea.nfrs = keptNfrs; guinea.assumptions = keptAss;
+        pricing.sowDeliveryStories = keptFlag;
+        // the construction: off, this story is NOT printed — or the check below proves nothing
+        if (offPrinted.has(guinea.id)) {
+          say('SOW document', 'the delivery-story subject prints even with the setting off, so the '
+            + 'setting cannot be shown to do anything');
+          return;
+        }
+        if (!onPrinted.has(guinea.id))
+          say('SOW document', 'with "include delivery-side stories" ON, a story the document quotes a '
+            + 'quality attribute from is still left out of the appendix it points readers to — the '
+            + 'setting is the only reason that appendix exists and it brings nothing in');
+        else if (strip(onHtml.d.storiesAppendix || '').indexOf(guinea.id) < 0)
+          say('SOW document', 'the document counts ' + guinea.id + ' as printed with delivery-side '
+            + 'stories on, and the appendix does not contain it');
+      })();
+
+      /* ═══ THE PRICE IS NOT A FOOTNOTE ═════════════════════════════════════
+         Commercial Terms sat below Change Control, Acceptance and the rest of
+         the boilerplate — the number the client is signing, under three
+         sections of process. It was moved up, and nothing was asserting where
+         it went, so a mutant that put it back survived. Position relative to
+         the boilerplate, not an index: the count of sections changes with the
+         section picker and an absolute position would be a fixture reading. */
+      (() => {
+        const names = secNames(base.html);
+        const at = n => names.findIndex(x => x.replace(/&amp;/g, '&').indexOf(n) >= 0);
+        const com = at('Commercial Terms');
+        if (com < 0) { say('SOW document', 'the document has no Commercial Terms section at all'); return; }
+        [['Change Control', 'change control'], ['Acceptance', 'the acceptance process']].forEach(([n, human]) => {
+          const i2 = at(n);
+          if (i2 >= 0 && com > i2)
+            say('SOW document', 'the price and the payment schedule are printed after ' + human
+              + ' (section ' + (com + 1) + ' of ' + names.length + ') — the number the client signs is '
+              + 'below the process boilerplate');
+        });
+      })();
+
       // and with the appendix switched OFF, nothing may be cited at all
       const sel = document.getElementById('sowStoriesMode');
       const savedMode = sel ? sel.value : null;

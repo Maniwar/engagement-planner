@@ -4920,7 +4920,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1749</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1816</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -32133,13 +32133,17 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
         + '">' + escapeHtml((t.wbs ? t.wbs + ' ' : '') + t.name) + '</span>';
       return '';
     }
-    /* Keep only the refs this document resolves. A row whose every reference is
-       dropped keeps its place — the requirement is real and belongs in the
-       contract — but stops pointing at a story the reader cannot find. */
-    function sowKeepRefs(ids, printed) {
-      const kept = (ids || []).filter(id => printed.has(id));
-      return { refs: kept, dropped: (ids || []).length - kept.length };
-    }
+    /* sowKeepRefs lived here: "keep only the refs this document resolves", from
+       when an unresolvable reference was dropped. That answer was replaced by a
+       better one — sowTraceRef prints the ACTIVITY a delivery-side story traces
+       to, so nothing has to be dropped and nothing internal has to be printed —
+       and the old function was left behind, called by nothing.
+
+       Removed because a mutation test was pointed at it: the mutant deleted its
+       filter, nothing went red, and it was recorded as an unguarded region of
+       the product. It was not unguarded, it was unreachable, and a survivor
+       standing for dead code is worse than no mutant at all — it spends a
+       reader's attention on a hole that does not exist. */
     function sowSkeletonData() {
       const u = unitLabel();
       const rv = computeReserves();

@@ -953,9 +953,12 @@ const MUTANTS = [
     find: '          t.actualStartInferred = back > 0;      // said out loud on the panel',
     with: '          t.actualStartInferred = false;' },
 
+  /* ANCHOR REPAIRED. The baseline panel stopped inlining its attention block
+     into the template and started building it into a variable first, so this
+     matched nothing and the mutant had been silently not planted. */
   { what: 'check-off: work marked complete with no dates at all is not reported',
-    find: '      cont.innerHTML = `${banner}${undatedCompletionsHtml()}${completionReviewHtml()}',
-    with: '      cont.innerHTML = `${banner}${completionReviewHtml()}' },
+    find: '      const attention = undatedCompletionsHtml() + completionReviewHtml()',
+    with: '      const attention = completionReviewHtml()' },
 
   { what: 'revenue: the funding gap is stated in words and never drawn',
     find: "            bits.push(ptrCashSvg(pos)\n              + '<p class=\"ptr-mi-line\">Billed '",
@@ -1037,9 +1040,13 @@ const MUTANTS = [
     find: '      if (!whyState.root) whyState.root = last;',
     with: '      if (false) whyState.root = last;' },
 
+  /* ANCHOR REPAIRED. The RAID row was rebuilt around a severity instrument and
+     an entry cell, so the title no longer lives in a font-weight:600 <td> and
+     this matched nothing. The identity is unchanged: strip the sub-line that
+     carries the analysis and see whether anything notices. */
   { what: 'form: the log shows the entry and hides the analysis behind it',
-    find: '          <td style="font-weight:600">${escapeHtml(r.title)}${raidTitleSubHtml(r)}</td>',
-    with: '          <td style="font-weight:600">${escapeHtml(r.title)}</td>' },
+    find: '            ${raidTitleSubHtml(r)}',
+    with: '            ' },
 
   { what: 'form: a Decision has no way to record how it turned out',
     find: "      Decision: [\n        { v: 'stands',     lbl: 'Still stands',            short: 'stands',     explains: true },",
@@ -1546,9 +1553,11 @@ const MUTANTS = [
     find: "        ? 'This engagement is retained. The amounts below are payable for each period whether or not the period is fully utilised, and reserve the team\\'s availability for it.'",
     with: "        ? 'This engagement is retained.'" },
 
-  { what: 'SOW: the trace columns cite story ids the document never prints',
-    find: '      const kept = (ids || []).filter(id => printed.has(id));',
-    with: '      const kept = (ids || []);' },
+  /* RETIRED. This mutant survived, and the reason was not a hole in the suite:
+     sowKeepRefs was called by nothing. The identity it named — a trace column
+     must not cite a story the document does not print — is real and is asserted
+     in client-facing-sweep against the function that actually does the work,
+     sowTraceRef. The dead function has been removed from the product. */
 
   { what: 'SOW: a story the contract relies on is left out of the appendix it points readers to',
     find: '        if ((s.nfrs || []).some(x => String(x).trim())) out.add(s.id);',
@@ -1586,11 +1595,17 @@ const MUTANTS = [
     find: '      secs.forEach((s, i) => { numOf[s.key] = i + 1; });',
     with: '      secs.forEach((s, i) => { numOf[s.key] = i + 2; });' },
 
+  /* RE-POINTED. This planted its change at the add() CALL SITES, which do not
+     decide anything: the document is emitted in SOW_SECTIONS order and add()
+     only registers a body against a key. The mutant produced a byte-identical
+     section list and was recorded as an unguarded region for a year. The
+     ordering authority is the table, so that is where the price gets pushed
+     back into the basement. */
   { what: 'SOW: the price and the payment schedule go back to the basement',
-    find: ["      add('commercial', 'Commercial Terms', d.price ? sowCommercialHtml(d, n, td, th) : '');",
-           "      add('change', 'Change Control',"],
-    with: ['      ;',
-           "      add('commercial', 'Commercial Terms', d.price ? sowCommercialHtml(d, n, td, th) : '');\n      add('change', 'Change Control',"] },
+    find: ["      { key: 'commercial',  name: 'Commercial Terms',             note: 'the price and the payment schedule', heavy: true },\n",
+           "      { key: 'change',      name: 'Change Control',               note: 'how scope changes are agreed', heavy: true }"],
+    with: ['',
+           "      { key: 'change',      name: 'Change Control',               note: 'how scope changes are agreed', heavy: true },\n      { key: 'commercial',  name: 'Commercial Terms',             note: 'the price and the payment schedule', heavy: true }"] },
 
   { what: 'change order: the activity lookup returns every order regardless of which it touched',
     find: '        const lines = (c.diff || []).filter(d => Number(d.id) === id);',
