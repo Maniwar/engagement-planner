@@ -391,6 +391,63 @@ function serveApp() {
           + 'built to end');
     })();
 
+    /* ═══ A DIFFERENT STAMP IS NOT A DIFFERENT ENGAGEMENT ═════════════════
+       Reported twice: "clicking push pull says there is a different trunk
+       again." Identity was decided by one field — the lineage stamp — and when
+       it disagreed the answer was a refusal with no evidence and no way out.
+       But a stamp goes out of step for ordinary reasons (a file saved by an
+       older build, a copy made before the two were connected) while the
+       histories underneath are plainly the same history.
+
+       So the question is asked of the VERSION IDS, which are the stronger
+       evidence: if any id appears on both sides these two files were once one
+       file. Driven here, not inspected — a trunk is built that shares this
+       plan's versions and carries a foreign stamp, which is exactly the state
+       that produced the report. */
+    (() => {
+      const keptLin = planLineage, keptFork = planForkedFrom;
+      const mine = (planVersions || []).map(v => v.vid).filter(Boolean);
+      if (mine.length < 1) {
+        bad.push('Kinship :: this plan has no versions, so "shares a version with the trunk" cannot be '
+          + 'constructed and the check below would pass on any build');
+        return;
+      }
+      const foreign = { _format: TRUNK_FORMAT, lineage: 'L-someone-elses-stamp', name: 'Same engagement',
+                        base: null, log: mine.map(v => ({ vid: v, pvid: null, by: 'w1', byName: 'A. Rivera' })) };
+      planForkedFrom = '';
+      planLineage = 'L-my-own-stamp';
+      const kin = trunkRelation(foreign);
+      out.kinRelation = kin.relation;
+      out.kinShared = kin.kin ? kin.kin.shared : null;
+      if (kin.relation === 'unrelated')
+        bad.push('Kinship :: a trunk holding this plan\'s own version ids, under a different lineage stamp, '
+          + 'is called a different engagement. The stamp is the weaker evidence and it is overruling the '
+          + 'stronger — this is the state a person reports as "it says there is a different trunk again", '
+          + 'and there is nothing they can do about it from that dialog');
+      else if (kin.relation !== 'kin')
+        bad.push('Kinship :: a shared-history trunk under a foreign stamp reports "' + kin.relation
+          + '", which is neither the refusal nor the offer to reconcile');
+      /* AND A GENUINE STRANGER IS STILL REFUSED. A check that only proves the
+         permissive half would pass on a build that accepted everything. */
+      const stranger = { _format: TRUNK_FORMAT, lineage: 'L-unrelated', name: 'Someone else\'s project',
+                         base: null, log: [{ vid: 'v-nothing-in-common', pvid: null, by: 'w9' }] };
+      const rel2 = trunkRelation(stranger);
+      out.strangerRelation = rel2.relation;
+      if (rel2.relation !== 'unrelated')
+        bad.push('Kinship :: a trunk with no version in common reports "' + rel2.relation + '" rather than '
+          + 'refusing — two unrelated engagements would merge into one, and every activity in the other '
+          + 'would read as an addition to this one');
+      /* THE REFUSAL SHOWS ITS WORKING. A verdict nobody can check reads as a
+         bug, which is how this arrived. */
+      const ev = typeof trunkKinshipEvidence === 'function'
+        ? trunkKinshipEvidence(rel2.kin || trunkKinship(stranger)) : '';
+      out.evidenceNamesBoth = /lineage/.test(ev) && /versions in common/.test(ev);
+      if (!out.evidenceNamesBoth)
+        bad.push('Kinship :: the refusal prints no evidence, so a person told their own trunk is a stranger '
+          + 'cannot see what was compared');
+      planLineage = keptLin; planForkedFrom = keptFork;
+    })();
+
     /* ═══ HALF A LOOP MUST NOT LOOK LIKE A WHOLE ONE ══════════════════════
        Watching a colleague's file is inbound only: it reads their changes and
        writes nothing back. Somebody who sets that up and stops there receives

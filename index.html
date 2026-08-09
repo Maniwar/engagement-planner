@@ -4932,7 +4932,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2040</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2051</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6515,8 +6515,15 @@ Or say what you want, in your own words:
       /* A FORK IS NOT A STRANGER. Both are "different lineage", and telling a
          person their copy "was not started from a copy of this plan" — when it
          was started from exactly that — is a dead end delivered as a fact. */
-      if (planLineage && t.lineage && planLineage !== t.lineage)
-        return { relation: (planForkedFrom && planForkedFrom === t.lineage) ? 'fork' : 'unrelated' };
+      if (planLineage && t.lineage && planLineage !== t.lineage) {
+        // a deliberate copy knows what it came from and says so
+        if (planForkedFrom && planForkedFrom === t.lineage) return { relation: 'fork' };
+        /* otherwise ASK THE HISTORIES, not the stamps. A shared version id is
+           proof these two files were once one file, which no mismatched stamp
+           can undo. */
+        const k = trunkKinship(t);
+        return k.shared > 0 ? { relation: 'kin', kin: k } : { relation: 'unrelated', kin: k };
+      }
       const theirVids = [].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid));
       const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
       if (!theirVids.length) return { relation: 'empty' };
@@ -6659,11 +6666,15 @@ Or say what you want, in your own words:
           const rel = trunkRelation(t);
           if (rel.relation === 'fork') {
             if (!(await trunkAdoptFork(t))) return;
+          } else if (rel.relation === 'kin') {
+            if (!(await trunkAdoptLineage(t, rel.kin))) return;
           } else if (rel.relation === 'unrelated') {
-            alert('That trunk belongs to a different engagement.\n\nNothing in its history appears anywhere in '
-              + 'this plan\'s, so merging it would make every activity look like an addition. Open it as its own '
-              + 'project instead.\n\n(If this plan is a COPY of that engagement, duplicate it again from the '
-              + 'original — a copy remembers what it was copied from and can adopt the trunk.)');
+            alert('That trunk belongs to a different engagement.\n\n'
+              + trunkKinshipEvidence(rel.kin || trunkKinship(t))
+              + '\n\nNothing in its history appears anywhere in this plan\'s, so merging it would make every '
+              + 'activity look like an addition. Open it as its own project instead.\n\n(If this plan is a COPY '
+              + 'of that engagement, duplicate it again from the original — a copy remembers what it was copied '
+              + 'from and can adopt the trunk.)');
             return;
           }
         }
@@ -6768,7 +6779,10 @@ Or say what you want, in your own words:
       }
       if (!t) return;
       const rel = trunkRelation(t);
-      if (rel.relation === 'fork' || rel.relation === 'unrelated' || rel.relation === 'notatrunk') {
+      /* ADOPTING A LINEAGE IS A DECISION, so the unattended loop stops and
+         says so rather than making it. Same rule as a contested merge. */
+      if (rel.relation === 'fork' || rel.relation === 'kin'
+          || rel.relation === 'unrelated' || rel.relation === 'notatrunk') {
         trunkPaused = 'lineage'; updateTrunkBtn(); return;
       }
       if (rel.relation === 'behind') { await trunkPull(true); trunkAutoStart(); return; }
@@ -6796,6 +6810,69 @@ Or say what you want, in your own words:
         const moved = !last || JSON.stringify(last.snap) !== JSON.stringify(snapshotPlan());
         if (rel.relation === 'ahead' || moved) { trunkLastLocal = 0; await trunkPush(true); trunkAutoStart(); }
       }
+    }
+    /* ═══ "A DIFFERENT ENGAGEMENT" IS A VERDICT AND MUST SHOW ITS EVIDENCE ════
+       Reported twice now: "clicking push pull says there is a different trunk
+       again." The tool was answering a question about IDENTITY with a single
+       stamp — the lineage id — and when that stamp disagreed it refused, gave
+       no evidence, and offered no way out. A person looking at their own plan
+       and their own team's trunk, which plainly ARE the same engagement, has
+       nothing to do with that sentence except disbelieve it.
+
+       The stamp is not the only evidence available, and it is the weaker kind.
+       VERSION IDS ARE. If any version id in this plan's history also appears in
+       the trunk, then at some point these two files were the same file, and no
+       amount of lineage mismatch makes them strangers — a plan saved by a build
+       older than lineage stamps, a copy made before the fork rule existed, or a
+       trunk started from a file that had been round-tripped will all produce a
+       different stamp over a shared past.
+
+       So kinship is measured rather than declared, and the answer routes three
+       ways: same stamp (carry on), different stamp but shared versions (say so,
+       and offer to restamp), different stamp and nothing in common (refuse, and
+       print what was compared so the refusal can be checked). */
+    function trunkKinship(t) {
+      const theirVids = [].concat(t && t.base && t.base.vid ? [t.base.vid] : [],
+                                  ((t && t.log) || []).map(e => e.vid)).filter(Boolean);
+      const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
+      const theirSet = new Set(theirVids);
+      const shared = myVids.filter(v => theirSet.has(v));
+      const who = [...new Set(((t && t.log) || []).map(e => e.byName || e.by).filter(Boolean))];
+      return { shared: shared.length, newestShared: shared[shared.length - 1] || null,
+               mine: myVids.length, theirs: theirVids.length, who: who,
+               myLineage: planLineage || '(not stamped yet)',
+               theirLineage: (t && t.lineage) || '(not stamped)',
+               theirName: (t && t.name) || '(unnamed)' };
+    }
+    /* The evidence, printed. A refusal nobody can check is indistinguishable
+       from a bug, which is exactly how this one was reported. */
+    function trunkKinshipEvidence(k) {
+      return 'What was compared:\n'
+        + '  • this plan: ' + k.mine + ' version' + (k.mine === 1 ? '' : 's')
+          + ', lineage ' + k.myLineage + '\n'
+        + '  • the trunk: ' + k.theirs + ' version' + (k.theirs === 1 ? '' : 's')
+          + ', lineage ' + k.theirLineage + ', named "' + k.theirName + '"'
+          + (k.who.length ? ', written by ' + k.who.join(', ') : '') + '\n'
+        + '  • versions in common: ' + k.shared;
+    }
+    /* SAME PAST, DIFFERENT STAMP. Not a copy — a copy knows what it was copied
+       from and takes the fork route above. This is one engagement whose two
+       files disagree about their own name for it, and the fix is to agree. */
+    async function trunkAdoptLineage(t, k) {
+      if (!confirm('This plan and that trunk carry different lineage stamps, but they share '
+        + k.shared + ' version' + (k.shared === 1 ? '' : 's') + ' of history — so they ARE the same '
+        + 'engagement. A stamp goes out of step when one side was saved by an older build, or was '
+        + 'copied before the two were connected.\n\n' + trunkKinshipEvidence(k)
+        + '\n\nAdopt the trunk\'s stamp so Pull and Push work again?\n\nNothing in either history is '
+        + 'discarded: the versions you already share stay shared, and anything only you have is still '
+        + 'yours to push.')) return false;
+      planLineage = t.lineage;
+      planForkedFrom = '';
+      const took = adoptVersions((t.log || []));
+      saveLocal();
+      flashSaved('🌳 Same engagement — stamps now agree'
+        + (took ? ', and ' + took + ' version' + (took === 1 ? '' : 's') + ' adopted' : ''));
+      return true;
     }
     async function trunkAdoptFork(t) {
       const nm = (t && t.name) ? '"' + t.name + '"' : 'that trunk';
@@ -6827,8 +6904,16 @@ Or say what you want, in your own words:
           if (!(await trunkAdoptFork(t))) return;
           return trunkPull(quiet);
         }
-        if (rel.relation === 'unrelated') { alert('That trunk is a different engagement — nothing in its '
-          + 'history is anywhere in this plan\'s, so merging it would read every activity as an addition.'); return; }
+        if (rel.relation === 'kin') {
+          if (!(await trunkAdoptLineage(t, rel.kin))) return;
+          return trunkPull(quiet);
+        }
+        if (rel.relation === 'unrelated') {
+          alert('That trunk is a different engagement — nothing in its history is anywhere in this plan\'s, '
+            + 'so merging it would read every activity as an addition.\n\n'
+            + trunkKinshipEvidence(rel.kin || trunkKinship(t)));
+          return;
+        }
         const tip = trunkTip(t);
         if (!tip || !tip.doc) {
           alert('The newest entry in the trunk has no plan attached — its payload was compacted away, which should '
@@ -6998,7 +7083,18 @@ Or say what you want, in your own words:
           if (!(await trunkAdoptFork(t))) { trunkBusy = false; return; }
           trunkBusy = false; return trunkPush(quiet);
         }
-        if (rel.relation === 'unrelated') { alert('That trunk is a different engagement — refusing to push onto it.'); return; }
+        if (rel.relation === 'kin') {
+          if (!(await trunkAdoptLineage(t, rel.kin))) { trunkBusy = false; return; }
+          trunkBusy = false; return trunkPush(quiet);
+        }
+        if (rel.relation === 'unrelated') {
+          alert('That trunk is a different engagement — refusing to push onto it.\n\n'
+            + trunkKinshipEvidence(rel.kin || trunkKinship(t))
+            + '\n\nNothing in its history appears anywhere in this plan\'s. If you believe these are the '
+            + 'same engagement, the two files have never shared a version — push to a trunk one of them '
+            + 'started, rather than joining them here.');
+          return;
+        }
         if (rel.relation === 'behind' || rel.relation === 'diverged') {
           alert('The trunk has moved on since you last pulled'
             + (rel.behind ? ' (' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's') + ' you do not have)' : '')
