@@ -436,6 +436,54 @@
     .sb-f.is-quiet > i, .sb-f.is-quiet > b { color: var(--muted); font-weight: 600; }
     .sb-note { display: block; font-size: var(--t-xs); color: var(--muted); margin-top: 0.45rem; }
     .sb-note.is-warn { color: #b45309; font-weight: 600; }
+    /* ═══ COMPARING TWO DOCUMENTS ════════════════════════════════════════════
+       Prose, so it is set in the document's own typeface. A monospace ± dump
+       is right for source and wrong here: a reader comparing two contracts is
+       reading sentences, and the moment the type stops looking like the
+       document they stop reading it as one. */
+    .sow-cmp { margin-top: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.7rem; }
+    .sow-cmp-figs { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+      border: 1px solid #fcd9a4; border-radius: 10px; background: linear-gradient(180deg, #fffdf7, #fff7ea);
+      padding: 0.5rem 0.65rem; margin: 0.55rem 0 0.15rem; }
+    .sow-cmp-figt { font-size: 0.6rem; letter-spacing: 0.07em; text-transform: uppercase;
+      font-weight: 700; color: #b45309; }
+    .sow-fig { display: inline-flex; align-items: center; gap: 0.32rem; background: var(--card);
+      border: 1px solid #f0d3a6; border-radius: 999px; padding: 0.14rem 0.55rem; font-size: var(--t-sm);
+      font-variant-numeric: tabular-nums; }
+    .sow-fig-a { color: #b91c1c; text-decoration: line-through; text-decoration-thickness: 1px; font-weight: 600; }
+    .sow-fig-x { color: var(--muted); }
+    .sow-fig-b { color: #15803d; font-weight: 700; }
+    .sow-fig-s { color: var(--muted); font-size: var(--t-xs); border-left: 1px solid var(--border);
+      padding-left: 0.4rem; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sow-cmp-sec { border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+      padding: 0.55rem 0.7rem 0.6rem; margin-top: 0.55rem; }
+    .sow-cmp-sec[data-kind="removed"] { background: #fdfafa; }
+    .sow-cmp-head { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+    .sow-cmp-t { font-weight: 700; font-size: var(--t-base); }
+    .sow-cmp-n { margin-left: auto; font-size: var(--t-xs); color: var(--muted); }
+    /* The rule down the left says which of the three things this is without
+       spending a word on it, so the sentence itself can be read as a sentence. */
+    .sow-rev { font-size: var(--t-base); line-height: 1.6; margin: 0.45rem 0 0;
+      padding: 0 0 0 0.6rem; border-left: 3px solid var(--border); }
+    .sow-rev-edit { border-left-color: #93c5fd; }
+    .sow-rev-out { border-left-color: #fca5a5; }
+    .sow-rev-in { border-left-color: #86efac; }
+    .sow-rev del { background: #fee2e2; color: #991b1b; border-radius: 3px; padding: 0 2px;
+      text-decoration: line-through; text-decoration-thickness: 1px; }
+    .sow-rev ins { background: #dcfce7; color: #14532d; border-radius: 3px; padding: 0 2px;
+      text-decoration: none; font-weight: 600; }
+    /* A HIGHLIGHTER IS FOR THE FEW WORDS THAT MOVED. Painting a whole sentence
+       with it says "read every word of this differently", which is exactly what
+       a wholesale addition or removal does NOT mean — the rule down the left
+       already says which of the two it is. */
+    .sow-rev-in ins, .sow-rev-out del { background: none; padding: 0; font-weight: 400; }
+    .sow-rev-in ins { color: #166534; }
+    .sow-rev-out del { color: #9f1239; }
+    .sow-cmp-sec .sow-hide { display: none; }
+    .sow-cmp-sec.open .sow-hide { display: block; }
+    .sow-cmp-more { margin-top: 0.5rem; background: none; border: none; padding: 0; cursor: pointer;
+      font-size: var(--t-sm); font-weight: 600; color: var(--primary); }
+    .sow-cmp-more:hover { text-decoration: underline; }
     .menu-foot { font-size: var(--t-xs); color: var(--muted); line-height: 1.45;
       padding: 0.4rem 0.6rem 0.15rem; margin-top: 0.3rem; border-top: 1px solid var(--border); }
     .menu-foot:empty { display: none; }
@@ -4872,7 +4920,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0550</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.1705</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -18867,10 +18915,14 @@ Or say what you want, in your own words:
         if (!t.isSummary || !collapsedIds.has(t.id)) return;
         const cl = leafDescendants(t.id).filter(l => l.isCritical && l.startDate);
         if (!cl.length) return;
+        const pbx = dateX(t.startDate);
+        const pspan = t.finishDate ? (calDaysBetween(t.startDate, t.finishDate) + 1) : 1;
         critNodes.push({
           rowId: t.id,
           sd: new Date(Math.min(...cl.map(l => l.startDate.getTime()))),
           fd: new Date(Math.max(...cl.map(l => (l.finishDate || l.startDate).getTime()))),
+          // where the green progress fill ends on this phase's own bar
+          doneX: pbx + Math.max(dayW, pspan * dayW) * (t.percentComplete || 0) / 100,
           point: false, sum: true
         });
       });
@@ -18898,12 +18950,25 @@ Or say what you want, in your own words:
            the top of the bar, criticality takes a 3px strip along the bottom.
            Still inside the bar rather than under it — a separate line below
            collided with the connectors and milestone diamonds, which is why it
-           was moved onto the bar in the first place; that part was right. */
+           was moved onto the bar in the first place; that part was right.
+
+           AND IT STARTS WHERE THE DONE PART ENDS. "Why not have the red line
+           start at the end of the bar instead of a big red line under it from
+           the start" — because red under finished work is a warning about
+           something nobody can do anything about. Criticality is a statement
+           about REMAINING work: delay it and the finish date moves. So the
+           strip begins at the end of the green fill, and the two bands read
+           left to right as one sentence — this much is behind you, this much
+           still gates the date. A phase at 0% is still red all the way across,
+           which is correct: none of it is behind you. */
         critSums.forEach(n => {
           const yTop = Y0 + rowIndexOf[n.rowId] * ROWH + 14;
-          const x1 = dateX(n.sd), w = Math.max(6, dateX(n.fd) + dayW - x1);
-          svg += `<g><rect x="${x1}" y="${yTop}" width="${w}" height="3" rx="1.5" fill="#dc2626" opacity="0.95"/>
-            <title>${escapeXml('CRITICAL PATH runs through this collapsed group (the red span of the phase bar) — click the group’s ▸ to see the zero-slack tasks. Any delay here moves the finish date day-for-day.')}</title></g>`;
+          const x0 = dateX(n.sd), xEnd = dateX(n.fd) + dayW;
+          const x1 = Math.min(Math.max(x0, n.doneX || 0), xEnd);
+          const w = xEnd - x1;
+          if (w < 1) return;                    // every critical day is finished
+          svg += `<g><rect x="${x1}" y="${yTop}" width="${Math.max(3, w)}" height="3" rx="1.5" fill="#dc2626" opacity="0.95"/>
+            <title>${escapeXml('CRITICAL PATH runs through this collapsed group — the red strip is the part still OUTSTANDING (it starts where the green progress ends). Click the group’s ▸ to see the zero-slack tasks. Any delay here moves the finish date day-for-day.')}</title></g>`;
         });
       }
       // If the earliest zero-slack task starts mid-project, everything before
@@ -33175,8 +33240,13 @@ Do not write payment terms or exclusions — both are generated from the project
       let m, prev = null, prevAt = 0;
       // a bullet list is a list of statements, not one sentence — end each item
       // so the sentence splitter can tell them apart in the diff
+      /* The full stop the tag stands in for is only needed when the writer did
+         not already put one there. Adding it unconditionally gave every
+         sentence a trailing ".." — invisible in a monospace ± dump and glaring
+         once the diff is set in the document's own type. */
       const plain = x => String(x || '').replace(/<\/(li|p|tr|h3)>/gi, '. ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/([.:;!?])\s*\.(?=\s|$)/g, '$1').replace(/\s+/g, ' ').trim();
       while ((m = re.exec(html))) {
         if (prev !== null) out.push({ title: prev, body: plain(html.slice(prevAt, m.index)) });
         prev = plain(m[1]).replace(/^\d+\.\s*/, '');   // number by position, compare by name
@@ -33191,6 +33261,133 @@ Do not write payment terms or exclusions — both are generated from the project
     function sowSetCmp(which, v) {
       if (which === 'a') sowCmpA = Number(v); else sowCmpB = Number(v);
       renderSowHistory();
+    }
+    /* ═══ COMPARING A DOCUMENT IS NOT COMPARING A FILE ═══════════════════════
+       "this section doesn't look graphically advanced or sophisticated."
+
+       It was a unified diff: every sentence that differed printed twice, once
+       in red with a minus and once in green with a plus, in monospace, wrapping
+       into walls. That is the right shape for source code, where a line is the
+       unit and a reader is looking for what a program will now do. It is the
+       wrong shape for prose, where the unit is a SENTENCE and almost every real
+       change is a few words inside one — a fee moving from $6,571 to $6,668
+       printed as two near-identical 200-character paragraphs, leaving the
+       reader to play spot-the-difference on the thing that actually matters.
+
+       So the sentences are PAIRED first: a removed sentence and an added one
+       that are mostly the same sentence are one revision, not a deletion and an
+       unrelated insertion. Then the words inside the pair are diffed, and only
+       what moved is marked. What is left over on either side is a genuine
+       removal or a genuine addition and is shown as such.
+
+       raidSimilarity already does the pairing measure — it was written to find
+       two spellings of one exclusion, which is the same question asked of two
+       spellings of one clause. Reusing it means one definition of "these are
+       the same thing said differently" in the product rather than two. */
+    function sowTok(str) {
+      /* Words, numbers and money kept whole; punctuation and spacing preserved.
+         The number stops at the last DIGIT, so the comma in "$6,571, invoiced"
+         is punctuation and the figure reported as changed is $6,571 \u2014 a chip
+         reading "$6,571, \u2192 $6,668," is a chip that looks like a typo. */
+      return String(str || '')
+        .match(/\$?\d(?:[\d,]*\d)?(?:\.\d+)?|[A-Za-z\u00C0-\u024F'\u2019-]+|\s+|[^\s\w]/g) || [];
+    }
+    /* Longest common subsequence over tokens. Sentence-length input, so the
+       O(n*m) table is a few thousand cells — cheaper than the DOM it produces. */
+    function sowWordDiff(a, b) {
+      const A = sowTok(a), B = sowTok(b);
+      const n = A.length, m = B.length;
+      if (n * m > 250000) return null;                 // pathological input: fall back to whole sentences
+      const L = [];
+      for (let i = 0; i <= n; i++) L.push(new Uint16Array(m + 1));
+      for (let i = n - 1; i >= 0; i--)
+        for (let j = m - 1; j >= 0; j--)
+          L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+      let i = 0, j = 0, out = '', nums = [];
+      const esc = escapeHtml;
+      let delBuf = '', insBuf = '', pending = null;
+      const NUM = /\$?\d(?:[\d,]*\d)?(?:\.\d+)?/;
+      const flush = () => {
+        if (delBuf) out += '<del>' + esc(delBuf) + '</del>';
+        if (insBuf) out += '<ins>' + esc(insBuf) + '</ins>';
+        /* A NUMBER THAT MOVED is the change people are looking for, so it is
+           collected as it goes rather than re-parsed out of the html later. */
+        if (delBuf && insBuf) {
+          const dn = delBuf.match(NUM), inn = insBuf.match(NUM);
+          if (dn && inn && dn[0] !== inn[0]) { pending = { from: dn[0], to: inn[0], unit: '' }; nums.push(pending); }
+        }
+        delBuf = ''; insBuf = '';
+      };
+      /* "30 → 45" is not a fact anyone can act on; "30 → 45 days" is. The unit
+         is the word the two versions AGREE on, so it survives the diff and has
+         to be picked up from the text on the far side of the change. */
+      const takeUnit = at => {
+        if (!pending) return;
+        for (let k = at; k < Math.min(n, at + 3); k++) {
+          if (/^\s+$/.test(A[k])) continue;
+          if (/^[A-Za-z%]/.test(A[k])) pending.unit = A[k].replace(/[.,;:]+$/, '');
+          break;
+        }
+        pending = null;
+      };
+      while (i < n && j < m) {
+        if (A[i] === B[j]) { flush(); takeUnit(i); out += esc(A[i]); i++; j++; }
+        else if (L[i + 1][j] >= L[i][j + 1]) { delBuf += A[i]; i++; }
+        else { insBuf += B[j]; j++; }
+      }
+      while (i < n) { delBuf += A[i++]; }
+      while (j < m) { insBuf += B[j++]; }
+      flush();
+      return { html: out, nums: nums };
+    }
+    /* Which removal is which addition. Anything below the threshold is not a
+       revision of the other — it is a sentence that went and a different one
+       that arrived, and pretending otherwise produces a word diff that marks
+       almost every word and explains nothing. */
+    function sowPairChanges(gone, came) {
+      const pairs = [], usedB = new Set();
+      const sim = (x, y) => { try { return raidSimilarity(x, y); } catch (e) { return 0; } };
+      gone.forEach(g => {
+        let best = -1, bestS = 0;
+        came.forEach((c, k) => {
+          if (usedB.has(k)) return;
+          const v = sim(g, c);
+          if (v > bestS) { bestS = v; best = k; }
+        });
+        if (best >= 0 && bestS >= 0.45) { usedB.add(best); pairs.push({ from: g, to: came[best] }); }
+        else pairs.push({ from: g, to: null });
+      });
+      came.forEach((c, k) => { if (!usedB.has(k)) pairs.push({ from: null, to: c }); });
+      return pairs;
+    }
+    /* One entry per thing that happened to the prose, in the order a reader
+       would want it: revisions first, because a reworded clause is what a
+       counterparty argues about, then the wholesale removals and additions. */
+    function sowRevisions(gone, came) {
+      const out = sowPairChanges(gone || [], came || []).map(p => {
+        if (p.from && p.to) {
+          const d = sowWordDiff(p.from, p.to);
+          if (d) return { kind: 'edit', html: d.html, nums: d.nums };
+          /* Too big to diff word by word — say so by showing both, rather than
+             marking every word and calling it a revision. */
+          return { kind: 'edit', nums: [],
+                   html: '<del>' + escapeHtml(p.from) + '</del> <ins>' + escapeHtml(p.to) + '</ins>' };
+        }
+        if (p.from) return { kind: 'out', nums: [], html: '<del>' + escapeHtml(p.from) + '</del>' };
+        return { kind: 'in', nums: [], html: '<ins>' + escapeHtml(p.to) + '</ins>' };
+      });
+      const rank = { edit: 0, out: 1, in: 2 };
+      return out.sort((x, y) => rank[x.kind] - rank[y.kind]);
+    }
+    /* The remainder is FOLDED, not dropped. "… and 3 more sentence(s) in this
+       section" is a diff telling the reader there is something it will not show
+       them, which is the one thing a diff must never do. */
+    function sowCmpMore(btn) {
+      const sec = btn.closest('.sow-cmp-sec');
+      if (!sec) return;
+      const open = sec.classList.toggle('open');
+      btn.textContent = open ? 'Show fewer' : (btn.getAttribute('data-more') || 'Show all');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
     function sowCompareHtml() {
       if (sowVersions.length < 1) return '';
@@ -33210,39 +33407,78 @@ Do not write payment terms or exclusions — both are generated from the project
       A.forEach(x => { if (!mb.has(x.title)) titles.push(x.title); });
       const rows = titles.map(t => {
         const a = ma.get(t), b = mb.get(t);
-        if (!a) return { t: t, kind: 'added' };
-        if (!b) return { t: t, kind: 'removed' };
+        if (!a) return { t: t, kind: 'added', gone: [], came: sowSentences(b.body) };
+        if (!b) return { t: t, kind: 'removed', gone: sowSentences(a.body), came: [] };
         if (a.body === b.body) return { t: t, kind: 'same' };
         const sa = new Set(sowSentences(a.body)), sb = new Set(sowSentences(b.body));
         return { t: t, kind: 'changed',
                  gone: [...sa].filter(x => !sb.has(x)), came: [...sb].filter(x => !sa.has(x)) };
       });
       const moved = rows.filter(r => r.kind !== 'same');
-      const CAP = 6;
+      moved.forEach(r => { r.revs = sowRevisions(r.gone, r.came); });
+      /* WHAT MOVED IN MONEY AND DATES GOES FIRST. Everything below it is
+         wording; this is the part with a signature under it, and burying it
+         three sections down in a wall of prose is how a fee change ships
+         unread. Collected from the word diff itself rather than re-parsed, so
+         a figure only appears here if it genuinely changed sides. */
+      const figs = [], figSeen = new Set();
+      moved.forEach(r => (r.revs || []).forEach(v => (v.nums || []).forEach(n => {
+        const k = r.t + '|' + n.from + '|' + n.to;
+        if (figSeen.has(k)) return;
+        figSeen.add(k);
+        figs.push({ from: n.from, to: n.to, unit: n.unit || '', sec: r.t });
+      })));
+      const CAP = 4;
+      const KIND = { added: ['badge-ok', 'new section'], removed: ['badge-blocked', 'section dropped'],
+                     changed: ['badge-info', 'reworded'] };
+      const card = r => {
+        const k = KIND[r.kind] || KIND.changed;
+        const revs = r.revs || [];
+        const edits = revs.filter(v => v.kind === 'edit').length;
+        const outs = revs.filter(v => v.kind === 'out').length;
+        const ins = revs.filter(v => v.kind === 'in').length;
+        const count = [edits ? edits + ' revised' : '', outs ? outs + ' struck' : '', ins ? ins + ' new' : '']
+          .filter(Boolean).join(' · ');
+        const line = (v, i) => '<p class="sow-rev sow-rev-' + v.kind + (i >= CAP ? ' sow-hide' : '') + '">'
+          + v.html + '</p>';
+        const extra = Math.max(0, revs.length - CAP);
+        return '<div class="sow-cmp-sec" data-sec="' + escapeHtml(r.t) + '" data-kind="' + r.kind + '">'
+          + '<div class="sow-cmp-head"><span class="sow-cmp-t">' + escapeHtml(r.t) + '</span>'
+            + '<span class="badge ' + k[0] + '">' + k[1] + '</span>'
+            + (count ? '<span class="sow-cmp-n">' + count + '</span>' : '') + '</div>'
+          + (revs.length ? '<div class="sow-cmp-body">' + revs.map(line).join('') + '</div>'
+              : '<p class="sow-rev help-text">No wording to show for this section.</p>')
+          + (extra ? '<button type="button" class="sow-cmp-more no-print" aria-expanded="false" data-more="Show '
+              + extra + ' more" onclick="sowCmpMore(this)">Show ' + extra + ' more</button>' : '')
+          + '</div>';
+      };
       const body = !moved.length
-        ? '<p class="help-text" style="margin:0.4rem 0 0">These two documents are word for word the same.</p>'
-        : moved.map(r => {
-            const tag = r.kind === 'added' ? '<span class="badge badge-ok">added</span>'
-                      : r.kind === 'removed' ? '<span class="badge badge-blocked">removed</span>'
-                      : '<span class="badge badge-info">changed</span>';
-            const lines = r.kind !== 'changed' ? '' :
-              (r.gone.slice(0, CAP).map(x => '<div style="color:#b91c1c">− ' + escapeHtml(x) + '</div>').join('')
-             + r.came.slice(0, CAP).map(x => '<div style="color:#15803d">+ ' + escapeHtml(x) + '</div>').join('')
-             + ((r.gone.length > CAP || r.came.length > CAP)
-                 ? '<div class="help-text">… and ' + ((Math.max(0, r.gone.length - CAP)) + (Math.max(0, r.came.length - CAP)))
-                   + ' more sentence(s) in this section</div>' : ''));
-            return '<div style="border-top:1px solid var(--border);padding:0.5rem 0">'
-              + '<div style="font-weight:600;font-size:0.85rem">' + escapeHtml(r.t) + ' ' + tag + '</div>'
-              + (lines ? '<div style="font-size:0.8rem;font-family:ui-monospace,monospace;margin-top:0.3rem">' + lines + '</div>' : '')
-              + '</div>';
-          }).join('');
-      return '<div style="margin-top:0.8rem;border-top:1px solid var(--border);padding-top:0.6rem">'
+        ? '<p class="help-text" style="margin:0.5rem 0 0">These two documents are word for word the same.</p>'
+        : (figs.length
+            ? '<div class="sow-cmp-figs"><span class="sow-cmp-figt">' + figs.length + ' figure'
+              + (figs.length === 1 ? '' : 's') + ' moved</span>'
+              + figs.slice(0, 8).map(f => {
+                  const u = f.unit ? (f.unit === '%' ? '%' : ' ' + f.unit) : '';
+                  return '<span class="sow-fig" title="' + escapeHtml(f.sec) + '">'
+                    + '<b class="sow-fig-a">' + escapeHtml(f.from + u) + '</b><span class="sow-fig-x">→</span>'
+                    + '<b class="sow-fig-b">' + escapeHtml(f.to + u) + '</b>'
+                    + '<span class="sow-fig-s">' + escapeHtml(f.sec) + '</span></span>';
+                }).join('')
+              + (figs.length > 8 ? '<span class="sow-cmp-figt">+' + (figs.length - 8) + ' more below</span>' : '')
+              + '</div>'
+            : '')
+          + moved.map(card).join('');
+      const revTotal = moved.reduce((s, r) => s + (r.revs || []).length, 0);
+      return '<div class="sow-cmp">'
         + '<div class="toolbar no-print" style="gap:0.4rem;align-items:center">'
         + '<span class="help-text" style="font-weight:700;letter-spacing:0.03em">COMPARE</span>'
         + '<select class="mini-inp" style="width:auto" onchange="sowSetCmp(\'a\', this.value)">' + opts(sowCmpA) + '</select>'
         + '<span class="help-text">→</span>'
         + '<select class="mini-inp" style="width:auto" onchange="sowSetCmp(\'b\', this.value)">' + opts(sowCmpB) + '</select>'
-        + '<span class="help-text">' + (moved.length ? moved.length + ' section' + (moved.length === 1 ? '' : 's') + ' differ' : 'identical') + '</span>'
+        + '<span class="help-text">' + (moved.length
+            ? moved.length + ' section' + (moved.length === 1 ? '' : 's') + ', ' + revTotal + ' change'
+              + (revTotal === 1 ? '' : 's')
+            : 'identical') + '</span>'
         + '</div>' + body + '</div>';
     }
     /* A past version is a third document the box can hold, so it goes through

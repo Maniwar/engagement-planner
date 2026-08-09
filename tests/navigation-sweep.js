@@ -1117,6 +1117,127 @@ const { chromium } = requirePlaywright();
   H.contradictions.forEach(x => bad.push(x));
   note.sowPanel = H.counts;
 
+  /* ═══ COMPARING TWO CONTRACTS IS NOT COMPARING TWO FILES ════════════════
+     A unified diff prints every differing sentence TWICE — once struck, once
+     added — which for prose means a fee moving from $6,571 to $6,668 arrives
+     as two near-identical 200-character paragraphs and the reader plays
+     spot-the-difference on the one number that matters.
+
+     So the assertions here are about what a reader can find, not about what
+     the markup looks like: the reworded sentence appears ONCE with only the
+     words that moved marked, the figures that moved are named before any
+     prose, and nothing the diff found is left unreachable. The old surface
+     ended sections with "… and 3 more sentence(s)" — a diff announcing there
+     is something it will not show you, which is the one thing a diff must
+     never do. */
+  const SC = await page.evaluate(() => {
+    const bad9 = [];
+    const say9 = x => bad9.push('SOW compare :: ' + x);
+    const out = {};
+    const p = s => '<p>' + s + '</p>';
+    const FEE_A = 'The total professional services fee for this engagement is $6,571, invoiced monthly in arrears.';
+    const FEE_B = 'The total professional services fee for this engagement is $6,668, invoiced monthly in arrears.';
+    const V1 = '<h2>1. Fees and Payment</h2>' + p(FEE_A)
+      + p('Payment is due within 30 days of the invoice date.')
+      + p('Travel is billed at cost with prior written approval.')
+      + p('All figures are stated in United States dollars.')
+      + p('A purchase order number must appear on every invoice.')
+      + p('Interest accrues at 1.0% per month on overdue amounts.')
+      + '<h2>2. Assumptions</h2>' + p('Client experts are available for up to 4 hours per week.');
+    const V2 = '<h2>1. Fees and Payment</h2>' + p(FEE_B)
+      + p('Payment is due within 45 days of the invoice date.')
+      + p('Travel is billed at cost with prior written approval from the Client sponsor.')
+      + p('All figures are stated in Canadian dollars.')
+      + p('A purchase order number must appear on every invoice and credit note.')
+      + p('Interest accrues at 1.5% per month on overdue amounts.')
+      + '<h2>3. Service Levels</h2>' + p('Critical defects are acknowledged within 4 business hours.');
+    const keepV = sowVersions, keepD = sowDraft, keepA = sowCmpA, keepB = sowCmpB, keepCs = csTab;
+    csGoto('sow');
+    sowVersions = [{ n: 1, at: '2026-05-01', ts: '09:00', label: 'sent', html: V1, chars: V1.length },
+                   { n: 2, at: '2026-06-02', ts: '14:20', label: 'after CO 1', html: V2, chars: V2.length }];
+    sowDraft = V2; sowCmpA = 1; sowCmpB = 2;
+    setDocHistTab('sow');
+    const secs = [...document.querySelectorAll('.sow-cmp-sec')];
+    out.sections = secs.map(s => (s.getAttribute('data-sec') || '') + ':' + s.getAttribute('data-kind'));
+    const fees = secs.find(s => /Fees/.test(s.getAttribute('data-sec') || ''));
+    if (!fees) { say9('the section whose fee changed is not in the comparison at all'); }
+    else {
+      const revs = [...fees.querySelectorAll('.sow-rev')];
+      out.feeRevs = revs.length;
+      /* ONE REVISION, NOT TWO SENTENCES. The identity being asserted is "the
+         reader is shown one sentence with the change inside it"; counting
+         elements that mention the old figure is how that is measured, and it
+         goes red the moment the pairing stops pairing. */
+      const holdOld = revs.filter(r => r.textContent.indexOf('$6,571') >= 0);
+      const holdNew = revs.filter(r => r.textContent.indexOf('$6,668') >= 0);
+      out.holdOld = holdOld.length; out.holdNew = holdNew.length;
+      if (holdOld.length !== 1 || holdNew.length !== 1 || holdOld[0] !== holdNew[0])
+        say9('the old fee is in ' + holdOld.length + ' block(s) and the new fee in ' + holdNew.length
+          + (holdOld.length === 1 && holdNew.length === 1 ? ', and they are not the same block' : '')
+          + ' — the reader has to find two paragraphs and compare them by eye instead of reading one revision');
+      else {
+        const r = holdOld[0];
+        // the words both versions agree on are printed once, not once per side
+        const tail = (r.textContent.match(/invoiced monthly in arrears/g) || []).length;
+        out.unchangedRepeats = tail;
+        if (tail !== 1) say9('the words the two versions agree on are printed ' + tail
+          + ' times in one revision — that is a unified diff wearing prose clothing');
+        if (!r.querySelector('del') || !r.querySelector('ins'))
+          say9('the revision marks neither what went nor what arrived');
+        const d = r.querySelector('del').textContent, i2 = r.querySelector('ins').textContent;
+        out.marked = d + '->' + i2;
+        if (d.length > 24 || i2.length > 24)
+          say9('the change is marked as "' + d.slice(0, 30) + '" -> "' + i2.slice(0, 30)
+            + '" — the whole sentence is highlighted, so nothing is');
+        // the highlight stops at the figure, not at the next comma
+        if (/[.,;:]$/.test(d) || /[.,;:]$/.test(i2))
+          say9('the mark runs past the change into the sentence punctuation: "' + d + '" -> "' + i2 + '"');
+      }
+      /* NOTHING IS SILENTLY DROPPED. Six sentences changed; whatever the fold
+         hides has to be reachable by a control on the card. */
+      const hidden = fees.querySelectorAll('.sow-hide').length;
+      const more = fees.querySelector('.sow-cmp-more');
+      out.feeHidden = hidden;
+      if (revs.length < 6) say9('only ' + revs.length + ' of the 6 changed sentences in this section are in the DOM');
+      if (hidden && !more) say9(hidden + ' revision(s) are hidden with no control that shows them');
+      if (hidden && more) {
+        more.click();
+        /* The element's OWN computed display, not offsetParent — the panel
+           this lives on is behind a sub-tab, and asking whether a box is laid
+           out answers a question about the sub-tab, not about the fold. */
+        const still = [...fees.querySelectorAll('.sow-rev')]
+          .filter(x => getComputedStyle(x).display === 'none').length;
+        out.afterMore = still;
+        if (still) say9('the control that promises the rest still leaves ' + still + ' revision(s) unreachable');
+        more.click();
+      }
+    }
+    /* THE MONEY GOES FIRST. Everything under it is wording; this is the part
+       with a signature beneath it. */
+    const figs = [...document.querySelectorAll('.sow-fig')].map(f => f.textContent.replace(/\s+/g, ' ').trim());
+    out.figs = figs;
+    if (!figs.some(f => f.indexOf('$6,571') >= 0 && f.indexOf('$6,668') >= 0))
+      say9('the fee that moved is not called out ahead of the prose — it is findable only by reading '
+        + 'every revision in every section');
+    if (!figs.some(f => /30 days/.test(f) && /45 days/.test(f)))
+      say9('a figure is reported without the unit it counts, so "30 -> 45" says nothing a reader can act on');
+    // a section that only exists on one side is named as such
+    if (!out.sections.some(s => /Service Levels:added/.test(s))) say9('a section only the newer document has is not reported as new');
+    if (!out.sections.some(s => /Assumptions:removed/.test(s))) say9('a section the newer document dropped is not reported as dropped');
+    // and identical documents say so rather than drawing an empty frame
+    sowCmpB = 1;
+    setDocHistTab('sow');
+    out.sameText = (document.querySelector('.sow-cmp') || {}).textContent || '';
+    if (!/word for word the same/i.test(out.sameText))
+      say9('comparing a version with itself does not say the two documents are identical');
+    sowVersions = keepV; sowDraft = keepD; sowCmpA = keepA; sowCmpB = keepB;
+    setDocHistTab('sow');
+    setCsTab(keepCs);
+    return { contradictions: bad9, counts: out };
+  });
+  SC.contradictions.forEach(x => bad.push(x));
+  note.sowCompare = SC.counts;
+
   /* ═══ THE RAID LOG SURVIVES A REAL ENGAGEMENT ═══════════════════════════
      One flat table of five different kinds of thing, no filter and one confirm
      dialog per deletion. Drafting exclusions twice put forty rows in front of

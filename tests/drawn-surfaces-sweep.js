@@ -1223,7 +1223,8 @@ const QA = JSON.parse(fs.readFileSync(
           const near = [...svg.querySelectorAll('rect')].filter(r => {
             const y = +r.getAttribute('y');
             return y >= rowY - 2 && y <= rowY + 14;
-          }).map(r => ({ fill: r.getAttribute('fill') || '', h: +r.getAttribute('height') || 0 }));
+          }).map(r => ({ fill: r.getAttribute('fill') || '', h: +r.getAttribute('height') || 0,
+                         x: +r.getAttribute('x') || 0, w: +r.getAttribute('width') || 0 }));
           const red = near.filter(x => /dc2626/.test(x.fill));
           const green = near.filter(x => /16a34a|15803d/.test(x.fill));
           out.critPhase = phase.name.slice(0, 22) + ' pct=' + phase.percentComplete
@@ -1241,6 +1242,21 @@ const QA = JSON.parse(fs.readFileSync(
               + 'bar, so it covers the whole thing. Two facts are true of this row at once — it is on the '
               + 'critical path AND it is part done — and a bar that can only show the worse of them is worse '
               + 'than either');
+          /* RED IS ABOUT WHAT IS LEFT. Reported as "why not have the red line
+             start at the end of the bar instead of a big red line under it
+             from the start" — red beneath finished work warns about something
+             nobody can act on. This phase is forced to 40%, so the strip must
+             begin at the end of the green fill, not at the bar's origin. */
+          if (red.length && green.length) {
+            const greenEnd = Math.max.apply(null, green.map(g => g.x + g.w));
+            const redStart = Math.min.apply(null, red.map(r => r.x));
+            out.critStart = 'green ends ' + Math.round(greenEnd) + ', red starts ' + Math.round(redStart);
+            if (redStart < greenEnd - 1)
+              say('Gantt', 'the criticality strip starts ' + Math.round(greenEnd - redStart) + 'px before the '
+                + 'progress fill ends, so it underlines work that is already finished — criticality is a '
+                + 'statement about what still gates the finish date, and painting it under the done part '
+                + 'makes the whole bar look outstanding');
+          }
           /* Put the view back. A check that leaves the app on another tab with
              the tree collapsed makes the NEXT check measure a screen nobody
              asked for — which is how the gate band block below started
