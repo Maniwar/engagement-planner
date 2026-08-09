@@ -1294,7 +1294,12 @@ const { chromium } = requirePlaywright();
            the collapsed ones have to still be named somewhere. */
     (() => {
       const keep = raid.slice();
-      const leaves = tasks.filter(x => !x.isSummary && !x.milestone).slice(0, 5);
+      /* The LAST five, not the first. Linked to the opening activities the
+         window starts at zero, so a build that forgot the offset entirely
+         and pinned every window to the left edge drew the right answer by
+         accident and the check stayed silent. Late work puts the window in
+         the middle of the track, where being wrong shows. */
+      const leaves = tasks.filter(x => !x.isSummary && !x.milestone).slice(-5);
       if (leaves.length < 4) { out.linkRail = 'SKIPPED-too-few-activities'; return; }
       raid.length = 0;
       raid.push({ id: 7101, type: 'Risk', title: 'LINK probe many', probability: 3, impact: 3,
@@ -1311,63 +1316,112 @@ const { chromium } = requirePlaywright();
 
       const many = rowOf('many');
       if (!many) { say4('a planted entry with links did not render'); return; }
-      /* ONE BOX PER LINK. The first version of this rail drew flat marks bound
-         into a single strip, and was read exactly as that looks: "this looks
-         like 1 item now in one pill". The number of bounded, pressable objects
-         has to equal the number of things linked, or the count is wrong at a
-         glance no matter what the text says. */
-      const all = [...many.querySelectorAll('.rd-links .rd-lk')];
-      const marks = all.filter(x => !x.classList.contains('lk-extra'));
-      out.linkRail = marks.length + ' shown of ' + all.length
-        + (many.querySelector('.rd-link-more') ? ', collapsed' : ', flat');
-      if (!all.length)
-        say4('an entry linked to ' + leaves.length + ' activities draws no link tokens at all');
-      if (all.length !== leaves.length)
-        say4('the entry links ' + leaves.length + ' activities and the row holds ' + all.length
-          + ' tokens — one bounded object per link is the whole point; anything else and the reader counts wrong');
-      if (marks.length > 4)
-        say4(marks.length + ' links are shown at once. Past about three the reader has stopped reading them '
-          + 'individually and the entry has become a paragraph of chips');
-      const first = marks[0];
-      if (first) {
-        const shown = first.textContent.replace(/\s+/g, ' ').trim();
-        const tgt = leaves[0];
-        const ref = tgt.wbs || ('#' + tgt.id);
-        if (shown.indexOf(ref) < 0)
-          say4('a link to activity ' + ref + ' shows "' + shown + '" and never shows its identifier. A '
-            + 'truncated sentence is unrecognisable; the reference is what makes it a link you can follow');
-        const tip = first.getAttribute('title') || '';
-        if (tip.indexOf(tgt.name) < 0)
-          say4('the link shows a shortened name and its tooltip does not carry the whole one: "'
-            + tip.slice(0, 70) + '". Truncation is only honest when the full text is one hover away — the '
-            + 'old chip cut the name and said only what kind of thing it was');
-      }
-      const more = many.querySelector('.rd-link-more');
-      if (marks.length < leaves.length && !more)
-        say4('links were dropped from the row with nothing saying how many — a row that quietly shows three '
-          + 'of five reads as an entry that touches three things');
-      /* AND THE REST OPEN WHERE THEY ARE. "+4 more" used to open the edit
-         form: a modal, a scroll and a close, to answer "what are the other
-         four" — a reading question answered with an editing gesture. */
-      if (more) {
-        const wasVis = many.querySelectorAll('.rd-lk').length
-          - many.querySelectorAll('.lk-extra').length;
-        more.click();
-        const nowVis = [...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length;
-        out.linkExpand = wasVis + '→' + nowVis + ' "' + more.textContent.trim() + '"';
-        if (nowVis <= wasVis)
-          say4('pressing "+' + (leaves.length - wasVis) + ' more" showed nothing new in the row. Answering '
-            + '"what else does this touch" should not cost a modal, a scroll and a close');
-        if (nowVis !== leaves.length)
-          say4('expanded, the row shows ' + nowVis + ' of ' + leaves.length + ' links');
-        if (/more/.test(more.textContent))
-          say4('the control still reads "' + more.textContent.trim() + '" after expanding, so there is no '
-            + 'way to tell it is open or to put it back');
-        if (more.getAttribute('aria-expanded') !== 'true')
-          say4('the expander never reports its state, so a screen reader is told nothing happened');
-        more.click();
-        if ([...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length !== wasVis)
-          say4('it does not collapse again');
+
+      /* ═══ THE ROW SHOWS A READING, NOT A LIST ═══════════════════════════
+         Four rounds of this were all the same mistake in different paint —
+         bespoke pills, flat marks, bounded tokens — and the complaint never
+         changed: "we have to visualize this better". A row of chips is a
+         LIST. Reading five of them tells you five names and not the thing a
+         risk log exists for, which is how exposed you are.
+
+         So the row leads with the reading: how many activities, how much
+         work, how much money, and WHEN it falls inside the engagement. The
+         names are one press away, which is the right order — the picture
+         catches your eye, the list answers what you then want to know.
+
+         The figures are recomputed here from the linked activities, because
+         reading raidImpact back would only prove it equals itself. */
+      const band = many.querySelector('.rd-imp');
+      if (!band) {
+        say4('an entry linked to ' + leaves.length + ' activities shows no reading at all — the row is back '
+          + 'to being a list of names, which never says how much of the plan this sits on');
+      } else {
+        let wantWork = 0, wantCost = 0;
+        leaves.forEach(x => { wantWork += workingDaysToUnit(plannedEffortDays(x)); wantCost += taskCost(x); });
+        const txt = band.textContent.replace(/\s+/g, ' ');
+        out.impactBand = txt.slice(0, 70);
+        if (txt.indexOf(String(leaves.length)) < 0)
+          say4('the reading does not say how many activities this entry sits on: "' + txt.slice(0, 60) + '"');
+        if (txt.indexOf(fmtDurCell(wantWork)) < 0)
+          say4('the linked activities carry ' + fmtDurCell(wantWork) + ' of work and the row reads "'
+            + txt.slice(0, 60) + '". This is the exposure figure somebody quotes');
+        if (txt.indexOf(fmtMoney(wantCost).replace(/^\$/, '')) < 0)
+          say4('the linked activities carry ' + fmtMoney(wantCost) + ' and the row reads "'
+            + txt.slice(0, 60) + '"');
+        /* WHEN, drawn against the WHOLE engagement. A window that always
+           filled the track would only ever say "somewhere", which is exactly
+           what a chip already said. */
+        const lit = band.querySelector('.rd-when-t > i');
+        out.impactWhen = lit ? (lit.style.left + ' +' + lit.style.width) : '(no track)';
+        if (!lit) say4('the reading never says WHEN this bites — the one thing about a risk that a list of '
+          + 'names cannot carry at any size');
+        else {
+          const L = parseFloat(lit.style.left), W = parseFloat(lit.style.width);
+          if (!(L >= 0 && W > 0 && L + W <= 101))
+            say4('the schedule window is drawn at ' + lit.style.left + ' width ' + lit.style.width
+              + ', which is off the track');
+          /* THE TRACK IS THE ENGAGEMENT, and that is the whole reason the
+             picture says anything. Scaled to the entry's own span instead, the
+             window fills the bar every time and the drawing degenerates into
+             "somewhere" — which is exactly what a chip already said, and it
+             passes any check that only asks whether the numbers are in range.
+             So the fraction is recomputed here from the plan's own dates. */
+          let pS = null, pE = null;
+          tasks.forEach(x => {
+            if (x.startDate instanceof Date && !isNaN(x.startDate)) { const d = stripTime(x.startDate); if (!pS || d < pS) pS = d; }
+            if (x.finishDate instanceof Date && !isNaN(x.finishDate)) { const d = stripTime(x.finishDate); if (!pE || d > pE) pE = d; }
+          });
+          let eS = null, eE = null;
+          leaves.forEach(x => {
+            if (x.startDate instanceof Date && !isNaN(x.startDate)) { const d = stripTime(x.startDate); if (!eS || d < eS) eS = d; }
+            if (x.finishDate instanceof Date && !isNaN(x.finishDate)) { const d = stripTime(x.finishDate); if (!eE || d > eE) eE = d; }
+          });
+          if (pS && pE && eS && eE) {
+            const total = calDaysBetween(pS, pE) + 1;
+            const wantW = (calDaysBetween(eS, eE)) / total * 100;
+            const wantL = calDaysBetween(pS, eS) / total * 100;
+            out.impactWant = wantL.toFixed(1) + ' +' + wantW.toFixed(1);
+            if (Math.abs(W - wantW) > 3)
+              say4('the linked work covers ' + wantW.toFixed(0) + '% of the engagement and the window is '
+                + W.toFixed(0) + '% wide. Scaled to its own span instead of the plan\'s, the bar fills every '
+                + 'time and can only say "somewhere" — which is what the chips already said');
+            if (Math.abs(L - wantL) > 3)
+              say4('the linked work starts ' + wantL.toFixed(0) + '% into the engagement and the window is '
+                + 'drawn at ' + L.toFixed(0) + '%, so WHEN it bites is wrong');
+          }
+        }
+        /* AND THE NAMES ARE ONE PRESS AWAY, in the row. */
+        const shownBefore = [...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length;
+        band.click();
+        const shownAfter = [...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length;
+        out.linkExpand = shownBefore + '→' + shownAfter;
+        if (shownBefore)
+          say4(shownBefore + ' link tokens are on screen before the reading is opened — the point of leading '
+            + 'with a reading is that forty entries are forty readings, not four hundred chips');
+        if (shownAfter !== leaves.length)
+          say4('opening the reading shows ' + shownAfter + ' of ' + leaves.length + ' links');
+        if (band.getAttribute('aria-expanded') !== 'true')
+          say4('the reading never reports that it opened, so a screen reader is told nothing happened');
+        const all = [...many.querySelectorAll('.rd-links .rd-lk')];
+        if (all.length !== leaves.length)
+          say4('the entry links ' + leaves.length + ' activities and the row holds ' + all.length
+            + ' tokens — one bounded object per link, or the reader counts wrong');
+        const first = all[0];
+        if (first) {
+          const shown2 = first.textContent.replace(/\s+/g, ' ').trim();
+          const tgt = leaves.find(x => (first.getAttribute('title') || '').indexOf(x.name) >= 0) || leaves[0];
+          const ref = tgt.wbs || ('#' + tgt.id);
+          if (shown2.indexOf(ref) < 0 && all.every(a => a.textContent.indexOf(ref) < 0))
+            say4('no link token carries the identifier of what it points at. A truncated sentence is '
+              + 'unrecognisable; "A 1.1" is not');
+          const tip = first.getAttribute('title') || '';
+          if (!leaves.some(x => tip.indexOf(x.name) >= 0))
+            say4('a link shows a shortened name and its tooltip does not carry the whole one: "'
+              + tip.slice(0, 70) + '". Truncation is only honest when the full text is one hover away');
+        }
+        band.click();
+        if ([...many.querySelectorAll('.rd-lk')].filter(x => x.offsetParent !== null).length)
+          say4('the list does not close again');
       }
 
       const dead = rowOf('dead');

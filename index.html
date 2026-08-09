@@ -781,9 +781,47 @@
        to look pressable. So the boundary is per link, and the gap between two
        tokens is roughly twice the gap inside one — the ratio that reads as
        grouping without a container drawing it. */
+    /* ═══ THE IMPACT BAND ══════════════════════════════════════════════════
+       The picture first, the names on request. A row of chips is a list; this
+       is the reading — how much of the plan this entry sits on, and when it
+       bites. One bounded instrument, the same idiom as the milestone gate band,
+       and it is the whole control: pressing it opens the list underneath. */
+    .rd-imp { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 0.35rem;
+      padding: 3px 0.5rem 4px 0.55rem; border-radius: 9px; cursor: pointer; max-width: 100%;
+      border: 1px solid #e2e8f0; background: linear-gradient(180deg, #fdfefe, #f4f7fa);
+      box-shadow: inset 0 1px 0 #fff; font: inherit; text-align: left; flex-wrap: wrap; }
+    .rd-imp:hover { border-color: #cbd5e1; background: linear-gradient(180deg, #fff, #eef3f8); }
+    .rd-imp:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+    .rd-if { display: inline-flex; flex-direction: column; line-height: 1.06; min-width: 0; }
+    .rd-if > i { font-style: normal; font-size: 0.56rem; letter-spacing: 0.07em; text-transform: uppercase;
+      font-weight: 700; color: #94a3b8; }
+    .rd-if > b { font-size: var(--t-sm); font-weight: 700; color: #334155; letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .rd-if + .rd-if { border-left: 1px solid #e8edf3; padding-left: 0.55rem; }
+    .rd-if.is-bad > i { color: #f87171; }
+    .rd-if.is-bad > b { color: #b91c1c; }
+    /* WHEN. The track is the whole engagement; the lit part is where the linked
+       work falls. Two entries on one log are comparable at a glance, which is
+       the reading a list of names cannot give at any size. */
+    .rd-when { display: inline-flex; flex-direction: column; gap: 3px; min-width: 92px; }
+    /* 7px, not 5. At five the lit window on a short activity was a smudge and
+       the whole point of the track is that you can SEE where it falls. */
+    .rd-when-t { position: relative; display: block; height: 7px; border-radius: 4px;
+      background: #e6ecf3; box-shadow: inset 0 0 0 1px rgb(15 23 42 / .06); }
+    .rd-when-t > i { position: absolute; top: 0; bottom: 0; border-radius: 4px; min-width: 4px;
+      background: linear-gradient(90deg, #60a5fa, #2563eb);
+      box-shadow: 0 0 0 1px rgb(37 99 235 / .25); }
+    .rd-when > b { font-size: 0.6rem; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
+    .rd-when + .rd-if { border-left: 1px solid #e8edf3; padding-left: 0.55rem; }
+    .rd-imp-x { color: #94a3b8; font-size: 0.7rem; align-self: center; }
+    /* the list is one press away and closed until then, so a log of forty
+       entries is forty readings rather than four hundred chips */
     .rd-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.4rem;
       align-items: center; font-size: var(--t-xs); }
     .rd-links:empty { display: none; }
+    /* hidden while the band is closed — but only when there IS a band; an
+       entry with nothing linked has no band and must still show its ghost. */
+    .rd-imp + .rd-links:not(.is-open) { display: none; }
     .rd-lk { display: inline-flex; align-items: baseline; gap: 0.3rem; max-width: 15.5rem; min-width: 0;
       padding: 2px 0.5rem 3px 0.42rem; border-radius: 7px; cursor: pointer;
       border: 1px solid var(--lk-b, var(--border)); background: var(--lk-bg, #f8fafc);
@@ -816,8 +854,6 @@
     .rd-lk.is-dead { --lk-bg: #fef2f2; --lk-b: #fecaca; --lk-fg: #b91c1c; cursor: help; }
     .rd-lk.is-dead > .lk-nm { color: #b91c1c; }
     /* the overflow lives in the row and is revealed in place */
-    .rd-links .lk-extra { display: none; }
-    .rd-links.is-all .lk-extra { display: inline-flex; }
     /* A GHOST, not a sentence. "Nothing linked yet." was a full line of prose in
        a column of one-line rows, and it is the wrong shape for what it is: an
        entry linked to nothing is the one that cannot explain a number later, so
@@ -828,12 +864,6 @@
       line-height: 1.5; }
     .rd-link-add:hover { border-color: var(--primary); color: var(--primary); background: #f5f9ff;
       border-style: solid; }
-    /* past three, the row was a paragraph of pills and nobody was reading them
-       one at a time anyway */
-    .rd-link-more { border: 1px solid var(--border); background: #f8fafc; color: var(--muted);
-      border-radius: 999px; font-size: var(--t-xs); font-weight: 700; padding: 1px 0.45rem; cursor: pointer;
-      line-height: 1.5; }
-    .rd-link-more:hover { background: #eef2f7; color: var(--text); }
     /* the target is gone. Same shape as a live mark so the row does not jump,
        struck through so it cannot be mistaken for one. */
     .ek.ek-dead { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
@@ -4798,7 +4828,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0115</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.0127</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -29341,19 +29371,124 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
        Capped at three; the rest collapse into one token that names them all on
        hover. Nothing linked shows a dashed ghost, because an entry linked to
        nothing is the one that can never explain a number later. */
-    const RAID_RAIL_MAX = 3;
-    /* No re-render: the extras are already in the row, so this is a class flip
-       and the reveal is instant. A re-render here would also drop any other
-       row a reader had opened, which is the kind of thing that makes people
-       stop opening them. */
-    function raidLinksToggle(btn, n) {
-      const box = btn.closest('.rd-links');
+    /* ═══ WHAT THIS ENTRY TOUCHES, AS A PICTURE ══════════════════════════════
+       Four rounds of this, and the first three were all the same mistake in
+       different paint: bespoke pills, then flat entity marks, then bounded
+       tinted tokens. Each fixed a real defect and none of them answered the
+       actual complaint, which never changed — "visually it doesn't look
+       impressive", "not a good look", "make this really intuitive", "we have
+       to visualize this better".
+
+       A row of chips is not a visualization. It is a LIST, and no amount of
+       styling turns a list into a picture. Reading five chips tells you five
+       names; it does not tell you the one thing a risk log is for, which is
+       how exposed you are. So the question the strip answers changes:
+
+         from  "which records is this linked to"
+         to    "how much of the plan does this sit on, and WHEN does it bite"
+
+       Both are already in the file and nothing on this screen added them up.
+       The linked activities carry effort, cost and dates; the project carries
+       a span. So: a rail the width of the engagement with a lit window where
+       the linked work actually sits, and three labelled figures beside it —
+       how many activities, how much work, how much money. A risk on 5
+       activities worth 12 days and $9,400 in weeks 1 to 3 is a sentence a
+       project manager can act on. A row of five chips never says it.
+
+       THE LIST IS NOT GONE, it is one press away. The band opens to the tokens
+       underneath, which is the right order: the picture is what you read at a
+       glance and the names are what you want once it has caught your eye.
+       Collapsed by default, so a log of forty entries is forty readings rather
+       than four hundred chips.
+
+       Display only, like the milestone gate band, and for the same reason: it
+       adds up activities that the schedule, the critical path and the price
+       have each already counted once. It never feeds any of them. */
+    function raidImpact(r) {
+      const ls = raidLinks(r);
+      const seen = new Set(), leaves = [];
+      const take = x => { if (!x || seen.has(x.id)) return; seen.add(x.id); leaves.push(x); };
+      let others = 0, dangling = 0;
+      ls.forEach(l => {
+        if (l.k !== 'act') { if (raidResolve(l)) others++; else dangling++; return; }
+        const t = tasks.find(x => x.id === l.id);
+        if (!t) { dangling++; return; }
+        /* A summary contributes THROUGH ITS CHILDREN and never twice — the same
+           rule the WORK column and the milestone reach already follow. */
+        if (t.isSummary) leafDescendants(t.id).forEach(take); else take(t);
+      });
+      let work = 0, cost = 0, from = null, to = null, done = 0, sized = 0;
+      leaves.forEach(x => {
+        if (!x.milestone) { work += workingDaysToUnit(plannedEffortDays(x)); cost += taskCost(x); sized++; }
+        if ((Number(x.percentComplete) || 0) >= 100) done++;
+        if (isRealDate(x.startDate)) { const d = stripTime(x.startDate); if (!from || d < from) from = d; }
+        if (isRealDate(x.finishDate)) { const d = stripTime(x.finishDate); if (!to || d > to) to = d; }
+      });
+      /* The rail is the ENGAGEMENT, so two entries on the same log are
+         comparable at a glance — a window that always filled the strip would
+         only ever say "somewhere", which is what a chip already said. */
+      let pStart = null, pEnd = null;
+      tasks.forEach(x => {
+        if (isRealDate(x.startDate)) { const d = stripTime(x.startDate); if (!pStart || d < pStart) pStart = d; }
+        if (isRealDate(x.finishDate)) { const d = stripTime(x.finishDate); if (!pEnd || d > pEnd) pEnd = d; }
+      });
+      const total = (pStart && pEnd) ? Math.max(1, calDaysBetween(pStart, pEnd) + 1) : 0;
+      const at = d => (total && d) ? Math.max(0, Math.min(100, calDaysBetween(pStart, d) / total * 100)) : null;
+      const x1 = at(from), x2 = at(to);
+      return { n: leaves.length, others: others, dangling: dangling, sized: sized, done: done,
+        work: work, cost: cost, from: from, to: to, pStart: pStart, pEnd: pEnd,
+        left: x1, width: (x1 != null && x2 != null) ? Math.max(1.5, x2 - x1) : null,
+        span: (from && to) ? calDaysBetween(from, to) + 1 : null };
+    }
+    function raidImpactBand(r) {
+      const im = raidImpact(r);
+      const ls = raidLinks(r);
+      if (!ls.length) return '';
+      const f = (label, val, tip) => '<span class="rd-if" title="' + escapeHtml(tip) + '">'
+        + '<i>' + label + '</i><b>' + escapeHtml(val) + '</b></span>';
+      const bits = [];
+      if (im.n) bits.push(f('on', im.n + (im.n === 1 ? ' activity' : ' activities'),
+        im.n + ' activit' + (im.n === 1 ? 'y' : 'ies') + ' are linked to this entry'
+        + (im.done ? ', ' + im.done + ' of them already finished' : '')
+        + '. A summary counts through its children and never twice.'));
+      if (im.sized) bits.push(f('work', fmtDurCell(im.work),
+        fmtDurCell(im.work) + ' of planned effort sits on the linked activities. This is what is exposed, '
+        + 'not what the entry costs — it is display only and never enters the schedule or the price.'));
+      if (im.sized) bits.push(f('cost', fmtMoney(im.cost),
+        fmtMoney(im.cost) + ' of planned cost on the linked activities.'));
+      if (im.others) bits.push(f('also', im.others + (im.others === 1 ? ' record' : ' records'),
+        im.others + ' linked stor' + (im.others === 1 ? 'y, criterion or change order'
+          : 'ies, criteria or change orders') + ' carry no schedule of their own.'));
+      if (im.dangling) bits.push('<span class="rd-if is-bad" title="' + escapeHtml(im.dangling
+        + ' link(s) point at something no longer in this plan. Open the entry to re-point or remove them.')
+        + '"><i>broken</i><b>' + im.dangling + '</b></span>');
+      /* WHEN. The rail is the engagement; the lit window is where the linked
+         work actually falls. Two entries on one log become comparable at a
+         glance, which is the reading a list of names cannot give. */
+      const when = (im.left != null && im.width != null)
+        ? '<span class="rd-when" title="' + escapeHtml('The linked work runs ' + fmtNice(im.from) + ' to '
+            + fmtNice(im.to) + ' — ' + im.span + ' calendar day' + (im.span === 1 ? '' : 's')
+            + ' inside an engagement running ' + fmtNice(im.pStart) + ' to ' + fmtNice(im.pEnd)
+            + '.\n\nThe track is the whole engagement, so where the lit part sits is when this bites.')
+          + '"><span class="rd-when-t"><i style="left:' + im.left.toFixed(1) + '%;width:'
+          + im.width.toFixed(1) + '%"></i></span><b>' + fmtNice(im.from) + '</b></span>'
+        : '';
+      const n = ls.length;
+      return '<button type="button" class="rd-imp" aria-expanded="false" onclick="raidImpactToggle(this)"'
+        + ' title="' + escapeHtml('What this entry sits on. Click to list the ' + n + ' linked record'
+          + (n === 1 ? '' : 's') + ' and open any of them.') + '">'
+        + when + bits.join('') + '<span class="rd-imp-x" aria-hidden="true">▸</span></button>';
+    }
+    function raidImpactToggle(btn) {
+      const cell = btn.closest('.rd-entry');
+      if (!cell) return;
+      const box = cell.querySelector('.rd-links');
       if (!box) return;
-      const on = box.classList.toggle('is-all');
-      btn.textContent = on ? 'show fewer' : '+' + n + ' more';
+      const on = !box.classList.contains('is-open');
+      box.classList.toggle('is-open', on);
       btn.setAttribute('aria-expanded', on ? 'true' : 'false');
-      btn.title = on ? 'Collapse back to the first ' + RAID_RAIL_MAX
-        : 'Show the other ' + n + ' thing' + (n === 1 ? '' : 's') + ' this entry touches, here in the row.';
+      const x = btn.querySelector('.rd-imp-x');
+      if (x) x.textContent = on ? '▾' : '▸';
     }
     function raidLinkRail(r) {
       const ls = raidLinks(r);
@@ -29403,21 +29538,12 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
         .sort((a, b) => ((KORD[a.l.k] == null ? 9 : KORD[a.l.k]) - (KORD[b.l.k] == null ? 9 : KORD[b.l.k]))
           || (a.ix - b.ix))
         .map(x => x.l);
-      /* EVERY token is rendered; the overflow is hidden in CSS and revealed in
-         place. "+4 more" used to open the edit form — a modal, a scroll and a
-         close, to answer "what are the other four". Nothing about that is a
-         look; you are just reading. The extras are in the DOM either way, so
-         the reveal is instant and Ctrl+F finds them. */
-      const shown = sorted.map((l, ix) => ix < RAID_RAIL_MAX ? tok(l)
-        : tok(l).replace('class="rd-lk', 'class="lk-extra rd-lk')).join('');
-      const rest = sorted.slice(RAID_RAIL_MAX);
-      const more = rest.length
-        ? '<button type="button" class="rd-link-more" aria-expanded="false" onclick="raidLinksToggle(this, '
-          + rest.length + ')" title="' + escapeHtml('Show the other ' + rest.length + ' thing'
-            + (rest.length === 1 ? '' : 's') + ' this entry touches, here in the row.')
-          + '">+' + rest.length + ' more</button>'
-        : '';
-      return shown + more;
+      /* EVERY token, no second cap. The band above is the only control now:
+         it is closed by default, and opening it means "show me what they are",
+         which a "+1 more" sitting inside the answer only interrupts. Two
+         expanders for one list was a mechanism left over from before the band
+         existed. */
+      return sorted.map(tok).join('');
     }
     function raidLinkChips(r, editable) {
       const ls = raidLinks(r);
@@ -30406,6 +30532,7 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
             ${raidTypeChip(r)}
             <div class="rd-title">${escapeHtml(r.title)}</div>
             ${raidTitleSubHtml(r)}
+            ${raidImpactBand(r)}
             <div class="rd-links">${raidLinkRail(r)}</div>
           </td>
           <td class="rd-own" style="font-size:0.8rem">${personCell(r.owner)}</td>
