@@ -1158,6 +1158,99 @@ const QA = JSON.parse(fs.readFileSync(
               + 'whatever its cell says, the plan is counting the gate as work');
         }
 
+        /* ═══ A COLLAPSED PHASE STILL SHOWS ITS PROGRESS ═══════════════════
+           Reported: "when gantt is collapsed to level 1 the bar is completely
+           red even though 20% is done."
+
+           The criticality overlay covered the whole 7px phase bar, and when
+           every leaf under a phase is critical — the ordinary case for a phase
+           on the critical path — that span IS the phase span. So it repainted
+           the black bracket and the green progress underneath, and the row
+           printed 20% in its DONE column beside a bar claiming nothing had
+           started. On the one chart people paste into a status email.
+
+           Checked by DRAWN GEOMETRY, because that is where the defect lives:
+           on a collapsed, critical, partly-done phase there must be red
+           somewhere on the row AND green somewhere on the row, and the red must
+           not be tall enough to be the whole bar. Reading the SVG source for
+           the two fills would pass on a build that drew them at identical
+           coordinates, which is exactly what shipped. */
+        (() => {
+          const keptCollapsed = new Set(collapsedIds);
+          switchTab('gantt');
+          setCollapseLevel(0);
+          let svg = document.querySelector('#view-gantt svg');
+          if (!svg) { say('Gantt', 'no chart drew at all'); return; }
+          /* THE SUBJECT IS WHATEVER IS ON SCREEN. Twice this picked a phase by
+             reading `tasks`, and twice the phase it picked was nested deeper
+             than L1 shows — so it drew no bar, and the check reported the chart
+             for not drawing something the chart was right to omit. Ask the SVG
+             which phases it actually rendered, then choose among those. */
+          const drawn = tasks.filter(t => t.isSummary && collapsedIds.has(t.id)
+            && svg.querySelector('g[data-gopen="' + t.id + '"] rect'));
+          if (!drawn.length) {
+            /* A NOTE, NOT A FINDING. A plan with no phase that survives to L1
+               genuinely has nothing here to look at, and failing on it would be
+               reporting a fixture for its shape. It is printed rather than
+               silent, so "this ran and found nothing" cannot be confused with
+               "this never ran" — the real-export fixture below does exercise
+               it, and if BOTH ever say this, the check has quietly died. */
+            out.critPhase = 'SKIPPED-no-phase-bar-at-L1-in-this-plan';
+            collapsedIds = keptCollapsed; renderGantt(); switchTab('tasks'); renderTaskTable();
+            return;
+          }
+          /* CONSTRUCTED, NOT HOPED FOR. Both fixtures skipped this: one had no
+             phase drawn at L1, the other had three and none of them happened to
+             be both critical and part done. A check that skips proves nothing
+             and reports the same green as one that looked, which is the failure
+             this directory exists to end — so the state is MADE.
+
+             The subject is a phase the chart is already drawing; only the two
+             facts under test are forced, and both are put back afterwards. */
+          const phase = drawn.find(t => t.isCritical) || drawn[0];
+          const kept = { crit: phase.isCritical, pct: phase.percentComplete,
+            kids: leafDescendants(phase.id).map(l => ({ t: l, c: l.isCritical })) };
+          phase.isCritical = true;
+          phase.percentComplete = 40;
+          /* the red run is derived from the CHILDREN's criticality, not the
+             phase's, so forcing the parent alone would leave it undrawn */
+          kept.kids.forEach(k => { k.t.isCritical = true; });
+          renderGantt();
+          svg = document.querySelector('#view-gantt svg');
+          const rs = [...svg.querySelectorAll('g[data-gopen="' + phase.id + '"] rect')]
+            .map(r => +r.getAttribute('y')).filter(v => !isNaN(v));
+          const rowY = Math.round(Math.min.apply(null, rs));
+          const near = [...svg.querySelectorAll('rect')].filter(r => {
+            const y = +r.getAttribute('y');
+            return y >= rowY - 2 && y <= rowY + 14;
+          }).map(r => ({ fill: r.getAttribute('fill') || '', h: +r.getAttribute('height') || 0 }));
+          const red = near.filter(x => /dc2626/.test(x.fill));
+          const green = near.filter(x => /16a34a|15803d/.test(x.fill));
+          out.critPhase = phase.name.slice(0, 22) + ' pct=' + phase.percentComplete
+            + ' red=' + red.length + ' green=' + green.length
+            + ' redH=' + red.map(x => x.h).join('/');
+          if (!red.length)
+            say('Gantt', 'a collapsed phase carrying the critical path shows no red at all, so the one thing '
+              + 'the collapsed view hides — which group the critical path runs through — is unsayable');
+          if (!green.length)
+            say('Gantt', 'a collapsed phase is ' + phase.percentComplete + '% done and no progress is drawn '
+              + 'on its bar. The DONE column beside it says ' + phase.percentComplete + '%, so the chart and '
+              + 'the number on the same row disagree — and the chart is what gets pasted into a status email');
+          if (red.some(x => x.h >= 7))
+            say('Gantt', 'the criticality band is ' + Math.max.apply(null, red.map(x => x.h)) + 'px on a 7px '
+              + 'bar, so it covers the whole thing. Two facts are true of this row at once — it is on the '
+              + 'critical path AND it is part done — and a bar that can only show the worse of them is worse '
+              + 'than either');
+          /* Put the view back. A check that leaves the app on another tab with
+             the tree collapsed makes the NEXT check measure a screen nobody
+             asked for — which is how the gate band block below started
+             reporting that a milestone had no row. */
+          phase.isCritical = kept.crit; phase.percentComplete = kept.pct;
+          kept.kids.forEach(k => { k.t.isCritical = k.c; });
+          collapsedIds = keptCollapsed; renderGantt();
+          switchTab('tasks'); renderTaskTable();
+        })();
+
         /* ═══ THE GATE BAND ════════════════════════════════════════════════
            A milestone row used to be an activity row with five em-dashes where
            the estimates go, and the one thing it had to say — what it took to
