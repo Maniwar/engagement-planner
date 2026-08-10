@@ -1056,9 +1056,18 @@ const DATA = FIXTURE();
         const row = lines.find(l => l.indexOf('5000') >= 0) || '';
         if (row.indexOf('3000') < 0)
           say('Receivables', 'invoiced 5000 and received 2000 does not report 3000 outstanding: ' + row.slice(0, 90));
-        if (!/62|6[0-9]/.test(row.split(',')[11] || ''))
-          say('Receivables', 'the days-outstanding column is empty or wrong on a row invoiced in June: '
-            + row.slice(0, 100));
+        /* DERIVED FROM THE DATE THE TEST SET, not from a window somebody was in
+           when they wrote it. This read /62|6[0-9]/ — true for the nine weeks
+           after the fixture date and false on the seventieth day, which is the
+           day it went red about a figure the product had got exactly right. An
+           age is a number of days since a date; the assertion can do that
+           subtraction as easily as the export can. */
+        const invAt = new Date('2026-06-01T00:00:00');
+        const wantDays = Math.round((new Date(new Date().toDateString()) - invAt) / 86400000);
+        const gotDays = Number(String(row.split(',')[11] || '').trim());
+        if (!Number.isFinite(gotDays) || Math.abs(gotDays - wantDays) > 1)
+          say('Receivables', 'an invoice raised on 2026-06-01 is ' + wantDays + ' days old today and the '
+            + 'export reports ' + JSON.stringify(row.split(',')[11]) + ': ' + row.slice(0, 100));
         /* the unbilled total must NOT be folded into outstanding: money you
            have not asked for is not money owed to you */
         const outT = lines.find(l => /^TOTAL outstanding/.test(l)) || '';

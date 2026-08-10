@@ -2767,6 +2767,92 @@
     /* The picker row reads as a control strip, not as a paragraph with two
        dropdowns in it — a comparison is a thing you drive, and the two ends of
        it belong side by side with the arrow that means "to". */
+    /* ═══ THE JOIN-HISTORIES DECISION ════════════════════════════════════════
+       The one screen in this app whose job is to make an irreversible-feeling
+       choice legible. Everything here is in service of one sentence a person
+       should be able to say out loud before pressing the button: "these two
+       files are the same engagement, the trunk's versions become my past, mine
+       stay on top, and nothing is thrown away."
+
+       The diagram carries that sentence. Nodes move between two named states
+       rather than appearing already-merged, because the QUESTION is what the
+       change does, and a still picture of the answer never shows the change. */
+    .jn-verdict { display: flex; gap: .75rem; align-items: flex-start; padding: .8rem .9rem;
+      border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 10px;
+      background: linear-gradient(100deg, var(--primary-50), var(--card) 70%); margin-bottom: .9rem; }
+    .jn-verdict .jn-ico { font-size: 1.5rem; line-height: 1.1; flex: 0 0 auto; }
+    .jn-verdict h4 { margin: 0 0 .15rem; font-size: var(--t-md); color: var(--header); }
+    .jn-verdict p { margin: 0; font-size: var(--t-sm); color: var(--muted); }
+    .jn-stage { border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+      padding: .55rem .7rem .7rem; margin-bottom: .9rem; box-shadow: var(--sh-1); }
+    .jn-stage-top { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .3rem; }
+    .jn-cap { font-size: var(--t-xs); color: var(--muted); min-height: 1.2em; flex: 1 1 12rem; }
+    .jn-cap b { color: var(--header); }
+    .jn-svg { width: 100%; height: auto; display: block; overflow: visible; }
+    /* Each node is placed by two custom properties and moves between them, so
+       the "before" and "after" are one drawing rather than two pictures the
+       reader has to hold in their head at once. */
+    .jn-n { transform: translate(var(--x0), var(--y0)); transition: transform .62s var(--easeo); }
+    [data-jphase="after"] .jn-n { transform: translate(var(--x1), var(--y1)); }
+    .jn-n rect { rx: 7; fill: var(--card); stroke: var(--border); stroke-width: 1.4; }
+    .jn-n text { font-size: 12.5px; font-weight: 700; fill: var(--header); text-anchor: middle; }
+    .jn-n.mine rect { fill: var(--primary-50); stroke: var(--primary); }
+    .jn-n.mine text { fill: var(--primary); }
+    .jn-n.shared rect { fill: #ecfdf5; stroke: #10b981; }
+    .jn-n.shared text { fill: #047857; }
+    .jn-n.more rect { fill: transparent; stroke-dasharray: 3 3; }
+    .jn-n.more text { fill: var(--muted); font-weight: 400; }
+    .jn-link { stroke: var(--border); stroke-width: 1.6; fill: none;
+      transition: opacity .45s var(--easeo), stroke .45s var(--easeo); }
+    .jn-lane { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      fill: var(--muted); transition: opacity .45s var(--easeo); }
+    .jn-key text { font-size: 11px; fill: var(--muted); }
+    .jn-key .k-s { fill: #ecfdf5; stroke: #10b981; }
+    .jn-key .k-t { fill: var(--card); stroke: var(--border); }
+    .jn-key .k-y { fill: var(--primary-50); stroke: var(--primary); }
+    /* The gap between the two chains is the whole reason this dialog exists, so
+       it is drawn — a broken join with "no shared version" on it — and it is the
+       thing that disappears when the chains become one. */
+    .jn-gap { transition: opacity .4s var(--easeo); }
+    .jn-gap line { stroke: #f59e0b; stroke-width: 1.6; stroke-dasharray: 4 4; }
+    .jn-gap text { font-size: 11.5px; fill: #b45309; text-anchor: middle; font-weight: 600; }
+    [data-jphase="after"] .jn-gap { opacity: 0; }
+    .jn-only-before { transition: opacity .4s var(--easeo); }
+    [data-jphase="after"] .jn-only-before { opacity: 0; }
+    .jn-only-after { opacity: 0; transition: opacity .5s var(--easeo) .25s; }
+    [data-jphase="after"] .jn-only-after { opacity: 1; }
+    .jn-cards { display: grid; grid-template-columns: 1fr auto 1fr; gap: .6rem; align-items: stretch;
+      margin-bottom: .9rem; }
+    .jn-card { border: 1px solid var(--border); border-radius: 10px; padding: .55rem .7rem; background: var(--card); }
+    .jn-card.me { border-color: var(--primary); background: var(--primary-50); }
+    .jn-card h5 { margin: 0 0 .35rem; font-size: var(--t-xs); text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted); }
+    .jn-card .jn-nm { font-weight: 700; color: var(--header); font-size: var(--t-sm);
+      overflow-wrap: anywhere; margin-bottom: .3rem; }
+    .jn-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .1rem .5rem; font-size: var(--t-xs); }
+    .jn-card dt { color: var(--muted); }
+    .jn-card dd { margin: 0; color: var(--header); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .jn-mid { display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .25rem; padding: 0 .1rem; }
+    .jn-mid .jn-cnt { font-size: 1.25rem; font-weight: 700; line-height: 1;
+      font-variant-numeric: tabular-nums; color: var(--header); }
+    .jn-mid .jn-cnt.zero { color: #b45309; }
+    .jn-mid small { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.2; max-width: 6.5rem; }
+    .jn-out { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .8rem; }
+    .jn-out ul { margin: .25rem 0 0; padding-left: 1.05rem; font-size: var(--t-sm); }
+    .jn-out li { margin-bottom: .2rem; }
+    .jn-out .jn-keep { border: 1px solid #a7f3d0; background: #ecfdf5; border-radius: 10px; padding: .55rem .7rem; }
+    .jn-out .jn-chg { border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 10px; padding: .55rem .7rem; }
+    .jn-out h5 { margin: 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .06em; }
+    .jn-out .jn-keep h5 { color: #047857; }
+    .jn-out .jn-chg h5 { color: #1d4ed8; }
+    .jn-alt { font-size: var(--t-sm); color: var(--muted); border-top: 1px dashed var(--border);
+      padding-top: .55rem; }
+    .jn-alt b { color: var(--header); }
+    @media (max-width: 760px) {
+      .jn-cards { grid-template-columns: 1fr; }
+      .jn-out { grid-template-columns: 1fr; }
+    }
     .vc-bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
       padding: .45rem .6rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
     .vc-t td { vertical-align: top; }
@@ -4230,6 +4316,34 @@
         </div>
       </div>
     </div>
+    <!-- ═══ JOINING TWO HISTORIES IS A DECISION, NOT A CONFIRMATION ════════
+         This replaced three window.confirm() calls, each of which handed the
+         reader four paragraphs of prose in a scrolling grey box with OK and
+         Cancel under it. The question those boxes asked — "are these two files
+         the same engagement, and should their histories become one?" — is one
+         of the few genuinely irreversible-feeling choices in the app, and the
+         native dialog is the one surface in a browser that cannot show a
+         diagram, cannot show the evidence side by side, and cannot show what
+         the plan looks like afterwards.
+
+         So it is a real modal, and it answers three questions in this order:
+         WHAT ARE THESE TWO THINGS (both files, side by side, with the evidence
+         that produced the verdict), WHAT HAPPENS IF I SAY YES (the two chains,
+         drawn, animating into the one chain they become), and WHAT DO I LOSE
+         (nothing — said explicitly, next to what does change). -->
+    <div class="modal-overlay" id="joinModal" style="z-index:142">
+      <div class="modal jn-modal" style="max-width:860px" role="dialog" aria-modal="true" aria-labelledby="joinTitle" aria-describedby="joinVerdict">
+        <div class="modal-header">
+          <h3 id="joinTitle">Join two histories</h3>
+          <button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="joinClose(false)" aria-label="Close without joining">✕</button>
+        </div>
+        <div class="modal-body" id="joinBody"></div>
+        <div class="modal-footer">
+          <button class="btn-secondary" id="joinNo" onclick="joinClose(false)">Keep them separate</button>
+          <button class="btn-primary" id="joinGo" onclick="joinClose(true)">Join</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-overlay" id="sowSecModal" style="z-index:138">
       <div class="modal" style="max-width:620px" role="dialog" aria-modal="true" aria-labelledby="sowSecTitle">
         <div class="modal-header"><h3 id="sowSecTitle">Sections in this SOW</h3>
@@ -5029,7 +5143,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.09.2338</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0022</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6976,6 +7090,220 @@ Or say what you want, in your own words:
           + (k.who.length ? ', written by ' + k.who.join(', ') : '') + '\n'
         + '  • versions in common: ' + k.shared;
     }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       THE JOIN DIALOG. Three questions used to be asked by window.confirm():
+       joining a twin, adopting a mismatched stamp, and claiming a trunk from a
+       copy. Each handed over four paragraphs in a scrolling grey box with OK
+       and Cancel underneath, and every one of them is a decision about whether
+       two files are the same engagement — the kind of thing a person wants to
+       SEE before agreeing to it. A native dialog cannot show the two chains, so
+       it argued in prose that they should be joined and hoped.
+
+       The diagram is the argument. Two rows of versions with a break drawn
+       between them, and the same versions again as one row when the join is
+       applied — the motion between those states is the whole explanation, and
+       it is replayable because the first play happens while the reader is still
+       reading the heading.
+       ═══════════════════════════════════════════════════════════════════════ */
+    const JN_W = 40, JN_H = 26, JN_PITCH = 50;
+    /* Six boxes is as many as reads at a glance, so a longer chain is shown as
+       its two ends with the middle stated as a number. The count is never
+       rounded away: "+14" is the honest shape of a long history, and a row of
+       identical boxes trailing off the edge is not. */
+    function jnCells(n, label) {
+      if (n <= 0) return [];
+      if (n <= 6) return Array.from({ length: n }, (_, i) => ({ t: label + (i + 1) }));
+      return [{ t: label + '1' }, { t: label + '2' }, { t: '+' + (n - 4), more: true },
+              { t: label + (n - 1) }, { t: label + n }];
+    }
+    function jnNode(cell, x0, y0, x1, y1, cls, chev) {
+      return '<g class="jn-n ' + cls + (cell.more ? ' more' : '') + '" style="--x0:' + x0 + 'px;--y0:' + y0
+        + 'px;--x1:' + x1 + 'px;--y1:' + y1 + 'px">'
+        + (chev ? '<path class="' + (chev === 'after' ? 'jn-only-after' : '')
+            + '" d="M-10 ' + (JN_H / 2) + 'h6m-3-3l3 3l-3 3" fill="none" stroke="var(--border)" stroke-width="1.5"/>' : '')
+        + '<rect width="' + JN_W + '" height="' + JN_H + '" rx="7"></rect>'
+        + '<text x="' + (JN_W / 2) + '" y="' + (JN_H / 2 + 4) + '">' + escapeHtml(cell.t) + '</text></g>';
+    }
+    /* Two shapes, because there are two situations. Nothing in common means two
+       chains that have never touched and become one end to end. Something in
+       common means two chains that already overlap, drawn overlapping, so the
+       "adopt the stamp" case cannot be mistaken for a merge of unrelated work. */
+    function jnDiagram(k, shape) {
+      /* A FIXED CANVAS, so the drawing never scales. viewBox width followed the
+         content on the first build, so a short chain in a wide modal was blown
+         up to twice size and every label came out enormous — the diagram's own
+         version of the letterbox. The board is a constant and the rows are
+         centred on it. */
+      const W = 760, TOP = 30, BOT = 104, MID = 64;
+      const sharedN = shape === 'overlap' ? Math.min(k.shared, 3) : 0;
+      const shared = jnCells(sharedN, 'S');
+      const theirs = jnCells(Math.max(0, k.theirs - k.shared), 'T');
+      const mine = jnCells(Math.max(0, k.mine - k.shared), 'Y');
+      const wide = n => Math.max(0, n * JN_PITCH - (JN_PITCH - JN_W));
+      const off0 = Math.max(0, Math.round((W - wide(Math.max(shared.length + theirs.length,
+                                                             shared.length + mine.length))) / 2));
+      const off1 = Math.max(0, Math.round((W - wide(shared.length + theirs.length + mine.length)) / 2));
+      const b = i => off0 + i * JN_PITCH, a = i => off1 + i * JN_PITCH;
+      let svg = '';
+      shared.forEach((c, i) => { svg += jnNode(c, b(i), TOP, a(i), MID, 'shared', i > 0); });
+      theirs.forEach((c, i) => { const j = shared.length + i;
+        svg += jnNode(c, b(j), TOP, a(j), MID, '', j > 0); });
+      const tail = shared.length + theirs.length;
+      /* The plan's copy of a shared version is the SAME version, so exactly one
+         of the two boxes survives the join. Fading the lower one out while it
+         travels onto its twin is the only way to show that without implying a
+         version was deleted. */
+      shared.forEach((c, i) => {
+        svg += '<g class="jn-only-before">' + jnNode(c, b(i), BOT, a(i), MID, 'shared', i > 0) + '</g>'; });
+      mine.forEach((c, i) => { const j = shared.length + i;
+        svg += jnNode(c, b(j), BOT, a(tail + i), MID, 'mine', i > 0 ? true : (shared.length ? true : 'after')); });
+      /* The label sits BESIDE the break, not under it: under it is the same
+         line as the "This plan" lane heading, and the first build printed the
+         two on top of each other — a diagram about two things colliding, doing
+         it. */
+      const midY = Math.round((TOP + JN_H + BOT) / 2) + 4;
+      let gap = '';
+      if (!sharedN) {
+        const gx = Math.round(W / 2);
+        gap = '<g class="jn-gap"><line x1="' + gx + '" y1="' + (TOP + JN_H + 6) + '" x2="' + gx + '" y2="' + (BOT - 6) + '"/>'
+          + '<text x="' + (gx + 12) + '" y="' + midY + '" text-anchor="start">no version in common</text></g>';
+      } else {
+        const gx = b(shared.length - 1) + JN_W;
+        gap = '<g class="jn-gap">' + shared.map((c, i) =>
+          '<line x1="' + (b(i) + JN_W / 2) + '" y1="' + (TOP + JN_H) + '" x2="' + (b(i) + JN_W / 2) + '" y2="' + BOT + '"/>').join('')
+          + '<text x="' + (gx + 12) + '" y="' + midY + '" text-anchor="start">'
+          + k.shared + ' already shared</text></g>';
+      }
+      const legend = '<g class="jn-key" transform="translate(' + Math.round(W / 2 - 150) + ',144)">'
+        + (sharedN ? '<rect class="k-s" width="11" height="11" rx="3"/><text x="17" y="10">S — in both</text>' : '')
+        + '<rect class="k-t" x="' + (sharedN ? 110 : 0) + '" width="11" height="11" rx="3"/>'
+        + '<text x="' + (sharedN ? 127 : 17) + '" y="10">T — only in the trunk</text>'
+        + '<rect class="k-y" x="' + (sharedN ? 270 : 160) + '" width="11" height="11" rx="3"/>'
+        + '<text x="' + (sharedN ? 287 : 177) + '" y="10">Y — only here</text></g>';
+      return '<svg class="jn-svg" viewBox="0 0 ' + W + ' 160" role="img" aria-label="'
+        + (sharedN ? 'Two version chains that already share ' + k.shared + ' versions, becoming one chain'
+                   : 'Two separate version chains becoming one chain')
+        + '">'
+        /* Lane names go BESIDE their row, not above it. Above, "This plan" sat
+           on the same line as the dashed ties between the shared versions and
+           crossed straight through them. */
+        + '<text class="jn-lane jn-only-before" x="' + (off0 - 14) + '" y="' + (TOP + 18) + '" text-anchor="end">The trunk</text>'
+        + '<text class="jn-lane jn-only-before" x="' + (off0 - 14) + '" y="' + (BOT + 18) + '" text-anchor="end">This plan</text>'
+        + '<text class="jn-lane jn-only-after" x="' + Math.round(W / 2) + '" y="' + (MID - 12)
+        + '" text-anchor="middle">One history — the trunk\'s past, your work on top</text>'
+        + gap + svg + legend + '</svg>';
+    }
+    let joinResolve = null;
+    function joinPhase(p) {
+      const st = document.getElementById('joinStage');
+      if (!st) return;
+      st.setAttribute('data-jphase', p);
+      st.querySelectorAll('.seg button').forEach(b =>
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-jp') === p)));
+      const cap = document.getElementById('joinCap');
+      if (cap) cap.innerHTML = st.getAttribute(p === 'after' ? 'data-cap-after' : 'data-cap-before');
+    }
+    /* One resolve, whichever way the dialog is left — the ✕, Cancel, Escape or
+       the button. A promise that never settles is a Push that silently does
+       nothing, which is worse than the dialog this replaced. */
+    function joinClose(ok) {
+      const r = joinResolve; joinResolve = null;
+      closeOverlay('joinModal');
+      if (r) r(!!ok);
+    }
+    const JOIN_COPY = {
+      twin: {
+        title: 'The same engagement, in two files',
+        ico: '👯',
+        verdict: 'This plan and the trunk carry the same lineage stamp, but their version histories have never met — neither side holds a single version the other has.',
+        why: 'That is what copying a project does. Each copy saved its own first version, so there is no shared point to merge from.',
+        go: 'Join the histories',
+        shape: 'stack',
+        changed: ['The trunk\'s versions become this plan\'s history', 'Your versions sit on top of them',
+                  'Push and Pull start working between the two'],
+        alt: 'two trunks for two copies is a perfectly good answer — cancel and connect this plan to a different file'
+      },
+      kin: {
+        title: 'The same engagement, two stamps',
+        ico: '🔗',
+        verdict: 'This plan and the trunk carry different lineage stamps, but they share versions of history — so they ARE the same engagement.',
+        why: 'A stamp goes out of step when one side was saved by an older build, or was copied before the two were connected. Shared version ids are the stronger evidence: they mean these two files were once one file.',
+        go: 'Adopt the trunk\'s stamp',
+        shape: 'overlap',
+        changed: ['This plan adopts the trunk\'s lineage stamp', 'Any trunk version you do not have is adopted as history',
+                  'Push and Pull start working again'],
+        alt: 'if these really are different engagements, cancel and connect to a different file'
+      },
+      fork: {
+        title: 'This plan is a copy of the trunk\'s engagement',
+        ico: '⑂',
+        verdict: 'This plan was deliberately split off from the engagement in the trunk, and it still remembers that. The trunk will not take it until one of them is named as the copy that syncs.',
+        why: 'Duplicating a project splits it on purpose — two plans in one browser must not be one engagement — which is why this is a decision rather than something the app does quietly.',
+        go: 'Make THIS plan the one that syncs',
+        shape: 'stack',
+        changed: ['This plan adopts the trunk\'s lineage and history',
+                  'The project you copied FROM keeps its own lineage',
+                  'That project is no longer the one this trunk belongs to'],
+        alt: 'the project you copied from can keep the trunk — cancel and push from there instead'
+      }
+    };
+    async function trunkJoinAsk(kind, t, k) {
+      const c = JOIN_COPY[kind];
+      const body = document.getElementById('joinBody');
+      if (!body || !c) return confirm(c ? c.verdict + '\n\n' + c.why + '\n\nContinue?' : 'Join?');
+      const who = (k.who || []).filter(Boolean);
+      /* The caption is the sentence the picture is making, and it is not the
+         same sentence in both cases: with nothing in common the news is the
+         BREAK, and with versions in common the news is that the break was never
+         there and only the stamps disagree. One caption for both read "nothing
+         joins them beyond the 4 they already share", which says both. */
+      const over = k.shared ? Math.max(0, k.theirs - k.shared) : k.theirs;
+      const capBefore = k.shared
+        ? 'Already <b>' + k.shared + ' version' + (k.shared === 1 ? '' : 's') + ' in common</b> — one past, '
+          + 'recorded under two different stamps.'
+        : 'Two chains, and <b>nothing joins them</b>: no version on one side appears on the other.';
+      const capAfter = k.shared
+        ? 'One chain under one stamp. The ' + k.shared + ' you share stay shared, the trunk\'s other '
+          + over + ' become history, and <b>your ' + Math.max(0, k.mine - k.shared) + '</b> stay yours to push.'
+        : 'One chain. The trunk\'s ' + k.theirs + ' version' + (k.theirs === 1 ? '' : 's')
+          + ' become this plan\'s past and <b>your ' + k.mine + '</b> sit on top — <b>nothing on either side is discarded</b>.';
+      body.innerHTML =
+        '<div class="jn-verdict"><span class="jn-ico" aria-hidden="true">' + c.ico + '</span>'
+        + '<div><h4 id="joinVerdict">' + escapeHtml(c.verdict) + '</h4><p>' + escapeHtml(c.why) + '</p></div></div>'
+        + '<div class="jn-stage" id="joinStage" data-jphase="before" data-cap-before="' + escapeHtml(capBefore)
+        + '" data-cap-after="' + escapeHtml(capAfter) + '">'
+        + '<div class="jn-stage-top"><div class="seg" role="group" aria-label="What the join does">'
+        + '<button type="button" data-jp="before" aria-pressed="true" onclick="joinPhase(\'before\')">Now</button>'
+        + '<button type="button" data-jp="after" aria-pressed="false" onclick="joinPhase(\'after\')">After joining</button>'
+        + '</div><span class="jn-cap" id="joinCap" aria-live="polite">' + capBefore + '</span></div>'
+        + jnDiagram(k, c.shape) + '</div>'
+        + '<div class="jn-cards">'
+        + '<div class="jn-card me"><h5>This plan</h5><div class="jn-nm">'
+          + escapeHtml(document.getElementById('projectName').value || '(unnamed)') + '</div>'
+          + '<dl><dt>Versions</dt><dd>' + k.mine + '</dd><dt>Lineage</dt><dd>' + escapeHtml(k.myLineage) + '</dd></dl></div>'
+        + '<div class="jn-mid"><span class="jn-cnt' + (k.shared ? '' : ' zero') + '">' + k.shared + '</span>'
+          + '<small>version' + (k.shared === 1 ? '' : 's') + ' in common</small></div>'
+        + '<div class="jn-card"><h5>The trunk</h5><div class="jn-nm">' + escapeHtml(k.theirName) + '</div>'
+          + '<dl><dt>Versions</dt><dd>' + k.theirs + '</dd><dt>Lineage</dt><dd>' + escapeHtml(k.theirLineage) + '</dd>'
+          + (who.length ? '<dt>Written by</dt><dd>' + escapeHtml(who.join(', ')) + '</dd>' : '') + '</dl></div>'
+        + '</div>'
+        + '<div class="jn-out">'
+        + '<div class="jn-keep"><h5>✓ Kept, on both sides</h5><ul>'
+          + '<li>Every one of your ' + k.mine + ' version' + (k.mine === 1 ? '' : 's') + ', unchanged</li>'
+          + '<li>Every one of the trunk\'s ' + k.theirs + ', unchanged</li>'
+          + '<li>The plan on your screen right now — activities, stories, criteria, prices</li></ul></div>'
+        + '<div class="jn-chg"><h5>→ What changes</h5><ul>' + c.changed.map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul></div>'
+        + '</div>'
+        + '<p class="jn-alt"><b>If you would rather not:</b> ' + escapeHtml(c.alt) + '.</p>';
+      document.getElementById('joinTitle').textContent = c.title;
+      document.getElementById('joinGo').textContent = c.go;
+      openOverlay(document.getElementById('joinModal'));
+      /* Play it once, unprompted. A reader who has to find a control before the
+         dialog will explain itself is a reader who presses the blue button. */
+      setTimeout(() => { if (joinResolve) joinPhase('after'); }, 620);
+      return new Promise(res => { joinResolve = res; });
+    }
     /* SAME PAST, DIFFERENT STAMP. Not a copy — a copy knows what it was copied
        from and takes the fork route above. This is one engagement whose two
        files disagree about their own name for it, and the fix is to agree. */
@@ -6985,15 +7313,7 @@ Or say what you want, in your own words:
        is the honest other option and is said out loud, because a dialog with
        one button is not a choice. */
     async function trunkAdoptTwin(t, k) {
-      const nm = (t && t.name) ? '"' + t.name + '"' : 'that trunk';
-      if (!confirm('This plan and ' + nm + ' are the SAME engagement — both carry lineage '
-        + k.myLineage + ' — but their version histories have never met: neither side holds a single '
-        + 'version the other has.\n\n' + trunkKinshipEvidence(k)
-        + '\n\nThat is what copying a project does. Each copy saved its own first version, so there is no '
-        + 'shared point to merge from.\n\nJoin them?\n\nThe trunk\'s history is adopted as this plan\'s '
-        + 'past and your own work stays on top of it, so nothing on either side is thrown away. If you would '
-        + 'rather keep them apart, cancel and connect to a different file — two trunks for two copies is a '
-        + 'perfectly good answer.')) return false;
+      if (!(await trunkJoinAsk('twin', t, k))) return false;
       const took = adoptVersions((t.log || []));
       if (!took) {
         alert('The trunk had no version to adopt, so there is still nothing shared to push onto. Push to a '
@@ -7006,13 +7326,7 @@ Or say what you want, in your own words:
       return true;
     }
     async function trunkAdoptLineage(t, k) {
-      if (!confirm('This plan and that trunk carry different lineage stamps, but they share '
-        + k.shared + ' version' + (k.shared === 1 ? '' : 's') + ' of history — so they ARE the same '
-        + 'engagement. A stamp goes out of step when one side was saved by an older build, or was '
-        + 'copied before the two were connected.\n\n' + trunkKinshipEvidence(k)
-        + '\n\nAdopt the trunk\'s stamp so Pull and Push work again?\n\nNothing in either history is '
-        + 'discarded: the versions you already share stay shared, and anything only you have is still '
-        + 'yours to push.')) return false;
+      if (!(await trunkJoinAsk('kin', t, k))) return false;
       planLineage = t.lineage;
       planForkedFrom = '';
       const took = adoptVersions((t.log || []));
@@ -7022,12 +7336,7 @@ Or say what you want, in your own words:
       return true;
     }
     async function trunkAdoptFork(t) {
-      const nm = (t && t.name) ? '"' + t.name + '"' : 'that trunk';
-      if (!confirm('This plan is a COPY of the engagement in ' + nm + '.\n\nDuplicating a project splits it '
-        + 'off deliberately — two plans in one browser must not be one engagement — which is why the trunk '
-        + 'will not take it.\n\nMake THIS plan the one that syncs with that trunk?\n\nIt adopts the trunk\'s '
-        + 'history, so everything already in it becomes part of this plan\'s past. The project you copied FROM '
-        + 'keeps its own lineage and is no longer the one this trunk belongs to.')) return false;
+      if (!(await trunkJoinAsk('fork', t, trunkKinship(t)))) return false;
       planLineage = t.lineage;
       planForkedFrom = '';
       const took = adoptVersions((t.log || []));
@@ -40400,6 +40709,11 @@ Return ONLY JSON: {"narrative":"the three paragraphs separated by \\n\\n"}`;
       try { const us = localStorage.getItem('pertGantt.uatStyle'); if (us) document.getElementById('uatStyle').value = us; } catch (e) {}
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
+          /* The join dialog is above everything and is the one overlay holding a
+             promise open — closing it by any other route leaves Push waiting
+             forever on a resolve that never comes. */
+          const jn = document.getElementById('joinModal');
+          if (jn && jn.classList.contains('open')) { joinClose(false); return; }
           // the drafting panel sits above every other modal, so it closes first
           const rs = document.getElementById('rsModal');
           if (rs && rs.classList.contains('open')) { closeOverlay('rsModal'); return; }

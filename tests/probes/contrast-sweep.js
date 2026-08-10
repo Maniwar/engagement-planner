@@ -163,28 +163,54 @@ const TABS = ['tasks', 'wbs', 'req', 'pert', 'gantt', 'resources', 'baseline', '
      a function rather than by a tab, so it is invisible to any sweep that only
      walks the tab strip — and a white dialog is exactly where a class written
      for the dark header goes wrong. */
+  /* Openers are EXPRESSIONS, not bare names: the join dialog needs a trunk and
+     a kinship reading to describe, and a probe that could only reach zero-arg
+     functions would have quietly left the one dialog whose whole job is being
+     read out of the sweep. */
   const MODALS = [
-    ['SOW sections', "sowOpenSections"],
-    ['Project settings', "openProjSettings"],
-    ['Recovery', "openRecovery"],
-    ['Sync guide', "openSyncGuide"]
+    ['SOW sections', "sowOpenSections()"],
+    ['Project settings', "openProjSettings()"],
+    ['Recovery', "openRecovery()"],
+    ['Sync guide', "openSyncGuide()"],
+    ['Join histories', "trunkJoinAsk('twin', { name: 'Trunk file', lineage: 'lin_a1' }, "
+      + "{ shared: 0, mine: 3, theirs: 9, who: ['Sam Okafor'], myLineage: 'lin_a1', "
+      + "theirLineage: 'lin_a1', theirName: 'Trunk file' })"],
+    ['Join histories · shared', "trunkJoinAsk('kin', { name: 'Trunk file', lineage: 'lin_b2' }, "
+      + "{ shared: 2, mine: 5, theirs: 9, who: ['Sam Okafor'], myLineage: 'lin_a1', "
+      + "theirLineage: 'lin_b2', theirName: 'Trunk file' })"]
   ];
   const skipped = [];
-  for (const [name, fn] of MODALS) {
-    const ok = await page.evaluate(f => {
-      try { if (typeof window[f] !== 'function') return false; window[f](); return true; } catch (e) { return false; }
-    }, fn);
-    /* A NAME THAT DOES NOT RESOLVE IS A FAILURE, NOT A SKIP. This shipped
-       naming the SOW sections dialog "openSowSections", which is not what the
-       function is called — so the one surface the probe was WRITTEN for was
-       never opened, and the skip was pushed into a list that only invisible
-       and faint findings are ever read out of. The probe reported a clean
-       build having looked at nine tabs and three dialogs, and said 13. */
-    if (!ok) { skipped.push(name + ' (' + fn + ' is not a function on this build)'); continue; }
+  for (const [name, expr] of MODALS) {
+    /* AND THE TEST IS THAT A DIALOG APPEARED, not that a name resolved. This
+       shipped naming the SOW sections dialog "openSowSections", which is not
+       what the function is called — so the one surface the probe was WRITTEN
+       for was never opened, and the miss was pushed into a list only invisible
+       and faint findings are ever read out of. The probe reported a clean build
+       having looked at nine tabs and three dialogs, and said 13. Asking the
+       screen closes that gap for openers that resolve and then do nothing. */
+    const thrown = await page.evaluate(e => {
+      try { (0, eval)(e); } catch (err) { return 'threw: ' + String(err.message || err).slice(0, 60); }
+      return null;
+    }, expr);
+    /* WAITED FOR, not sampled. Half these openers are async — the Recovery
+       dialog reads IndexedDB before it draws anything — so asking the same tick
+       the call was made reports "nothing opened" about a dialog that opens
+       fine a moment later. The first version of this check did exactly that and
+       reported the Recovery dialog unreachable. */
+    let ok = thrown;
+    if (!ok) {
+      ok = await page.waitForSelector('.modal-overlay.open', { timeout: 2500 })
+        .then(() => true).catch(() => 'nothing opened within 2.5s');
+    }
+    if (ok !== true) { skipped.push(name + ' (' + ok + ')'); continue; }
     await page.waitForTimeout(300);
     findings.push(...await page.evaluate(x => window.__contrast(x), name));
-    await page.evaluate(() => document.querySelectorAll('.modal-overlay.open, .modal-overlay')
-      .forEach(m => m.classList.remove('open')));
+    await page.evaluate(() => {
+      // the join dialog holds a promise open; settle it rather than orphaning it
+      if (typeof joinClose === 'function' && document.getElementById('joinModal')
+          && document.getElementById('joinModal').classList.contains('open')) joinClose(false);
+      document.querySelectorAll('.modal-overlay.open, .modal-overlay').forEach(m => m.classList.remove('open'));
+    });
     await page.waitForTimeout(150);
   }
 

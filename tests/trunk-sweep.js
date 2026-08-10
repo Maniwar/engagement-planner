@@ -518,6 +518,94 @@ function serveApp() {
           + 'the warning means nothing');
     })();
 
+    /* ═══ THE JOIN DIALOG IS A DECISION SURFACE, AND IT MUST SETTLE ════════
+       Three window.confirm() calls used to ask whether two files are the same
+       engagement. A confirm has two properties this replacement must not lose
+       and one it must not inherit: it always returns, it always returns a
+       boolean, and it can say nothing a reader can look at.
+
+       So the assertions are about the ANSWER, not the artwork: every route out
+       of the dialog resolves the promise (a Push waiting on a resolve that
+       never comes is worse than the box it replaced), the figures drawn are the
+       figures that were measured, and the two phases are actually two — an
+       animation that ends where it started explains nothing and would pass any
+       check that only asked whether the button exists. */
+    await (async () => {
+      const sayJ = x => bad.push('Join dialog :: ' + x);
+      const K = { shared: 0, mine: 3, theirs: 9, who: ['Sam Okafor'],
+                  myLineage: 'lin_aaa111', theirLineage: 'lin_aaa111', theirName: 'CRM Rollout (copy)' };
+      const el = document.getElementById('joinModal');
+      if (!el) { sayJ('there is no join dialog at all'); return; }
+      const openIt = k => { const pr = trunkJoinAsk(k, { name: K.theirName, lineage: K.theirLineage }, K); return pr; };
+      // 1. every kind opens it, and none of them falls back to a native confirm
+      for (const kind of ['twin', 'kin', 'fork']) {
+        const kk = kind === 'kin' ? Object.assign({}, K, { shared: 2, theirLineage: 'lin_bbb222' }) : K;
+        const pr = trunkJoinAsk(kind, { name: kk.theirName, lineage: kk.theirLineage }, kk);
+        if (!el.classList.contains('open')) sayJ(kind + ' did not open the dialog, so that decision is still '
+          + 'being made in a box nobody can read');
+        const txt = (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ');
+        out['join_' + kind] = txt.slice(0, 60);
+        // the figures on screen are the figures that were measured
+        if (txt.indexOf(String(kk.theirs)) < 0 || txt.indexOf(String(kk.mine)) < 0)
+          sayJ(kind + ' does not print both version counts (' + kk.mine + ' and ' + kk.theirs + '), so the '
+            + 'reader is asked to agree to a merge whose size is not stated');
+        if (txt.indexOf(kk.theirName) < 0)
+          sayJ(kind + ' does not name the trunk it is proposing to join, so two candidate files look identical');
+        if (txt.indexOf(kk.theirLineage) < 0 || txt.indexOf(kk.myLineage) < 0)
+          sayJ(kind + ' hides one of the two lineage stamps — the stamps ARE the disagreement being resolved');
+        joinClose(false);
+        const ans = await pr;
+        if (ans !== false) sayJ(kind + ' resolved ' + JSON.stringify(ans) + ' when the reader cancelled');
+      }
+      // 2. the two phases are two: nodes end up somewhere else
+      const pr2 = openIt('twin');
+      /* THE NODES' OWN TRANSFORMS, not their place on the screen. Read as
+         viewport rectangles this compared the wrong thing entirely: the modal
+         plays its own entry animation while the first sample is taken, so the
+         boxes land somewhere different a second later whatever the diagram
+         does — and the check passed against a build whose nodes were pinned to
+         their starting position and could not move at all. */
+      /* Past the auto-play, not into it. The dialog plays itself once on open,
+         so a "before" set at 500ms was overwritten by that timer at 620ms and
+         both samples were taken in the same phase — which is why this reported
+         a frozen diagram on a build whose diagram was fine. */
+      await new Promise(r => setTimeout(r, 1500));
+      const nodes = () => [...document.querySelectorAll('#joinStage .jn-n')]
+        .map(n => getComputedStyle(n).transform);
+      joinPhase('before');
+      await new Promise(r => setTimeout(r, 900));
+      const before = nodes().join('|');
+      joinPhase('after');
+      await new Promise(r => setTimeout(r, 900));
+      const after = nodes().join('|');
+      out.joinNodes = nodes().length;
+      if (nodes().some(t => !t || t === 'none'))
+        sayJ('a version box carries no transform at all, so it is placed by nothing and the two phases '
+          + 'cannot differ by construction');
+      if (!out.joinNodes) sayJ('the diagram draws no version boxes, so there is nothing to look at');
+      if (before === after)
+        sayJ('every version box is in the same place before and after the join, so the one picture of what '
+          + 'the join DOES shows nothing happening');
+      // 3. Escape settles it too — this is the route that used to hang
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      const esc = await Promise.race([pr2, new Promise(r => setTimeout(() => r('HUNG'), 600))]);
+      if (esc === 'HUNG')
+        sayJ('pressing Escape leaves the promise unsettled, so Push waits forever on an answer that was '
+          + 'already given');
+      else if (esc !== false) sayJ('Escape resolved ' + JSON.stringify(esc) + ' rather than "do not join"');
+      // 4. and the affirmative route returns true
+      const pr3 = openIt('twin');
+      document.getElementById('joinGo').click();
+      const yes = await Promise.race([pr3, new Promise(r => setTimeout(() => r('HUNG'), 600))]);
+      if (yes !== true) sayJ('pressing the join button resolved ' + JSON.stringify(yes) + ' rather than true');
+      // and it leaves. The exit is animated, so this waits past it rather than
+      // reading mid-flight and reporting the animation as a stuck dialog.
+      await new Promise(r => setTimeout(r, 320));
+      if (el.classList.contains('open'))
+        sayJ('the dialog is still on screen after being answered, so the plan it was asked about is behind '
+          + 'an overlay nobody can dismiss');
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════
