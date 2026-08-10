@@ -1194,6 +1194,127 @@ function serveApp() {
       hydrate(JSON.parse(JSON.stringify(base))); calculate();
     })();
 
+    /* ═══ A PLAN IS NOT ONLY ITS ACTIVITIES ═════════════════════════════════
+       The merge compared against the commitment snapshot, and a commitment is
+       activities and their inputs — so the RAID log, the stories, the phase
+       rows and the roster had no ancestor and simply did not cross. The panel
+       said so in its own words, which made it a documented limitation rather
+       than a bug, and it is the same silent divergence progress had: two
+       people both touch the RAID log in one week, each keeps their own, and
+       neither is told.
+
+       The ancestor was always on disk. Every trunk entry carries a whole plan.
+       So this drives the case that matters — the OTHER side moves each of the
+       four while this side moves none of them, which must apply cleanly — and
+       then the case where both move the same field, which must be asked about
+       rather than decided. */
+    await (async () => {
+      const sayM = m => say('Whole-plan merge', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h4 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h4;
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+
+      // a shared starting point that actually HAS one of each
+      raid = raid || [];
+      raid.push({ id: 9001, type: 'Risk', title: 'Integration slips', status: 'Open',
+                  probability: 3, impact: 4, owner: 'Alice', mitigation: 'Early spike',
+                  description: 'API not proven', createdAt: '2026-08-01' });
+      if (typeof reqs !== 'undefined' && reqs) {
+        reqs.stories = reqs.stories || [];
+        reqs.stories.push({ id: 'S900', want: 'see my open tickets', ac: [{ id: 'AC900', text: 'lists open only', type: 'functional' }] });
+      }
+      if (typeof resources !== 'undefined') resources['Alice'] = Object.assign({ capacity: 100 }, resources['Alice'] || {});
+      const phase = tasks.find(t => t.isSummary);
+      out.mergeHasPhase = !!phase;
+      recompute();
+      pushVersion('edit', 'shared start'); await trunkPush(true);
+      const start4 = capture();
+
+      // ── the other side moves all four; this side moves none of them ────────
+      restore(start4); beA('Bob');
+      (raid.find(x => x.id === 9001) || {}).status = 'Closed';
+      (raid.find(x => x.id === 9001) || {}).outcome = 'did-not-happen';
+      raid.push({ id: 9002, type: 'Issue', title: 'Sandbox down', status: 'Open', createdAt: '2026-08-05' });
+      if (reqs && reqs.stories) (reqs.stories.find(x => x.id === 'S900') || {}).want = 'see my open AND closed tickets';
+      const bobPhase = tasks.find(t => t.id === (phase || {}).id);
+      if (bobPhase) bobPhase.name = 'PHASE RENAMED BY BOB';
+      if (typeof resources !== 'undefined' && resources['Alice']) resources['Alice'].capacity = 60;
+      recompute();
+      pushVersion('edit', 'bob touches everything'); await trunkPush(true);
+
+      // ── back here, with none of it touched ────────────────────────────────
+      restore(start4); beA('Alice');
+      const t4 = await trunkRead(h4);
+      const tip4 = trunkTip(t4);
+      const r4 = mergeCompute(tip4.doc, t4);
+      out.wholeMerge = { haveBaseDoc: !!r4.haveBaseDoc, auto: (r4.auto || []).length,
+                         conflicts: (r4.conflicts || []).length,
+                         raidAdds: (r4.raidAdds || []).length,
+                         kinds: Array.from(new Set((r4.auto || []).map(x => x.entity || 'task'))).sort().join(',') };
+      if (!r4.haveBaseDoc)
+        sayM('the merge found no stored copy of the shared version even though it came from a trunk, so the '
+          + 'RAID log, the stories, the phases and the roster have no ancestor and cannot cross at all');
+      const want = ['phase', 'raid', 'roster', 'story'];
+      const got = new Set((r4.auto || []).map(x => x.entity).filter(Boolean));
+      const missing = want.filter(k => !got.has(k));
+      if (missing.length)
+        sayM('the other side moved the RAID log, a story, a phase name and the roster, and the merge did not '
+          + 'pick up: ' + missing.join(', ') + '. Nothing of theirs is contested, so every one of these '
+          + 'should apply without asking — a plan is not only its activities');
+      if (!(r4.raidAdds || []).length)
+        sayM('they raised a new RAID entry and the merge brings across no RAID additions, so an issue logged '
+          + 'by one person never reaches anybody else');
+
+      // and it must actually LAND, not merely be listed
+      mergePlanState = { r: r4, name: 'the team trunk' };
+      await mergeApply({ run: false });
+      const after = raid.find(x => x.id === 9001) || {};
+      const story = (reqs && reqs.stories || []).find(x => x.id === 'S900') || {};
+      out.wholeApplied = { raidStatus: after.status, storyWant: String(story.want || '').slice(0, 20),
+                           phaseName: (tasks.find(t => t.id === (phase || {}).id) || {}).name,
+                           cap: (typeof resources !== 'undefined' && resources['Alice'] || {}).capacity,
+                           raidN: (raid || []).length };
+      if (after.status !== 'Closed')
+        sayM('the merge listed the RAID status change and after applying it the entry still reads "'
+          + after.status + '" — listed is not merged');
+      if (!/closed tickets/.test(String(story.want || '')))
+        sayM('the story rewording was listed and did not land, so the scope on screen is not the scope merged');
+      if (!(raid || []).some(x => String(x.title) === 'Sandbox down'))
+        sayM('the RAID entry they added did not arrive');
+
+      /* ── AND WHEN BOTH SIDES MOVED THE SAME ONE ─────────────────────────
+         The half that matters more. Everything above is the merge being
+         useful; this is it refusing to be clever. Two people closing the same
+         risk with different outcomes is a disagreement about what happened on
+         the project, and a machine picking between them unattended loses one
+         person's account of it with nobody told. */
+      restore(start4); beA('Alice');
+      const mine9001 = raid.find(x => x.id === 9001);
+      if (mine9001) { mine9001.status = 'Mitigated'; mine9001.owner = 'Alice R'; }
+      const t5 = await trunkRead(h4);
+      const r5 = mergeCompute(trunkTip(t5).doc, t5);
+      const raidConf = (r5.conflicts || []).filter(c => c.entity === 'raid' && c.field === 'status');
+      out.raidConflict = { conflicts: (r5.conflicts || []).length, onStatus: raidConf.length,
+                           take: (raidConf[0] || {}).take,
+                           mine: (raidConf[0] || {}).mine, theirs: (raidConf[0] || {}).theirs };
+      if (!raidConf.length)
+        sayM('both sides closed the same risk differently and the merge reports no conflict on its status — '
+          + 'one of the two accounts of what happened is about to be overwritten with nobody asked');
+      if (raidConf.length && raidConf[0].take !== 'mine')
+        sayM('a contested RAID field defaults to taking THEIRS, so pressing Merge without reading replaces '
+          + 'this person\'s own record of what happened');
+      // and the unattended loop must refuse this outright
+      const cleanEnough = !(r5.conflicts || []).length && !(r5.collisions || []).length;
+      out.autoWouldStop = !cleanEnough;
+      if (cleanEnough)
+        sayM('the automatic loop measures "nothing contested" the same way this panel does, and it reads this '
+          + 'as clean — so an unattended sync would decide a disagreement between two people');
+
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
     /* ═══ PUSHING ONTO A HISTORY OLDER THAN THE WORK RECORD ═════════════════
        The check above moves one thing and asks whether the changelog can name
        it — and it passed while the reported defect was live, because it built

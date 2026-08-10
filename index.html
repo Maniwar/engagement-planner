@@ -5306,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1837</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1855</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7367,7 +7367,7 @@ Or say what you want, in your own words:
       if (rel.relation === 'behind') { await trunkPull(true); trunkAutoStart(); return; }
       if (rel.relation === 'diverged') {
         const tip = trunkTip(t);
-        const r = tip && tip.doc ? mergeCompute(tip.doc) : null;
+        const r = tip && tip.doc ? mergeCompute(tip.doc, t) : null;
         const clean = r && !r.noBase && !(r.conflicts || []).length && !(r.collisions || []).length;
         if (!clean) {
           /* THE ONE CASE A MACHINE MUST NOT DECIDE. */
@@ -8596,7 +8596,9 @@ Or say what you want, in your own words:
            merge could never say and a trunk can, because every entry is
            signed. */
         const who = trunkWhoMoved(t);
-        const r = mergeCompute(tip.doc);
+        // the trunk goes with it: the shared version's whole document is in
+        // there, and it is the only ancestor the RAID log and the stories have
+        const r = mergeCompute(tip.doc, t);
         const clean = r && !r.noBase && !(r.conflicts || []).length && !(r.collisions || []).length;
         if (clean) {
           const bits = [];
@@ -36809,9 +36811,147 @@ Do not write payment terms or exclusions — both are generated from the project
       }
       return null;
     }
-    function mergeCompute(theirDoc) {
+    /* ═══ WHAT ELSE A PLAN IS MADE OF ═══════════════════════════════════════
+       Four things live outside the leaf activities, and each of them is a
+       different reason somebody would be upset to lose it:
+
+         the RAID LOG    — why the project slipped, which is the one record a
+                           post-mortem is built from
+         the STORIES     — what was promised, and the criteria it is accepted on
+         the PHASE ROWS  — how the work is organised and named
+         the ROSTER      — who is on the team and how much of them there is
+
+       Each is keyed by an id (or, for the roster, a name), so each merges the
+       same way an activity does: they changed it and I did not, so take it;
+       we both did, so ask. Ids are drawn from per-document counters, so two
+       people adding entries independently both mint the same numbers — the
+       incoming ones are renumbered on the way in, exactly as added activities
+       already are. */
+    const MERGE_RAID_FIELDS = [
+      ['type', 'Kind'], ['title', 'Title'], ['description', 'Description'],
+      ['status', 'Status'], ['probability', 'Probability'], ['impact', 'Impact'],
+      ['owner', 'Owner'], ['mitigation', 'Mitigation'],
+      ['outcome', 'Outcome'], ['outcomeNote', 'Outcome note'],
+      ['rootCause', 'Root cause'], ['whys', 'Why chain'],
+      ['options', 'Options'], ['chosen', 'Chosen option'],
+      ['links', 'Links'], ['taskId', 'Linked activity']
+    ];
+    const MERGE_STORY_FIELDS = [
+      ['want', 'Story'], ['audience', 'Audience'], ['verification', 'Verification'],
+      ['ac', 'Acceptance criteria'], ['notes', 'Notes'], ['priority', 'Priority']
+    ];
+    const MERGE_PHASE_FIELDS = [['name', 'Name'], ['parentId', 'Parent']];
+    const MERGE_ROSTER_FIELDS = [['capacity', 'Capacity %'], ['rate', 'Rate'], ['role', 'Role']];
+    /* Arrays and objects compare and travel as JSON: an acceptance-criteria
+       list or a why-chain is one value as far as "did they change it" goes,
+       and half-merging a list of criteria would invent a set nobody wrote. */
+    function mergeAnyVal(o, f) {
+      if (!o) return undefined;
+      const v = o[f];
+      if (v === undefined || v === null) return '';
+      return (typeof v === 'object') ? JSON.stringify(v) : String(v);
+    }
+    function mergeAnyShow(v) {
+      const s = String(v == null ? '' : v);
+      if (!s) return '(blank)';
+      if (s.charAt(0) === '[' || s.charAt(0) === '{') {
+        try {
+          const a = JSON.parse(s);
+          if (Array.isArray(a)) return a.length + ' item' + (a.length === 1 ? '' : 's');
+        } catch (e) {}
+      }
+      return s.length > 70 ? s.slice(0, 69) + '…' : s;
+    }
+    /* One pass over one entity, producing the same two lists the activities do.
+       `label` names the kind for the reader, `nameOf` turns an entry into the
+       thing they will recognise it by. */
+    function mergeEntity(kind, fields, baseList, mineList, theirList, keyOf, nameOf) {
+      const auto = [], conflicts = [], adds = [], deletes = [];
+      const B = new Map((baseList || []).map(x => [String(keyOf(x)), x]));
+      const A = new Map((mineList || []).map(x => [String(keyOf(x)), x]));
+      const C = new Map((theirList || []).map(x => [String(keyOf(x)), x]));
+      B.forEach((b, id) => {
+        const a = A.get(id), c = C.get(id);
+        if (!c && a) { deletes.push({ entity: kind, id: id, name: nameOf(a) }); return; }
+        if (!a) return;                   // I removed it; their edits do not resurrect it
+        fields.forEach(([f, lbl]) => {
+          const vb = mergeAnyVal(b, f), va = mergeAnyVal(a, f), vc = mergeAnyVal(c, f);
+          if (vc === undefined || vc === vb) return;      // they did not touch it
+          if (va === vb) { auto.push({ entity: kind, id: id, name: nameOf(a), field: f, label: lbl, mine: va, theirs: vc }); return; }
+          if (va === vc) return;                          // same edit, both sides
+          conflicts.push({ entity: kind, id: id, name: nameOf(a), field: f, label: lbl,
+                           mine: va, theirs: vc, take: 'mine' });
+        });
+      });
+      C.forEach((c, id) => {
+        if (B.has(id) || A.has(id)) return;               // shared, or a number we both drew
+        adds.push({ entity: kind, id: id, name: nameOf(c), entry: c });
+      });
+      return { auto: auto, conflicts: conflicts, adds: adds, deletes: deletes };
+    }
+    function mergeSideCompute(baseDoc, theirDoc) {
+      const auto = [], conflicts = [];
+      const take = r => { auto.push.apply(auto, r.auto); conflicts.push.apply(conflicts, r.conflicts); return r; };
+      const raidOf = d => (d && Array.isArray(d.raid)) ? d.raid : [];
+      const storiesOf = d => (d && d.reqs && Array.isArray(d.reqs.stories)) ? d.reqs.stories : [];
+      const phasesOf = d => {
+        const all = (d && Array.isArray(d.tasks)) ? d.tasks : [];
+        const parents = new Set(all.map(t => t.parentId).filter(x => x != null).map(Number));
+        return all.filter(t => parents.has(Number(t.id)));
+      };
+      const rosterOf = d => Object.keys((d && d.resources) || {})
+        .map(k => Object.assign({ __name: k }, d.resources[k]));
+
+      const R = take(mergeEntity('raid', MERGE_RAID_FIELDS, raidOf(baseDoc), raid, raidOf(theirDoc),
+        x => x.id, x => String(x.title || ('entry ' + x.id))));
+      const S = take(mergeEntity('story', MERGE_STORY_FIELDS, storiesOf(baseDoc),
+        (typeof reqs !== 'undefined' && reqs && reqs.stories) || [], storiesOf(theirDoc),
+        x => x.id, x => String(x.id || '') + (x.want ? ' — ' + String(x.want).slice(0, 40) : '')));
+      take(mergeEntity('phase', MERGE_PHASE_FIELDS, phasesOf(baseDoc),
+        tasks.filter(t => t.isSummary), phasesOf(theirDoc),
+        x => x.id, x => String(x.name || ('#' + x.id))));
+      take(mergeEntity('roster', MERGE_ROSTER_FIELDS, rosterOf(baseDoc),
+        rosterOf({ resources: resources }), rosterOf(theirDoc),
+        x => x.__name, x => String(x.__name || '')));
+      /* Phases and roster entries are NOT added or deleted by a merge. A phase
+         arriving without the activities under it is an empty heading, and the
+         activities are already handled as adds with their parent remapped; a
+         roster entry arrives whenever an activity that names it does. Only
+         edits to ones both sides hold cross. */
+      return { auto: auto, conflicts: conflicts,
+               raidAdds: R.adds, raidDeletes: R.deletes,
+               storyAdds: S.adds, storyDeletes: S.deletes };
+    }
+    /* ═══ THE ANCESTOR IS A WHOLE DOCUMENT, WHEREVER ONE IS ON DISK ═════════
+       The merge compares against `snap`, the commitment snapshot, and a
+       commitment is activities and their inputs. So everything that is not a
+       leaf activity had no ancestor to compare against, and the panel had to
+       say so in its own words: "Phase rows, user stories, the RAID log and the
+       roster are not merged." Two people who both touch the RAID log in one
+       week each keep their own and neither is told — the same silent
+       divergence percentComplete had, on the log that records WHY a project
+       slipped.
+
+       They were never unmergeable. Every trunk entry carries a full copy of
+       the plan, and a full copy has the RAID log, the stories, the phase rows
+       and the roster in it. The base version is by definition one both sides
+       hold, so its document is sitting in the trunk file that the pull already
+       has open. Threaded in here, the ancestor for all four is available.
+
+       Where no trunk is in hand — merging a file somebody emailed — there is
+       no stored document for the shared point, and these stay out of the merge
+       with the panel saying which. That is a real limit of a two-file merge,
+       not a limit of the idea. */
+    function trunkDocOfVid(t, vid) {
+      if (!t || !vid) return null;
+      if (t.base && t.base.vid === vid && t.base.doc) return t.base.doc;
+      const e = ((t && t.log) || []).find(x => x && x.vid === vid);
+      return (e && e.doc) || null;
+    }
+    function mergeCompute(theirDoc, trunkFile) {
       const found = mergeFindBase(theirDoc);
       if (!found) return { noBase: true, rel: versionRelation(theirDoc) };
+      const baseDoc = trunkDocOfVid(trunkFile, found.mine && found.mine.vid);
       const baseT = new Map(((found.snap && found.snap.tasks) || []).map(t => [t.id, t]));
       const mineT = new Map(leafTasks().map(t => [t.id, t]));
       /* Both copies of the ancestor are the same version, so either fingerprint
@@ -36857,8 +36997,20 @@ Do not write payment terms or exclusions — both are generated from the project
         theirAdds.push({ id: id, name: c.name, task: c });
       });
       mineT.forEach((a, id) => { if (!baseT.has(id) && !theirT.has(id)) myAdds.push({ id: id, name: a.name }); });
+      /* Everything that is not a leaf activity, against the ancestor document.
+         Same three-way rule and the same two outcomes — they moved it and I did
+         not (applied), or we both did (asked) — so these rows ride in the same
+         conflict list the activities use, tagged with what they are. */
+      const extra = baseDoc ? mergeSideCompute(baseDoc, theirDoc) : null;
+      if (extra) {
+        auto.push.apply(auto, extra.auto);
+        conflicts.push.apply(conflicts, extra.conflicts);
+      }
       return { base: found, auto: auto, conflicts: conflicts, theirAdds: theirAdds, myAdds: myAdds,
-               theirDeletes: theirDeletes, collisions: collisions, deleteEdits: deleteEdits };
+               theirDeletes: theirDeletes, collisions: collisions, deleteEdits: deleteEdits,
+               haveBaseDoc: !!baseDoc,
+               raidAdds: (extra && extra.raidAdds) || [], raidDeletes: (extra && extra.raidDeletes) || [],
+               storyAdds: (extra && extra.storyAdds) || [], storyDeletes: (extra && extra.storyDeletes) || [] };
     }
     /* ═══ WATCHING A TEAMMATE'S FILE ═════════════════════════════════════════
        Handing files back and forth is the part people forget to do. The File
@@ -37244,20 +37396,29 @@ Do not write payment terms or exclusions — both are generated from the project
          be able to see exactly which items were adjusted like activity went
          from 0 to 44". The old value was already on the row; it simply was not
          being drawn. */
-      const line = x => '<div style="font-size:0.82rem;padding:0.15rem 0"><b>' + esc(x.name) + '</b>'
+      /* A row about a risk and a row about an activity look identical without
+         this, and "Status Open → Closed" on a line named after a person is a
+         different fact depending on which of the two it is. */
+      const KIND_LBL = { raid: 'RAID', story: 'Story', phase: 'Phase', roster: 'Roster' };
+      const kindChip = x => x.entity
+        ? '<span class="help-text" style="font-size:0.65rem;font-weight:700;text-transform:uppercase;'
+          + 'letter-spacing:0.04em;border:1px solid var(--border);border-radius:5px;padding:0 4px;'
+          + 'margin-right:0.3rem">' + esc(KIND_LBL[x.entity] || x.entity) + '</span>' : '';
+      const showVal = (x, v) => x.entity ? mergeAnyShow(v) : mergeShow(x.field, v);
+      const line = x => '<div style="font-size:0.82rem;padding:0.15rem 0">' + kindChip(x) + '<b>' + esc(x.name) + '</b>'
         + (x.label
-            ? ' · ' + esc(x.label) + ' <span class="help-text">' + esc(mergeShow(x.field, x.mine))
+            ? ' · ' + esc(x.label) + ' <span class="help-text">' + esc(showVal(x, x.mine))
               + '</span> <span style="color:var(--muted)">→</span> <span style="color:#15803d;font-weight:600">'
-              + esc(mergeShow(x.field, x.theirs)) + '</span>'
+              + esc(showVal(x, x.theirs)) + '</span>'
             : '') + '</div>';
       const conflictRows = r.conflicts.map((c, i) => `
         <div style="border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;margin-bottom:0.4rem">
-          <div style="font-weight:600;font-size:0.85rem">${esc(c.name)} <span class="help-text">· ${esc(c.label)}</span></div>
+          <div style="font-weight:600;font-size:0.85rem">${kindChip(c)}${esc(c.name)} <span class="help-text">· ${esc(c.label)}</span></div>
           <div style="display:flex;gap:0.5rem;margin-top:0.35rem;flex-wrap:wrap">
             <button class="btn-sm ${c.take === 'mine' ? 'btn-primary' : 'btn-secondary'}" style="flex:1 1 45%;text-align:left;white-space:normal" onclick="mergeSetTake(${i},'mine')">
-              <b>Yours</b><br><span style="font-weight:400">${esc(mergeShow(c.field, c.mine))}</span></button>
+              <b>Yours</b><br><span style="font-weight:400">${esc(showVal(c, c.mine))}</span></button>
             <button class="btn-sm ${c.take === 'theirs' ? 'btn-primary' : 'btn-secondary'}" style="flex:1 1 45%;text-align:left;white-space:normal" onclick="mergeSetTake(${i},'theirs')">
-              <b>Theirs</b><br><span style="font-weight:400">${esc(mergeShow(c.field, c.theirs))}</span></button>
+              <b>Theirs</b><br><span style="font-weight:400">${esc(showVal(c, c.theirs))}</span></button>
           </div>
         </div>`).join('');
       box.innerHTML =
@@ -37285,7 +37446,16 @@ Do not write payment terms or exclusions — both are generated from the project
               + 'You each added an activity after the shared version and both drew the same number. Theirs are '
               + 'renumbered on the way in, so nothing is lost and nothing is overwritten.</div>'
             : '')
-        + '<p class="help-text" style="margin-top:0.6rem">Leaf activities and their inputs are merged. Phase rows, user stories, the RAID log and the roster are <b>not</b> — take those across by hand if they matter.</p>';
+        + '<p class="help-text" style="margin-top:0.6rem">'
+          + (r.haveBaseDoc
+            ? 'Activities, phase rows, user stories, the RAID log and the roster are all merged, each against '
+              + 'the shared version. Phase rows and roster entries take EDITS only — a phase arrives with the '
+              + 'activities under it, and a person arrives with the work that names them.'
+            : 'Leaf activities and their inputs are merged. Phase rows, user stories, the RAID log and the '
+              + 'roster are <b>not</b>, because this merge has no stored copy of the shared version to '
+              + 'compare them against — that only exists in a team trunk. Take those across by hand, or join '
+              + 'a trunk and pull instead.')
+          + '</p>';
       const go = document.getElementById('mergeGo');
       if (go) go.textContent = 'Merge ' + (r.auto.length + r.conflicts.filter(c => c.take === 'theirs').length
         + r.theirAdds.length) + ' change' + ((r.auto.length + r.conflicts.filter(c => c.take === 'theirs').length + r.theirAdds.length) === 1 ? '' : 's');
@@ -37345,9 +37515,61 @@ Do not write payment terms or exclusions — both are generated from the project
         if (f === 'parentId') { t.parentId = (raw === '' || raw == null) ? null : Number(raw); return; }
         t[f] = raw;
       };
+      /* ═══ THE SAME ROW, WRITTEN WHERE IT LIVES ══════════════════════════
+         Every auto and conflict row now carries what it is about. A row with
+         no entity is an activity, which is what every row was before this. */
+      const raidById = () => new Map((raid || []).map(x => [String(x.id), x]));
+      const storyById = () => new Map((((typeof reqs !== 'undefined' && reqs && reqs.stories) || []))
+        .map(x => [String(x.id), x]));
+      const phaseById = () => new Map(tasks.map(x => [String(x.id), x]));
+      const setAny = (o, f, raw) => {
+        if (o == null) return false;
+        // JSON on the way out, so JSON on the way back in — a criteria list
+        // stored as the string "[object Object]" is the list destroyed
+        const s0 = String(raw == null ? '' : raw);
+        if (s0.charAt(0) === '[' || s0.charAt(0) === '{') {
+          try { o[f] = JSON.parse(s0); return true; } catch (e) {}
+        }
+        if (['probability', 'impact', 'capacity', 'rate'].indexOf(f) >= 0) { o[f] = Number(raw) || 0; return true; }
+        if (f === 'taskId' || f === 'parentId') { o[f] = (s0 === '' ? null : Number(s0)); return true; }
+        o[f] = s0;
+        return true;
+      };
+      const applyRow = (x, val) => {
+        if (!x.entity) { const t = byId.get(x.id); if (!t) return false; setField(t, x.field, val); return true; }
+        if (x.entity === 'raid') return setAny(raidById().get(String(x.id)), x.field, val);
+        if (x.entity === 'story') return setAny(storyById().get(String(x.id)), x.field, val);
+        if (x.entity === 'phase') return setAny(phaseById().get(String(x.id)), x.field, val);
+        if (x.entity === 'roster') {
+          const key = String(x.id);
+          if (typeof resources === 'undefined' || !resources[key]) return false;
+          return setAny(resources[key], x.field, val);
+        }
+        return false;
+      };
       let n = 0;
-      r.auto.forEach(x => { const t = byId.get(x.id); if (t) { setField(t, x.field, x.theirs); n++; } });
-      r.conflicts.forEach(c => { if (c.take !== 'theirs') return; const t = byId.get(c.id); if (t) { setField(t, c.field, c.theirs); n++; } });
+      r.auto.forEach(x => { if (applyRow(x, x.theirs)) n++; });
+      r.conflicts.forEach(c => { if (c.take !== 'theirs') return; if (applyRow(c, c.theirs)) n++; });
+      /* Entries they added, renumbered past anything either side is using —
+         RAID ids and story ids come from per-document counters, so two people
+         adding one each both mint the same number and one would land on top of
+         the other. */
+      (r.raidAdds || []).forEach(x => {
+        const copy = JSON.parse(JSON.stringify(x.entry));
+        copy.id = (typeof nextRaidId === 'number' ? nextRaidId : 1);
+        nextRaidId = copy.id + 1;
+        // a link to an activity we do not hold points at nothing
+        if (copy.taskId != null && !byId.has(copy.taskId)) copy.taskId = null;
+        raid.push(copy); n++;
+      });
+      (r.storyAdds || []).forEach(x => {
+        if (typeof reqs === 'undefined' || !reqs) return;
+        reqs.stories = reqs.stories || [];
+        const copy = JSON.parse(JSON.stringify(x.entry));
+        if (reqs.stories.some(st2 => String(st2.id) === String(copy.id)))
+          copy.id = String(copy.id) + '-' + Math.random().toString(36).slice(2, 5);
+        reqs.stories.push(copy); n++;
+      });
       // renumber their adds past anything either side is using
       let next = Math.max(0, nextId, ...tasks.map(t => t.id)) + 1;
       const remap = new Map();
