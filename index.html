@@ -2849,6 +2849,50 @@
     .jn-alt { font-size: var(--t-sm); color: var(--muted); border-top: 1px dashed var(--border);
       padding-top: .55rem; }
     .jn-alt b { color: var(--header); }
+    /* ═══ AND THEN THE WORK, IN THE SAME BOX ══════════════════════════════════
+       Pressing OK on the old dialog returned the reader to the page with no
+       sign anything was happening, and a toast some seconds later. Between
+       those two moments a file is read, a history is appended and a write goes
+       to disk — any of which can fail, and none of which was visible. The
+       dialog stays open and becomes the work: one line per step, each one
+       lighting as it starts and settling with what it actually did. */
+    .jn-steps { list-style: none; margin: .2rem 0 0; padding: 0; }
+    .jn-step { display: flex; gap: .65rem; align-items: flex-start; position: relative;
+      padding: 0 0 .85rem; opacity: .45; transition: opacity .35s var(--easeo); }
+    .jn-step:last-child { padding-bottom: 0; }
+    /* the rail joins the dots, and only between them */
+    .jn-step:not(:last-child)::before { content: ''; position: absolute; left: 10px; top: 22px; bottom: 2px;
+      width: 2px; background: var(--border); }
+    .jn-step[data-s="done"]:not(:last-child)::before { background: #6ee7b7; }
+    .jn-step[data-s="run"], .jn-step[data-s="done"], .jn-step[data-s="fail"] { opacity: 1; }
+    .jn-dot { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; position: relative;
+      border: 2px solid var(--border); background: var(--card); box-sizing: border-box;
+      transition: border-color .3s var(--easeo), background .3s var(--easeo); }
+    .jn-step[data-s="run"] .jn-dot { border-color: var(--primary); border-top-color: transparent;
+      animation: jnSpin .7s linear infinite; }
+    @keyframes jnSpin { to { transform: rotate(360deg); } }
+    .jn-step[data-s="done"] .jn-dot { border-color: #10b981; background: #10b981; animation: jnPop .34s var(--easeo); }
+    .jn-step[data-s="fail"] .jn-dot { border-color: #dc2626; background: #dc2626; animation: jnPop .34s var(--easeo); }
+    @keyframes jnPop { 0% { transform: scale(.5); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+    .jn-step[data-s="done"] .jn-dot::after, .jn-step[data-s="fail"] .jn-dot::after {
+      content: '✓'; position: absolute; inset: 0; color: #fff; font-size: 12px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; }
+    .jn-step[data-s="fail"] .jn-dot::after { content: '✕'; }
+    .jn-step b { display: block; font-size: var(--t-sm); color: var(--header); font-weight: 600; }
+    .jn-note { display: block; font-size: var(--t-xs); color: var(--muted); min-height: 1em; }
+    .jn-step[data-s="fail"] .jn-note { color: #b91c1c; }
+    /* the closing frame: what actually happened, arriving once */
+    .jn-done { display: flex; gap: .7rem; align-items: center; padding: .75rem .85rem; border-radius: 10px;
+      border: 1px solid #a7f3d0; background: #ecfdf5; animation: jnRise .4s var(--easeo) backwards; }
+    .jn-done.bad { border-color: #fecaca; background: #fef2f2; }
+    .jn-done .jn-ico { font-size: 1.5rem; }
+    .jn-done h4 { margin: 0 0 .1rem; font-size: var(--t-md); color: #065f46; }
+    .jn-done.bad h4 { color: #991b1b; }
+    .jn-done p { margin: 0; font-size: var(--t-sm); color: var(--muted); }
+    @keyframes jnRise { from { opacity: 0; transform: translateY(8px); } }
+    /* the flow diagram: a chain, and the versions about to join it */
+    .jn-fl { transform: translate(var(--x0), var(--y0)); transition: transform .6s var(--easeo), opacity .4s var(--easeo); }
+    [data-jphase="after"] .jn-fl { transform: translate(var(--x1), var(--y1)); }
     @media (max-width: 760px) {
       .jn-cards { grid-template-columns: 1fr; }
       .jn-out { grid-template-columns: 1fr; }
@@ -4340,7 +4384,7 @@
         <div class="modal-body" id="joinBody"></div>
         <div class="modal-footer">
           <button class="btn-secondary" id="joinNo" onclick="joinClose(false)">Keep them separate</button>
-          <button class="btn-primary" id="joinGo" onclick="joinClose(true)">Join</button>
+          <button class="btn-primary" id="joinGo" onclick="joinAnswer(true)">Join</button>
         </div>
       </div>
     </div>
@@ -5143,7 +5187,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0022</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0111</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7194,6 +7238,38 @@ Or say what you want, in your own words:
         + '" text-anchor="middle">One history — the trunk\'s past, your work on top</text>'
         + gap + svg + legend + '</svg>';
     }
+    /* ═══ A CHAIN, AND THE VERSIONS ABOUT TO JOIN IT ════════════════════════
+       The join diagram answers "are these two things one thing". Push and Pull
+       ask something narrower — "which versions move, and onto what" — so they
+       get their own drawing: the receiving chain in place, the travelling ones
+       held off the line, and the move itself as the animation. It is the same
+       vocabulary (a version is a box, colour says whose) so a person who has
+       read one has read both. */
+    function jnFlow(baseN, addN, opts) {
+      const W = 760, ROW = 74, LIFT = 30;
+      const base = jnCells(baseN, opts.baseTag || 'T');
+      const add = jnCells(addN, opts.addTag || 'Y');
+      const wide = n => Math.max(0, n * JN_PITCH - (JN_PITCH - JN_W));
+      const off = Math.max(0, Math.round((W - wide(base.length + add.length)) / 2));
+      const at = i => off + i * JN_PITCH;
+      let svg = '';
+      base.forEach((c, i) => { svg += jnNode(c, at(i), ROW, at(i), ROW, opts.baseCls || '', i > 0); });
+      /* Held ABOVE the line and dimmed, so "not yet part of it" is a fact about
+         the picture rather than a caption under it. */
+      add.forEach((c, i) => { const j = base.length + i;
+        svg += '<g class="jn-fl" style="--x0:0px;--y0:' + (-LIFT) + 'px;--x1:0px;--y1:0px">'
+          + jnNode(c, at(j), ROW, at(j), ROW, opts.addCls || 'mine', i > 0 ? true : 'after') + '</g>'; });
+      const arrowX = at(base.length) + JN_W / 2 - JN_PITCH / 2;
+      return '<svg class="jn-svg" viewBox="0 0 ' + W + ' 150" role="img" aria-label="'
+        + escapeHtml(opts.alt || (addN + ' versions joining a chain of ' + baseN)) + '">'
+        + '<text class="jn-lane" x="' + (off - 14) + '" y="' + (ROW + 18) + '" text-anchor="end">'
+        + escapeHtml(opts.lane || 'The trunk') + '</text>'
+        + '<g class="jn-gap"><text x="' + arrowX + '" y="' + (ROW - LIFT - 8) + '">'
+        + escapeHtml(opts.pending || 'not shared yet') + '</text></g>'
+        + '<text class="jn-lane jn-only-after" x="' + Math.round(W / 2) + '" y="' + (ROW - 46)
+        + '" text-anchor="middle">' + escapeHtml(opts.done || 'One chain, everybody on it') + '</text>'
+        + svg + '</svg>';
+    }
     let joinResolve = null;
     function joinPhase(p) {
       const st = document.getElementById('joinStage');
@@ -7209,8 +7285,147 @@ Or say what you want, in your own words:
        nothing, which is worse than the dialog this replaced. */
     function joinClose(ok) {
       const r = joinResolve; joinResolve = null;
+      joinKeepOpen = false;
       closeOverlay('joinModal');
       if (r) r(!!ok);
+    }
+    /* ANSWERING IS NOT THE SAME AS LEAVING. A push says yes and then has work to
+       show, and the work belongs in the box the decision was made in — so the
+       affirmative route resolves the promise and hands the panel over rather
+       than closing it. Written as one function this closed on OK and the run
+       panel then found no open dialog to draw into, because closeOverlay leaves
+       .open on for 160ms of exit animation: the reopen test saw an open modal,
+       declined, and the exit timer took it away underneath the steps. */
+    let joinKeepOpen = false;
+    function joinAnswer(ok) {
+      if (!ok || !joinKeepOpen) return joinClose(ok);
+      const r = joinResolve; joinResolve = null;
+      joinKeepOpen = false;
+      if (r) r(true);
+    }
+    /* ═══════════════════════════════════════════════════════════════════════
+       PUSH AND PULL, END TO END, IN ONE SURFACE.
+
+       Reported by use: "i still see this modal, we need animations all the way
+       through all steps until done". The join dialog had replaced three of
+       these boxes; push and pull still asked in one and then said nothing at
+       all until a toast some seconds later. Between OK and that toast a file is
+       read, a history is appended and a write goes to disk — any of which can
+       fail, and none of which was visible.
+
+       So the dialog does not close when it is answered. It BECOMES the work:
+       the decision fades out, the steps fade in, each lights as it starts and
+       settles with what it actually did, and the last frame says what happened
+       rather than leaving a toast to do it. Three calls:
+
+         trunkAsk(spec)   → Promise<bool>, the decision
+         trunkStep(...)   → drive one line of the run
+         trunkDone(spec)  → the closing frame
+
+       They share the join dialog's shell, its escape handling and its promise
+       discipline on purpose: two sync dialogs that behaved differently would be
+       the same defect as two tab strips that animated differently. */
+    function trunkPanel(title, html, goLabel, noLabel) {
+      const body = document.getElementById('joinBody');
+      if (!body) return false;
+      body.innerHTML = html;
+      document.getElementById('joinTitle').textContent = title;
+      const go = document.getElementById('joinGo'), no = document.getElementById('joinNo');
+      go.textContent = goLabel; go.disabled = false;
+      no.textContent = noLabel || 'Cancel';
+      no.style.display = noLabel === null ? 'none' : '';
+      return true;
+    }
+    function trunkAsk(spec) {
+      const cards = spec.cards === false ? '' :
+        '<div class="jn-cards">'
+        + '<div class="jn-card me"><h5>' + escapeHtml(spec.leftHead || 'This plan') + '</h5><div class="jn-nm">'
+          + escapeHtml(spec.leftName || document.getElementById('projectName').value || '(unnamed)') + '</div>'
+          + '<dl>' + (spec.leftRows || []).map(r => '<dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(String(r[1])) + '</dd>').join('') + '</dl></div>'
+        + '<div class="jn-mid"><span class="jn-cnt">' + escapeHtml(String(spec.count)) + '</span>'
+          + '<small>' + escapeHtml(spec.countLabel || '') + '</small></div>'
+        + '<div class="jn-card"><h5>' + escapeHtml(spec.rightHead || 'The trunk') + '</h5><div class="jn-nm">'
+          + escapeHtml(spec.rightName || 'the shared file') + '</div>'
+          + '<dl>' + (spec.rightRows || []).map(r => '<dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(String(r[1])) + '</dd>').join('') + '</dl></div>'
+        + '</div>';
+      const ok = trunkPanel(spec.title,
+        '<div class="jn-verdict"><span class="jn-ico" aria-hidden="true">' + (spec.ico || '⬆') + '</span>'
+        + '<div><h4 id="joinVerdict">' + escapeHtml(spec.verdict) + '</h4><p>' + escapeHtml(spec.why || '') + '</p></div></div>'
+        + (spec.diagram ? '<div class="jn-stage" id="joinStage" data-jphase="before" data-cap-before="'
+            + escapeHtml(spec.capBefore || '') + '" data-cap-after="' + escapeHtml(spec.capAfter || '') + '">'
+            + '<div class="jn-stage-top"><div class="seg" role="group" aria-label="What this does">'
+            + '<button type="button" data-jp="before" aria-pressed="true" onclick="joinPhase(\'before\')">Now</button>'
+            + '<button type="button" data-jp="after" aria-pressed="false" onclick="joinPhase(\'after\')">After</button>'
+            + '</div><span class="jn-cap" id="joinCap" aria-live="polite">' + (spec.capBefore || '') + '</span></div>'
+            + spec.diagram + '</div>' : '')
+        + cards
+        + '<div class="jn-out">'
+        + '<div class="jn-keep"><h5>✓ Kept</h5><ul>' + (spec.kept || []).map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul></div>'
+        + '<div class="jn-chg"><h5>→ What changes</h5><ul>' + (spec.changed || []).map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul></div>'
+        + '</div>'
+        + (spec.alt ? '<p class="jn-alt"><b>If you would rather not:</b> ' + escapeHtml(spec.alt) + '.</p>' : ''),
+        spec.go, spec.no || 'Cancel');
+      if (!ok) return Promise.resolve(confirm(spec.verdict + '\n\n' + (spec.why || '') + '\n\n' + spec.go + '?'));
+      joinKeepOpen = !!spec.run;      // a yes hands the panel to the run rather than closing it
+      openOverlay(document.getElementById('joinModal'));
+      if (spec.diagram) setTimeout(() => { if (joinResolve) joinPhase('after'); }, 620);
+      return new Promise(res => { joinResolve = res; });
+    }
+    /* An answer with one button. Not a confirm wearing a modal: a refusal has to
+       say what was compared and what to do instead, which is exactly what the
+       alerts it replaces could not lay out. */
+    function trunkTell(spec) {
+      if (!trunkPanel(spec.title,
+        '<div class="jn-verdict" style="border-left-color:' + (spec.bad ? '#dc2626' : 'var(--primary)') + '">'
+        + '<span class="jn-ico" aria-hidden="true">' + (spec.ico || '⚠️') + '</span>'
+        + '<div><h4 id="joinVerdict">' + escapeHtml(spec.verdict) + '</h4><p>' + escapeHtml(spec.why || '') + '</p></div></div>'
+        + (spec.rows ? '<div class="jn-cards"><div class="jn-card me" style="grid-column:1/-1"><h5>'
+            + escapeHtml(spec.rowsHead || 'What was compared') + '</h5><dl>'
+            + spec.rows.map(r => '<dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(String(r[1])) + '</dd>').join('')
+            + '</dl></div></div>' : '')
+        + (spec.next ? '<div class="jn-out" style="grid-template-columns:1fr"><div class="jn-chg">'
+            + '<h5>→ What to do instead</h5><ul>' + spec.next.map(x => '<li>' + escapeHtml(x) + '</li>').join('')
+            + '</ul></div></div>' : ''),
+        'Close', null)) { alert(spec.verdict + '\n\n' + (spec.why || '')); return Promise.resolve(true); }
+      openOverlay(document.getElementById('joinModal'));
+      return new Promise(res => { joinResolve = res; });
+    }
+    /* THE RUN. The decision the reader just made stays as the heading; the body
+       becomes the steps. Both footer buttons go: there is nothing to answer
+       until it is over, and a Cancel that cannot actually stop a write in
+       flight is a lie drawn as a control. */
+    function trunkRun(title, steps) {
+      trunkPanel(title, '<ol class="jn-steps" id="joinSteps" aria-live="polite">'
+        + steps.map((t, i) => '<li class="jn-step" data-s="wait" data-i="' + i + '">'
+            + '<i class="jn-dot" aria-hidden="true"></i><div><b>' + escapeHtml(t) + '</b>'
+            + '<span class="jn-note"></span></div></li>').join('')
+        + '</ol>', 'Working…', null);
+      const go = document.getElementById('joinGo');
+      go.disabled = true;
+      if (!document.getElementById('joinModal').classList.contains('open'))
+        openOverlay(document.getElementById('joinModal'));
+    }
+    function trunkStep(i, state, note) {
+      const li = document.querySelector('#joinSteps .jn-step[data-i="' + i + '"]');
+      if (!li) return;
+      li.setAttribute('data-s', state);
+      if (note != null) li.querySelector('.jn-note').textContent = note;
+    }
+    /* A beat between steps, so a run that finishes in nine milliseconds is still
+       something a person can watch happen. Skipped entirely when the reader has
+       asked for no motion — then the honest thing is the end state, at once. */
+    function trunkBeat(ms) { return new Promise(r => setTimeout(r, motionOK() ? (ms || 260) : 0)); }
+    function trunkDone(spec) {
+      const body = document.getElementById('joinBody');
+      if (!body) { flashSaved(spec.headline); return; }
+      const steps = document.getElementById('joinSteps');
+      body.innerHTML = '<div class="jn-done' + (spec.bad ? ' bad' : '') + '">'
+        + '<span class="jn-ico" aria-hidden="true">' + (spec.ico || '✓') + '</span>'
+        + '<div><h4>' + escapeHtml(spec.headline) + '</h4><p>' + escapeHtml(spec.detail || '') + '</p></div></div>'
+        + (steps ? '<div style="margin-top:.9rem">' + steps.outerHTML + '</div>' : '');
+      const go = document.getElementById('joinGo'), no = document.getElementById('joinNo');
+      go.disabled = false; go.textContent = 'Done'; no.style.display = 'none';
+      go.focus();
     }
     const JOIN_COPY = {
       twin: {
@@ -7384,10 +7599,49 @@ Or say what you want, in your own words:
              their history and I have added nothing since — there is nothing to
              weigh, so asking me to review conflicts would imply a risk that
              does not exist. Applied straight through. */
-          if (!quiet && !confirm('The trunk is ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
-              + ' ahead of you, and you have changed nothing since you last shared.\n\nTake it? Nothing of yours can be lost.')) return;
-          hydrate(tip.doc); recompute(); refreshAll(); saveLocal();
-          flashSaved('⬇ Fast-forwarded ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
+          const mineN = (planVersions || []).length;
+          if (!quiet) {
+            const okFf = await trunkAsk({
+              title: 'Take the team\'s latest', ico: '⬇',
+              verdict: 'The trunk is ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
+                + ' ahead of you, and you have changed nothing since you last shared.',
+              why: 'There is nothing to weigh: everything of yours is already in their history, so this is a '
+                 + 'straight catch-up rather than a merge.',
+              diagram: jnFlow(mineN, rel.behind, { lane: 'Your history', baseTag: 'V', addTag: 'T',
+                addCls: 'shared', pending: 'theirs, not here yet', done: 'Level with the trunk',
+                alt: rel.behind + ' newer versions from the trunk joining your ' + mineN }),
+              capBefore: 'The team has moved <b>' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
+                + ' ahead</b> of the copy on this machine.',
+              capAfter: 'Their newest becomes your plan, and their versions become your history.',
+              count: rel.behind, countLabel: 'version' + (rel.behind === 1 ? '' : 's') + ' to take',
+              leftRows: [['Versions', mineN], ['Changed since you shared', 0]],
+              rightName: (trunkHandle && trunkHandle.name) || 'the trunk file',
+              rightRows: [['Ahead by', rel.behind]].concat(tip.byName ? [['Newest from', tip.byName]] : []),
+              kept: ['Every version you already have', 'Nothing of yours can be lost — you changed nothing',
+                     '↶ Undo reverses the whole thing'],
+              changed: ['The plan on screen becomes the trunk\'s newest',
+                        'Their ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's') + ' become your history'],
+              go: 'Take it', no: 'Not now', run: true,
+              alt: 'nothing changes here and the trunk keeps its lead until you pull' });
+            if (!okFf) return;
+            trunkRun('Taking the team\'s latest',
+              ['Loading their newest plan', 'Recomputing the schedule', 'Saving it here']);
+            trunkStep(0, 'run'); await trunkBeat(340);
+          }
+          hydrate(tip.doc);
+          if (!quiet) { trunkStep(0, 'done', tip.byName ? 'from ' + tip.byName : 'the trunk\'s tip');
+            trunkStep(1, 'run'); await trunkBeat(300); }
+          recompute(); refreshAll();
+          if (!quiet) { trunkStep(1, 'done', leafTasks().length + ' activities recalculated');
+            trunkStep(2, 'run'); await trunkBeat(220); }
+          saveLocal();
+          if (!quiet) {
+            trunkStep(2, 'done', 'stored on this machine');
+            await trunkBeat(320);
+            trunkDone({ headline: 'Level with the team', ico: '🌳',
+              detail: 'Caught up ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
+                + (tip.byName ? ' — latest from ' + tip.byName : '') + '. Undo reverses the whole thing.' });
+          } else flashSaved('⬇ Fast-forwarded ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
             + (tip.byName ? ' — latest from ' + tip.byName : ''));
           return;
         }
@@ -7435,20 +7689,59 @@ Or say what you want, in your own words:
             return;
           }
           const keep = (r.myAdds || []).length;
-          if (!quiet && !confirm('Nothing conflicts.\n\n' + who.sentence + '\n\n'
-            + 'You have both moved, but not on the same fields, so there is nothing to choose between: '
-            + bits.join(' and ') + ' come across'
-            + (keep ? ', and your ' + keep + ' new activit' + (keep === 1 ? 'y stays' : 'ies stay')
-                : ', and nothing of yours changes')
-            + '.\n\nTake it? A version is filed and ↶ Undo reverses the whole thing.')) return;
+          const incoming = (r.auto || []).length + (r.theirAdds || []).length;
+          if (!quiet) {
+            const okCl = await trunkAsk({
+              title: 'Take their changes — nothing conflicts', ico: '🤝',
+              verdict: 'You have both moved, but not on the same fields, so there is nothing to choose between.',
+              why: who.sentence + ' ' + bits.join(' and ') + ' come across'
+                + (keep ? ', and your ' + keep + ' new activit' + (keep === 1 ? 'y stays' : 'ies stay')
+                        : ', and nothing of yours changes') + '.',
+              diagram: jnFlow((planVersions || []).length, (t.log || []).length, { lane: 'Your history',
+                baseTag: 'V', addTag: 'T', addCls: 'shared', pending: 'theirs, not here yet',
+                done: 'One history, then your merge on top',
+                alt: 'their versions joining yours, with nothing contested' }),
+              capBefore: 'Two histories that moved apart — and <b>no field either of you both touched</b>.',
+              capAfter: 'Their history joins yours and the merge is filed as one new version on top.',
+              count: incoming, countLabel: 'change' + (incoming === 1 ? '' : 's') + ' coming across',
+              leftRows: [['Your new activities', keep], ['Versions', (planVersions || []).length]],
+              rightName: (trunkHandle && trunkHandle.name) || 'the trunk file',
+              rightRows: [['Fields they changed', (r.auto || []).length],
+                          ['Activities they added', (r.theirAdds || []).length]],
+              kept: ['Your ' + keep + ' new activit' + (keep === 1 ? 'y' : 'ies'),
+                     'Every field you changed — none of them is contested',
+                     '↶ Undo reverses the whole thing'],
+              changed: [(r.auto || []).length + ' field' + ((r.auto || []).length === 1 ? '' : 's')
+                          + ' they changed and you did not',
+                        (r.theirAdds || []).length + ' activit' + ((r.theirAdds || []).length === 1 ? 'y' : 'ies')
+                          + ' they added arrive',
+                        'A version is filed recording the merge'],
+              go: 'Take it', no: 'Not now', run: true,
+              alt: 'nothing changes here, and the review is still there next time you pull' });
+            if (!okCl) return;
+            trunkRun('Taking their changes',
+              ['Adopting their history', 'Applying ' + incoming + ' change' + (incoming === 1 ? '' : 's'),
+               'Filing the merge as a version']);
+            trunkStep(0, 'run'); await trunkBeat(340);
+          }
           /* Adopt first, apply second. mergeApply files a version at the end,
              and that version has to hang off THEIR tip — otherwise the merge
              lands in my plan and my history still branches off a point before
              theirs, so the push that should follow is refused as diverged. */
           const took = adoptVersions((t.log || []));
+          if (!quiet) { trunkStep(0, 'done', took ? took + ' version' + (took === 1 ? '' : 's') + ' of theirs adopted'
+            : 'their history was already yours'); trunkStep(1, 'run'); await trunkBeat(320); }
           mergePlanState = { doc: tip.doc, name: 'the team trunk', r: r };
           mergeApply();
-          if (took) flashSaved('⬇ Merged and took ' + took + ' version'
+          if (!quiet) {
+            trunkStep(1, 'done', bits.join(' and '));
+            trunkStep(2, 'done', 'undo reverses the whole thing');
+            await trunkBeat(320);
+            trunkDone({ headline: 'Merged — and you can push now', ico: '🤝',
+              detail: (took ? 'Took ' + took + ' version' + (took === 1 ? '' : 's') + ' of history and applied '
+                : 'Applied ') + incoming + ' change' + (incoming === 1 ? '' : 's')
+                + '. Nothing of yours was contested.' });
+          } else if (took) flashSaved('⬇ Merged and took ' + took + ' version'
             + (took === 1 ? '' : 's') + ' of history — you can push now');
           return;
         }
@@ -7539,47 +7832,121 @@ Or say what you want, in your own words:
         if (!t) t = { _format: TRUNK_FORMAT, lineage: planLineageId(),
                       name: document.getElementById('projectName').value || 'Untitled', base: null, log: [] };
         const rel = trunkRelation(t);
-        if (rel.relation === 'fork') {
-          if (!(await trunkAdoptFork(t))) { trunkBusy = false; return; }
-          trunkBusy = false; return trunkPush(quiet);
-        }
-        if (rel.relation === 'kin') {
-          if (!(await trunkAdoptLineage(t, rel.kin))) { trunkBusy = false; return; }
-          trunkBusy = false; return trunkPush(quiet);
-        }
-        if (rel.relation === 'twin') {
-          if (!(await trunkAdoptTwin(t, rel.kin))) { trunkBusy = false; return; }
+        /* Joining two histories is a decision, so an unattended push never makes
+           it — it says so and stops, and the next person to press Push is asked
+           properly. Same rule as the refusals below. */
+        if (rel.relation === 'fork' || rel.relation === 'kin' || rel.relation === 'twin') {
+          if (quiet) { flashSaved('Push paused — this plan and the trunk need joining first'); return; }
+          const joined = rel.relation === 'fork' ? await trunkAdoptFork(t)
+            : rel.relation === 'kin' ? await trunkAdoptLineage(t, rel.kin)
+            : await trunkAdoptTwin(t, rel.kin);
+          if (!joined) { trunkBusy = false; return; }
           trunkBusy = false; return trunkPush(quiet);
         }
         if (rel.relation === 'unrelated') {
-          alert('That trunk is a different engagement — refusing to push onto it.\n\n'
-            + trunkKinshipEvidence(rel.kin || trunkKinship(t))
-            + '\n\nNothing in its history appears anywhere in this plan\'s. If you believe these are the '
-            + 'same engagement, the two files have never shared a version — push to a trunk one of them '
-            + 'started, rather than joining them here.');
+          const kk = rel.kin || trunkKinship(t);
+          /* QUIET MEANS UNATTENDED, and an unattended run may not stop on a
+             dialog. The alert this replaced blocked the thread and was answered
+             by whoever was sitting there; a modal awaits a click that never
+             comes, so the automatic tick would hang forever on the first
+             refusal. Caught by the sweep hanging outright: every push in it is
+             quiet, and one of them lands on "pull first". */
+          if (quiet) { flashSaved('Push paused — that trunk is a different engagement'); return; }
+          await trunkTell({ title: 'A different engagement', bad: true, ico: '⛔',
+            verdict: 'That trunk is a different engagement — refusing to push onto it.',
+            why: 'Nothing in its history appears anywhere in this plan\'s. Appending your versions to a '
+               + 'stranger\'s chain would give both files a history that never happened.',
+            rowsHead: 'What was compared',
+            rows: [['This plan', kk.mine + ' version' + (kk.mine === 1 ? '' : 's') + ', lineage ' + kk.myLineage],
+                   ['The trunk', kk.theirs + ' version' + (kk.theirs === 1 ? '' : 's') + ', lineage ' + kk.theirLineage
+                     + ', named "' + kk.theirName + '"'],
+                   ['Versions in common', kk.shared]],
+            next: ['Push to a trunk one of these two files started',
+                   'If you believe they ARE the same engagement, they have never shared a version — join '
+                     + 'them from Connect rather than pushing onto this one'] });
           return;
         }
         if (rel.relation === 'behind' || rel.relation === 'diverged') {
-          alert('The trunk has moved on since you last pulled'
-            + (rel.behind ? ' (' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's') + ' you do not have)' : '')
-            + '.\n\nPull first — pushing now would append your work onto a history that is missing theirs, '
-            + 'which is exactly the hole this format exists to prevent.');
+          if (quiet) { flashSaved('Push paused — pull first, the trunk has moved on'); return; }
+          await trunkTell({ title: 'Pull first', ico: '⬇',
+            verdict: 'The trunk has moved on since you last pulled'
+              + (rel.behind ? ' — ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's') + ' you do not have' : '') + '.',
+            why: 'Pushing now would append your work onto a history that is missing theirs, which is exactly '
+               + 'the hole this format exists to prevent.',
+            next: ['Press Pull, then push again — your work is untouched in the meantime'] });
           return;
         }
         const have = new Set([].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid)));
         const mine = (planVersions || []).filter(v => v.vid && !have.has(v.vid));
         if (!mine.length) { if (!quiet) flashSaved('✓ The trunk already has everything of yours'); return; }
-        if (!quiet && !confirm(trunkPushSentence(t, mine, (trunkHandle && trunkHandle.name) || 'the trunk file'))) return;
-        mine.forEach((v, i) => {
-          // the newest carries the live plan; the rest carry their own snapshot
-          const doc = (i === mine.length - 1) ? serialize() : Object.assign({}, serialize(), v.snap);
-          t.log.push(trunkEntryFromVersion(v, JSON.parse(JSON.stringify(doc))));
-        });
-        t.lineage = t.lineage || planLineageId();
-        t.name = document.getElementById('projectName').value || t.name;
-        trunkCompact(t);
-        await trunkWrite(trunkHandle, t);
-        flashSaved('⬆ Pushed ' + mine.length + ' version' + (mine.length === 1 ? '' : 's') + ' to the trunk');
+        const fname = (trunkHandle && trunkHandle.name) || 'the trunk file';
+        if (!quiet) {
+          const okGo = await trunkAsk({
+            title: 'Share your work with the team', ico: '⬆',
+            verdict: 'You are about to add ' + mine.length + ' version' + (mine.length === 1 ? '' : 's')
+              + ' to ' + fname + '.',
+            why: 'Nothing of theirs can be lost — a push only ADDS to the shared history, and one that was '
+               + 'missing their work would have been refused before this point.',
+            diagram: jnFlow(have.size, mine.length, { lane: 'The trunk', baseTag: 'T', addTag: 'Y',
+              pending: 'yours, not shared yet', done: 'One chain, everybody on it',
+              alt: mine.length + ' of your versions joining the trunk\'s ' + have.size }),
+            capBefore: '<b>' + mine.length + ' version' + (mine.length === 1 ? '' : 's')
+              + '</b> of yours exist only on this machine.',
+            capAfter: 'They sit at the end of the trunk\'s chain — <b>added, never overwriting</b>. '
+              + 'The next person to pull gets them.',
+            count: mine.length, countLabel: 'version' + (mine.length === 1 ? '' : 's') + ' to add',
+            leftRows: [['Yours to share', mine.length], ['Already shared', (planVersions || []).length - mine.length]],
+            rightName: fname, rightRows: [['Versions', have.size]],
+            kept: ['Every version already in the trunk, untouched',
+                   'Everybody else\'s work — a push cannot remove anything',
+                   'Your plan exactly as it is on screen'],
+            changed: ['The trunk gains your ' + mine.length + ' version' + (mine.length === 1 ? '' : 's'),
+                      'The newest carries the plan as it stands now',
+                      'The file on disk is rewritten once, at the end'],
+            go: 'Share it', no: 'Not yet', run: true,
+            alt: 'nothing is sent, and your versions stay here until you press Push again' });
+          if (!okGo) return;
+        }
+        /* THE WORK, WATCHED. Each line wraps the step it names — file the
+           versions, trim old payloads, write the file — so the ticks are the
+           real sequence rather than a progress bar playing to a timer. */
+        const showing = !quiet;
+        if (showing) trunkRun('Sharing with the team',
+          ['Filing your ' + mine.length + ' version' + (mine.length === 1 ? '' : 's') + ' onto the trunk',
+           'Trimming payloads the trunk no longer needs',
+           'Writing ' + fname]);
+        try {
+          if (showing) { trunkStep(0, 'run'); await trunkBeat(340); }
+          mine.forEach((v, i) => {
+            // the newest carries the live plan; the rest carry their own snapshot
+            const doc = (i === mine.length - 1) ? serialize() : Object.assign({}, serialize(), v.snap);
+            t.log.push(trunkEntryFromVersion(v, JSON.parse(JSON.stringify(doc))));
+          });
+          t.lineage = t.lineage || planLineageId();
+          t.name = document.getElementById('projectName').value || t.name;
+          if (showing) { trunkStep(0, 'done', 'the newest carries the plan as it stands now'); trunkStep(1, 'run'); await trunkBeat(260); }
+          const before = (t.log || []).filter(e => e.doc).length;
+          trunkCompact(t);
+          const after = (t.log || []).filter(e => e.doc).length;
+          if (showing) { trunkStep(1, 'done', before === after ? 'nothing needed trimming'
+            : before - after + ' older payload' + (before - after === 1 ? '' : 's') + ' dropped, their ids kept');
+            trunkStep(2, 'run'); await trunkBeat(200); }
+          await trunkWrite(trunkHandle, t);
+          if (showing) {
+            trunkStep(2, 'done', (t.log || []).length + ' entries on disk');
+            await trunkBeat(320);
+            trunkDone({ headline: 'Shared — the team has your ' + mine.length + ' version'
+              + (mine.length === 1 ? '' : 's'), ico: '🌳',
+              detail: 'The trunk now holds ' + ((t.log || []).length) + ' version'
+                + (((t.log || []).length) === 1 ? '' : 's') + '. Anyone who pulls gets your work.' });
+          } else flashSaved('⬆ Pushed ' + mine.length + ' version' + (mine.length === 1 ? '' : 's') + ' to the trunk');
+        } catch (e) {
+          if (showing) { trunkStep(2, 'fail', String(e.message || e).slice(0, 120));
+            trunkDone({ bad: true, ico: '⛔', headline: 'The write did not go through',
+              detail: 'Nothing was shared. Your plan and your versions are exactly as they were — press Push '
+                + 'again once the file is reachable.' });
+          } else throw e;
+        }
       } catch (e) { alert('Could not write the trunk: ' + (e.message || e)); }
       finally { trunkBusy = false; }
     }

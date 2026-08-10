@@ -606,6 +606,71 @@ function serveApp() {
           + 'an overlay nobody can dismiss');
     })();
 
+    /* ═══ THE LOUD PATH, WHICH NOTHING HAS EVER RUN ════════════════════════
+       Every push and pull in this file is driven with quiet=true, which is the
+       right way to test what they DO to the data and means the dialog half has
+       never been exercised once. Reported by use — "i still see this modal, we
+       need animations all the way through all steps until done" — about a
+       confirm() that had been sitting in the loud path the whole time.
+
+       So one push is run the way a person runs it: answer the question, watch
+       the steps, and check the closing frame says what actually happened. The
+       assertions are about SETTLING, because that is the failure this shape
+       has: a step left spinning, or a dialog that closes on OK and leaves the
+       work invisible again. */
+    await (async () => {
+      const sayP = x => bad.push('Push run :: ' + x);
+      const el = document.getElementById('joinModal');
+      if (!el) { sayP('there is no dialog for a push to draw into'); return; }
+      editName(A_ID, 'A LOUD PUSH');
+      pushVersion('edit', 'loud push');
+      const pr = trunkPush(false);            // deliberately NOT quiet
+      await new Promise(r => setTimeout(r, 600));
+      if (!el.classList.contains('open')) {
+        sayP('a push with unshared work asked nothing and showed nothing — the one route a person takes '
+          + 'is the one route nothing here has ever run');
+        await pr; return;
+      }
+      const ask = (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ');
+      out.pushAsk = ask.slice(0, 70);
+      if (ask.indexOf('trunk-sweep.json') < 0)
+        sayP('the question does not name the file it is about to write');
+      if (!/\badd/i.test(ask))
+        sayP('the question never says a push only ADDS — which is the single fact that makes it safe to say yes');
+      document.getElementById('joinGo').click();
+      await new Promise(r => setTimeout(r, 250));
+      out.pushSteps = document.querySelectorAll('#joinSteps .jn-step').length;
+      if (!out.pushSteps)
+        sayP('answering the question closed the dialog and the write happened out of sight — which is the '
+          + 'defect this replaced, reintroduced one screen later');
+      await pr;
+      await new Promise(r => setTimeout(r, 600));
+      const done = (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ');
+      out.pushDone = done.slice(0, 70);
+      if (!/Shared/i.test(done))
+        sayP('the run never reached a closing frame — it stopped on the steps, so a person cannot tell '
+          + 'whether the write finished: ' + done.slice(0, 80));
+      const all = [...document.querySelectorAll('#joinSteps .jn-step')];
+      const stuck = all.filter(x => x.getAttribute('data-s') !== 'done');
+      if (stuck.length)
+        sayP(stuck.length + ' of ' + all.length + ' steps never settled, so the run reports itself as still '
+          + 'going after it finished');
+      /* AND THE FILE ON DISK AGREES. A dialog that says "shared" is a claim; the
+         only thing that settles it is reading the trunk back. The version's
+         label is what carries the note — reading a field the entry does not
+         have (`note`) had this reporting a lost push about a write that landed
+         exactly as promised, which is the same class of miss as the rest of
+         this session. */
+      const tAfter = await trunkRead(handle);
+      const labels = ((tAfter && tAfter.log) || []).map(e => e.label || '');
+      out.pushLanded = labels.slice(-3);
+      if (labels.indexOf('loud push') < 0)
+        sayP('the dialog said it shared and the trunk on disk carries no such version — last entries: '
+          + JSON.stringify(labels.slice(-3)));
+      joinClose(true);
+      await new Promise(r => setTimeout(r, 250));
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════
