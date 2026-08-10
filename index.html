@@ -5306,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1945</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2003</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7314,6 +7314,7 @@ Or say what you want, in your own words:
     const TRUNK_POLL_MS = 15000;
     const TRUNK_QUIET_MS = 6000;      // a push is a thought that finished
     let trunkAuto = true, trunkTimer = null, trunkLastLocal = 0, trunkPaused = '', trunkPending = 0;
+    let trunkHeld = '';                 // why the last tick declined to act, if it did
     function trunkAutoSet(on) {
       trunkAuto = !!on;
       try { localStorage.setItem('pertGantt.trunkAuto', trunkAuto ? '1' : '0'); } catch (e) {}
@@ -7361,9 +7362,18 @@ Or say what you want, in your own words:
     }
     async function trunkAutoTick() {
       if (!trunkAuto || !trunkHandle || trunkBusy) return;
-      if (document.hidden) return;                 // never from a tab nobody is looking at
-      if (trunkPaused) return;                     // a conflict is waiting for a person
-      if (trunkBusyEditing()) return;
+      /* ═══ WHY IT DECLINED, WHERE THE READER CAN SEE IT ══════════════════
+         The count of what is waiting was only ever recomputed at the bottom of
+         this function, past four early returns — and one of them fires while
+         any dialog is open, which is the moment somebody is most likely
+         reading the button. So "2 to send" could sit there unchanged for as
+         long as a modal was up, saying nothing about whether the loop was
+         stuck or simply being polite.
+         The reason is recorded on the way out instead. A number that is not
+         moving is then a sentence rather than a mystery. */
+      if (document.hidden) { trunkHeld = 'tab'; return; }
+      if (trunkPaused) { trunkHeld = ''; return; }       // the paused label already says it
+      if (trunkBusyEditing()) { trunkHeld = 'editing'; updateTrunkBtn(); return; }
       let t = null;
       try { t = await trunkRead(trunkHandle); } catch (e) {
         /* A dropped permission is not a sync failure to shout about on a timer.
@@ -7413,6 +7423,7 @@ Or say what you want, in your own words:
          a symptom rather than a mystery. */
       trunkPending = rel.relation === 'ahead' ? (rel.ahead || 1)
         : (rel.relation === 'same' && !trunkTipIsCurrent()) ? 1 : 0;
+      trunkHeld = '';
       updateTrunkBtn();
       if (rel.relation === 'ahead' || rel.relation === 'same') {
         /* Send only what has settled. `same` still needs the check: the plan can
@@ -7780,15 +7791,46 @@ Or say what you want, in your own words:
     /* The work fingerprint is not only per-activity: it carries the RAID log,
        the status narrative and the status history, all of which travel in a
        push and none of which any per-activity row can account for. */
+    function trunkRaidRows(before, after) {
+      const A = new Map((before || []).map(r => [String(r.id), r]));
+      const B = new Map((after || []).map(r => [String(r.id), r]));
+      const nm = r => String((r && r.title) || ('entry ' + (r && r.id)));
+      const rows = [];
+      B.forEach((r, id) => {
+        const was = A.get(id);
+        if (!was) {
+          rows.push({ kind: 'raid-added', id: 'r:' + id, name: nm(r),
+                      from: '', to: String(r.type || 'Entry') });
+          return;
+        }
+        MERGE_RAID_FIELDS.forEach(([f, lbl]) => {
+          const x = mergeAnyVal(was, f), y = mergeAnyVal(r, f);
+          if (x === y) return;
+          // the field's own name on the chip, so the row reads as the sentence
+          // it is: "Status · Integration slips · Open → Closed"
+          rows.push({ kind: 'raid-field', lbl: lbl, id: 'r:' + id, name: nm(r), from: x, to: y });
+        });
+      });
+      A.forEach((r, id) => {
+        if (!B.has(id)) rows.push({ kind: 'raid-removed', id: 'r:' + id, name: nm(r),
+                                    from: String(r.type || 'Entry'), to: '' });
+      });
+      return rows;
+    }
     function trunkWorkMetaRows(fromW, toW) {
       const rows = [];
       let a = null, b = null;
       try { a = JSON.parse(fromW || 'null'); b = JSON.parse(toW || 'null'); } catch (e) { return rows; }
       if (!a || !b) return rows;
       const n = x => (Array.isArray(x) ? x.length : 0);
-      const ent = k => k + ' entr' + (k === 1 ? 'y' : 'ies');
-      if (JSON.stringify(a.raid || []) !== JSON.stringify(b.raid || []))
-        rows.push({ kind: 'raid-log', id: 0, name: 'The plan', from: ent(n(a.raid)), to: ent(n(b.raid)) });
+      /* ═══ WHICH ENTRY, NOT HOW MANY ═════════════════════════════════════
+         "3 entries → 4 entries" is a count, and a count cannot tell a new risk
+         from a closed one. The RAID log is where the cause of a miss is
+         written down; somebody reading a pull wants to know that Integration
+         slips was closed and Sandbox down was raised, not that the total moved
+         by one. Both sides are in the work record already, keyed by id, so the
+         same three-way vocabulary the activities use applies here. */
+      trunkRaidRows(a.raid, b.raid).forEach(r => rows.push(r));
       if (String(a.narrative || '') !== String(b.narrative || ''))
         rows.push({ kind: 'narrative', id: 0, name: 'The plan',
                     from: String(a.narrative || ''), to: String(b.narrative || '') });
@@ -7912,7 +7954,12 @@ Or say what you want, in your own words:
          formats them; a rename prints what it WAS rather than repeating the new
          name that is already the subject of the line. */
       const dv = (r) => {
+        /* A row may name its own chip. Most kinds ARE the label — "Progress",
+           "Renamed" — but a RAID entry can move any of sixteen fields, and
+           sixteen kinds to say Status, Owner, Impact would be a vocabulary
+           where a value belongs. */
         const k = DIFF_KINDS[r.kind] || { lbl: r.kind };
+        const chipLbl = r.lbl || k.lbl;
         const n2 = v => Math.round((Number(v) || 0) * 100) / 100;
         const fmtSide = v => {
           if (v == null) return '';
@@ -7927,6 +7974,8 @@ Or say what you want, in your own words:
             // hours or a blank cell. Nothing logged is nothing logged.
             case 'logged':       return (Number(v) || 0) === 0 ? 'none' : fmtDurCell(n2(v));
             case 'actual-cost': case 'invoiced': case 'paid': return fmtMoney(Number(v) || 0);
+            // a why-chain or a link list is one value; "4 items" beats its JSON
+            case 'raid-field': case 'raid-added': case 'raid-removed': return mergeAnyShow(v);
             // a date that has not been recorded is blank, and "" prints as nothing
             case 'started': case 'finished': case 'invoice-dated': case 'paid-dated':
               return String(v || 'not recorded');
@@ -7977,7 +8026,7 @@ Or say what you want, in your own words:
         const pts = (measurable && !m && !d && Math.abs(b2 - a) > 0.001)
           ? '<span class="jn-pt ' + dir + '">' + (b2 > a ? '+' : '−')
             + escapeHtml(fmtSide(Math.abs(b2 - a))) + '</span>' : '';
-        return '<li class="jn-r ' + dir + '"><span class="jn-k">' + escapeHtml(k.lbl) + '</span>'
+        return '<li class="jn-r ' + dir + '"><span class="jn-k">' + escapeHtml(chipLbl) + '</span>'
           + pair + bar + pts + d + m + '</li>';
       };
       /* ONE CARD PER ACTIVITY, not one line per field. Three changes to the
@@ -9024,6 +9073,7 @@ Or say what you want, in your own words:
           : paused === 'conflict' ? '⚠ Auto sync: paused, needs you'
           : paused === 'permission' ? '⚠ Auto sync: waiting for permission'
           : paused === 'lineage' ? '⚠ Auto sync: that trunk is another engagement'
+          : (trunkHeld === 'editing') ? '⏳ Auto sync: waiting until you stop typing'
           : trunkPending ? '🔄 Auto sync: on · ' + trunkPending + ' to send'
           : '🔄 Auto sync: on';
         ab.style.color = paused ? 'var(--warn)' : 'var(--text)';
@@ -36643,6 +36693,9 @@ Do not write payment terms or exclusions — both are generated from the project
       'raid-log':     { lbl: 'RAID log',        billable: false, order: 44 },
       narrative:      { lbl: 'Status narrative', billable: false, order: 45 },
       'status-snapshot': { lbl: 'Status snapshot', billable: false, order: 46 },
+      'raid-added':   { lbl: 'RAID raised',     billable: false, order: 44.1 },
+      'raid-removed': { lbl: 'RAID deleted',    billable: false, order: 44.2 },
+      'raid-field':   { lbl: 'RAID',            billable: false, order: 44.3 },
       progressed:     { lbl: 'Progress',        billable: false, order: 20 },
       logged:         { lbl: 'Time logged',     billable: false, order: 21 },
       started:        { lbl: 'Actual start',    billable: false, order: 22 },

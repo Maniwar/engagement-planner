@@ -1194,6 +1194,70 @@ function serveApp() {
       hydrate(JSON.parse(JSON.stringify(base))); calculate();
     })();
 
+    /* ═══ A COUNT IS NOT A LIST, ON THE LOG THAT SAYS WHY ═══════════════════
+       The changelog reported a RAID change as "3 entries → 4 entries", which
+       cannot tell a new risk from a closed one. That log is where the cause of
+       a miss is written down, so a reader pulling somebody's week wants the
+       entry NAMED. Both sides are already in the work record, keyed by id. */
+    (function () {
+      const sayR = m => say('RAID changelog', m);
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      raid = raid || [];
+      raid.push({ id: 9101, type: 'Risk', title: 'Integration slips', status: 'Open',
+                  probability: 3, impact: 4, owner: 'Alice', createdAt: '2026-08-01' });
+      const w0 = trunkWorkFingerprint();
+      (raid.find(x => x.id === 9101) || {}).status = 'Closed';
+      raid.push({ id: 9102, type: 'Issue', title: 'Sandbox down', status: 'Open', createdAt: '2026-08-05' });
+      const w1 = trunkWorkFingerprint();
+      const rows = trunkWorkMetaRows(w0, w1);
+      const plain = JSON.stringify(rows);
+      out.raidRows = rows.map(r => (r.lbl || r.kind) + ':' + r.name).slice(0, 6);
+      if (!rows.some(r => r.name === 'Integration slips' && String(r.to) === 'Closed'))
+        sayR('a risk was closed and the changelog does not name it with its new status. A count of entries '
+          + 'cannot tell a closed risk from a newly raised one, and this is the log a post-mortem is '
+          + 'built from');
+      if (!rows.some(r => r.kind === 'raid-added' && r.name === 'Sandbox down'))
+        sayR('an issue was raised and the changelog does not name it, so a reader pulling somebody\'s week '
+          + 'sees a number move and cannot tell what happened');
+      if (/entr(y|ies)/.test(plain) && !rows.length)
+        sayR('the RAID change is still reported as a count of entries');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
+    /* ═══ AND WHY THE LOOP DECLINED, WHERE IT CAN BE READ ═══════════════════
+       "N to send" was only recomputed past four early returns, one of which
+       fires while a dialog is open — the moment somebody is most likely to be
+       looking at it. A number that is not moving has to be a sentence. */
+    (function () {
+      /* PUT BACK WHAT THIS BORROWS. The keystroke below sets trunkLastKey, and
+         the typing guard further down reads it — the first draft of this block
+         made that check report a focused-but-idle box as busy, which is the
+         defect it exists to catch, reported by this block having pressed a key
+         moments earlier. Two checks sharing one mutable clock is a false red
+         waiting to happen, and a false red on a real defect is worse than
+         either alone. */
+      const savedKey = trunkLastKey;
+      const inp2 = document.createElement('input');
+      inp2.type = 'text';
+      document.body.appendChild(inp2);
+      inp2.focus();
+      inp2.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true }));
+      trunkHeld = 'editing'; updateTrunkBtn();
+      const btn = document.getElementById('trunkAutoBtn');
+      out.heldLabel = btn ? String(btn.textContent || '') : '';
+      inp2.blur(); inp2.remove();
+      trunkHeld = ''; updateTrunkBtn();
+      out.freeLabel = btn ? String(btn.textContent || '') : '';
+      trunkLastKey = savedKey;
+      if (!/typing/i.test(out.heldLabel))
+        say('Auto sync', 'the loop held off because somebody was typing and the control says nothing about '
+          + 'it — reading "Auto sync: on" beside work that is not moving is the reason somebody asks why '
+          + 'they have to push it themselves');
+      if (out.heldLabel === out.freeLabel)
+        say('Auto sync', 'the control reads the same whether the loop is held off or running, so the '
+          + 'sentence it gained is not attached to anything');
+    })();
+
     /* ═══ THE MORNING MUST NOT FILE A VERSION BY ITSELF ═════════════════════
        recompute() records one status snapshot per calendar day, and the work
        record carries the status history — so simply opening the plan on a new

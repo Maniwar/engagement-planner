@@ -194,8 +194,20 @@ const MUTANTS = [
      stale rather than as a survivor, which is the distinction that made this a
      two-minute repair instead of a hunt. */
   { what: 'change order: the log records a price delta the client never approved',
-    find: "        finishDelta: p.finishDelta, priceDelta: p.priceDelta, newFinish: p.newFinish, newPrice: p.newPrice,\n        diff: p.diff || [], lineSum: p.lineSum || 0, hidePrice: (p.hidePrice || []).slice(),\n        fromV: p.fromV, toV: toV.v, state: 'accepted', stateAt: fmtISO(new Date()) });",
-    with: "        finishDelta: p.finishDelta, priceDelta: (p.priceDelta || 0) + 500, newFinish: p.newFinish, newPrice: p.newPrice,\n        diff: p.diff || [], lineSum: p.lineSum || 0, hidePrice: (p.hidePrice || []).slice(),\n        fromV: p.fromV, toV: toV.v, state: 'accepted', stateAt: fmtISO(new Date()) });" },
+    /* REPAIRED. The anchor was three consecutive lines of the accepted-change-order
+       record, and eight fields were added to that record since — rationale,
+       baseDate, baseFinish, basePrice, amended, unit, legacyBasis, unpricedAdds
+       — so the block stopped matching and the engine reported it stale. It was
+       proving nothing for as long as that was true.
+
+       Re-anchored on the smallest thing that is BOTH unique and load-bearing:
+       the line that mints the accepted version, plus the line carrying the
+       price. The price line alone appears twice, once on issue and once on
+       acceptance, and a mutant that lands ambiguously is not evidence — which
+       is exactly why the engine refused to guess. Two lines instead of three,
+       so the next field added to this record does not break it again. */
+    find: "      const toV = pushVersion('co', p.no);\n      coLog.push({ no: p.no, date: fmtISO(new Date()), scope: p.scope, detail: p.detail,\n        finishDelta: p.finishDelta, priceDelta: p.priceDelta,",
+    with: "      const toV = pushVersion('co', p.no);\n      coLog.push({ no: p.no, date: fmtISO(new Date()), scope: p.scope, detail: p.detail,\n        finishDelta: p.finishDelta, priceDelta: (p.priceDelta || 0) + 500," },
 
   /* ── the dependency wizard: a button that acts on something else ───────────
      These three are not arithmetic. They are the shape of defect the user hit
