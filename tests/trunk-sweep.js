@@ -1194,6 +1194,51 @@ function serveApp() {
       hydrate(JSON.parse(JSON.stringify(base))); calculate();
     })();
 
+    /* ═══ THE MORNING MUST NOT FILE A VERSION BY ITSELF ═════════════════════
+       recompute() records one status snapshot per calendar day, and the work
+       record carries the status history — so simply opening the plan on a new
+       morning moved the fingerprint and filed a version. Seen in a real push,
+       with "STATUS SNAPSHOT · 4 recorded → 5 recorded" as its entire content:
+       history written by a timer, landing in every teammate's changelog.
+
+       Both halves are asserted, because a build that files nothing is not a
+       fix — it is the version chain switched off. */
+    (function () {
+      const sayD = m => say('Timer versions', m);
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      pushVersion('edit', 'settled'); 
+      out.tipCurrentAtRest = trunkTipIsCurrent();
+      if (!out.tipCurrentAtRest) {
+        sayD('a version filed a moment ago already does not describe the plan, so every check below this '
+          + 'compares against a moving target');
+      } else {
+        // a new calendar day, as recompute() would record it
+        const before = (planVersions || []).length;
+        statusHistory = statusHistory || [];
+        statusHistory.push({ date: '2099-01-01', pct: 12, finish: '2099-02-02', p80: null,
+                             cost: 1234, over: 0, openRisks: 1 });
+        out.afterSnapshot = { tipCurrent: trunkTipIsCurrent() };
+        trunkEnsureTip();
+        out.afterSnapshot.versionsAdded = (planVersions || []).length - before;
+        if (out.afterSnapshot.versionsAdded)
+          sayD('recording one daily status snapshot filed a version on its own. Every field in a snapshot is '
+            + 'derived from the plan it was read from, so nobody decided anything — and on a team this '
+            + 'lands in everybody\'s changelog every morning, from a timer');
+
+        // and something a person actually did still files one
+        const before2 = (planVersions || []).length;
+        const t2 = leafTasks().find(x => !x.milestone);
+        if (t2) t2.name = String(t2.name) + ' (edited)';
+        recompute();
+        trunkEnsureTip();
+        out.afterRealEdit = { versionsAdded: (planVersions || []).length - before2 };
+        if (!out.afterRealEdit.versionsAdded)
+          sayD('renaming an activity no longer files a version either, so the fix for the timer has switched '
+            + 'the version chain off rather than made it honest');
+      }
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
     /* ═══ A PLAN IS NOT ONLY ITS ACTIVITIES ═════════════════════════════════
        The merge compared against the commitment snapshot, and a commitment is
        activities and their inputs — so the RAID log, the stories, the phase

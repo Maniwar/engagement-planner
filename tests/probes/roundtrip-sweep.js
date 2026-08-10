@@ -129,6 +129,101 @@ const DROPS = {
         raid[0].outcome = 'It triggered in week 3';
         raid[0].outcomeAt = '2026-06-10';
       }
+      /* ═══ AND THE ELEVEN THIS HAD NEVER LOOKED AT ═══════════════════════════
+         The list below was not chosen; it was READ OFF this probe's own output.
+         Every green run ended with "Not exercised by either fixture, so nothing
+         under these was checked", naming eleven top-level keys — and "lossless"
+         over a key that is an empty array is the same sentence as "checked
+         nothing there".
+
+         That is precisely the shape of the defect this whole probe exists for:
+         hydrate rebuilt each version field by field and dropped vid and pvid,
+         which nothing noticed because nothing compared a version that had one.
+         Eleven more keys were sitting in that same blind spot, and each of them
+         is somewhere a person's work goes — a change order, a sign-off, a
+         drafted statement of work, a holiday calendar.
+
+         Seeded with values that are DISTINGUISHABLE: no two fields share a
+         value, so a mapper that copies the right shape into the wrong slot
+         still fails. */
+      /* SHAPED THE WAY THE PRODUCT SHAPES THEM, which is not a detail. The first
+         draft of these seeds invented plausible objects — statusNarrative as a
+         string, reqsBaseline stories carrying `want`, sowVersions keyed by `no`
+         — and the probe dutifully reported eight losses, every one of them the
+         loader correctly refusing a shape nothing ever writes. A seed that the
+         application would never produce does not test the application; it tests
+         the seed. Each of these is copied from the code that writes it:
+         reqsBaseline from setRequirementsBaseline, sowVersions from
+         sowVersionNorm, coLog from issueChangeOrder, signoffs from
+         recordSignoff, statusNarrative from its own declaration. */
+      const gv = n => 'RT-' + n;
+      /* These three resisted the first attempt and each for its own reason,
+         which is the point of naming what is not exercised rather than
+         reporting a total: `holidays` is not a variable at all, it is the text
+         in a form control; `collapsedIds` is a Set, so pushing to it did
+         nothing; and the QA fixture simply carries no RAID entries. A seed
+         that silently does not take leaves the key exactly as blind as before
+         while looking like coverage. */
+      const hol = document.getElementById('holidays');
+      if (hol) hol.value = '2026-12-24, 2026-12-25';
+      if (typeof collapsedIds !== 'undefined' && collapsedIds && collapsedIds.add && leaves[0])
+        collapsedIds.add(leaves[0].parentId == null ? leaves[0].id : leaves[0].parentId);
+      if (typeof raid !== 'undefined' && Array.isArray(raid) && !raid.length) {
+        raid.push({ id: 1, type: 'Risk', title: gv('raid-title'), description: gv('raid-desc'),
+                    probability: 4, impact: 5, owner: gv('raid-owner'), status: 'Open',
+                    mitigation: gv('raid-mitigation'), taskId: leaves[0] ? leaves[0].id : null,
+                    // taskId is a MIRROR of the first activity link, not an
+                    // independent field — seeding one without the other asks
+                    // the loader to preserve a contradiction
+                    createdAt: '2026-06-07',
+                    links: [{ k: 'act', id: leaves[0] ? leaves[0].id : 1 }], whys: [gv('raid-why')],
+                    rootCause: gv('raid-root'), options: [], chosen: null, v: 2 });
+        if (typeof nextRaidId !== 'undefined') nextRaidId = 2;
+      }
+      if (typeof planForkedFrom !== 'undefined' && !planForkedFrom) planForkedFrom = gv('forked-lineage');
+      // { date, text } — a loader that takes only .text would still pass a
+      // string seed by dropping it, so the object is what gets checked
+      if (typeof statusNarrative !== 'undefined' && !statusNarrative)
+        statusNarrative = { date: '2026-06-06', text: gv('narrative-week-six-on-track') };
+      if (typeof sowDraft !== 'undefined' && !sowDraft) sowDraft = gv('sow-draft-body');
+      if (typeof sowBaseline !== 'undefined' && !sowBaseline)
+        sowBaseline = { at: '2026-06-02', price: 4242, tasks: [{ id: leaves[0] ? leaves[0].id : 1,
+                          name: gv('sow-base-task'), te: 2.5, value: 1500 }] };
+      if (typeof sowVersions !== 'undefined' && Array.isArray(sowVersions) && !sowVersions.length)
+        sowVersions.push({ n: 1, at: '2026-06-01', ts: '09:15', label: gv('sow-label'),
+                           html: '<p>' + gv('sow-body-v1') + '</p>', trimmed: 0, seeded: false,
+                           cos: [{ no: gv('sow-co-no'), state: 'issued' }],
+                           off: [gv('sow-section-off')], baseV: 1 });
+      if (typeof coLog !== 'undefined' && Array.isArray(coLog) && !coLog.length)
+        coLog.push({ no: gv('co-no'), date: '2026-06-03', scope: gv('co-scope'), detail: gv('co-detail'),
+                     finishDelta: 2, priceDelta: 250, newFinish: '2026-09-01', newPrice: 41000,
+                     diff: [{ kind: 're-estimated', id: leaves[0] ? leaves[0].id : 1,
+                              name: gv('co-row-name'), from: 1, to: 2, priceDelta: 250, days: 0.5 }],
+                     lineSum: 250, hidePrice: [gv('co-hidden-line')], rationale: gv('co-rationale'),
+                     baseDate: '2026-05-30', baseFinish: '2026-08-30', basePrice: 40750,
+                     amended: false, unit: 'days', legacyBasis: false, unpricedAdds: 0,
+                     fromV: 1, toV: null, state: 'issued', stateAt: '2026-06-03' });
+      if (typeof signoffs !== 'undefined' && Array.isArray(signoffs) && !signoffs.length)
+        signoffs.push({ no: 1, at: '2026-06-04', scope: 'project', ref: gv('signoff-ref'),
+                        by: gv('signoff-by'), note: gv('signoff-note'), v: 1 });
+      // stories here carry ac as a list of ID STRINGS, not objects — that is
+      // what the baseline records, and seeding objects invents a shape
+      if (typeof reqsBaseline !== 'undefined' && !reqsBaseline)
+        reqsBaseline = { at: '2026-06-05', stories: [{ id: gv('rb-story'),
+                          // audience is a two-value field, not free text
+                          audience: 'internal', ac: [gv('rb-ac-one'), gv('rb-ac-two')] }] };
+      /* THE COUNTERS ARE DERIVED, so seed a document that is internally
+         consistent rather than one the loader has to correct. nextSowNo and
+         nextSignoffNo are recomputed from the highest entry on load — which is
+         right, and a serialized counter that disagrees with its own content
+         SHOULD be fixed rather than preserved. Leaving them at 1 beside an
+         entry numbered 1 made this probe report the loader being careful as a
+         loss. */
+      // recomputed from the highest entry on load, so keep them consistent
+      if (typeof nextSowNo !== 'undefined' && typeof sowVersions !== 'undefined')
+        nextSowNo = Math.max(1, ...sowVersions.map(v => (+v.n || 0) + 1));
+      if (typeof nextSignoffNo !== 'undefined' && typeof signoffs !== 'undefined')
+        nextSignoffNo = Math.max(1, ...signoffs.map(x => (+x.no || 0) + 1));
       const before = JSON.parse(JSON.stringify(serialize()));
       hydrate(JSON.parse(JSON.stringify(before)));
       calculate();

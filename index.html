@@ -5306,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1855</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1945</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7086,6 +7086,29 @@ Or say what you want, in your own words:
       if (s && typeof s === 'object') delete s.at;
       return JSON.stringify(s) + '\u0000' + trunkWorkFingerprint();
     }
+    /* ═══ A PHOTOGRAPH OF NUMBERS IS NOT A DECISION ═════════════════════════
+       recompute() records one status snapshot per calendar day, and the work
+       record carries the status history — so the first recompute of the morning
+       moved the fingerprint and filed a version whose entire content was
+       "STATUS SNAPSHOT · 4 recorded → 5 recorded". Seen in a real push. On a
+       team that lands in everybody's changelog every morning, filed by a timer
+       rather than by a person.
+
+       Every field in a snapshot is DERIVED: progress, forecast finish, cost,
+       open risks — all of them already implied by the plan they were read from.
+       Nobody decided anything, so there is nothing for a version to record.
+
+       It still travels, because it is in the document, and the changelog still
+       names it when it rides along with something real. It just no longer
+       justifies a version of its own. The trimmed form is compared on BOTH
+       sides rather than trimming the stored fingerprint, so versions already
+       filed still match and nobody gets a spurious version on the first sync
+       after this. */
+    function trunkFileworthy(work) {
+      if (typeof work !== 'string') return work;
+      try { const o = JSON.parse(work); delete o.status; return JSON.stringify(o); }
+      catch (e) { return work; }
+    }
     /* Does the newest version still describe what is on screen? Asked in three
        places — before a push, before a pull decides where you stand, and by the
        unattended loop — and each had written its own version of the comparison.
@@ -7099,7 +7122,9 @@ Or say what you want, in your own words:
          counts as out of date rather than assuming nothing happened. */
       if (!last || !last.snap || typeof last._work !== 'string') return false;
       const was = Object.assign({}, last.snap); delete was.at;
-      return JSON.stringify(was) + '\u0000' + last._work === trunkPlanFingerprint();
+      const now = snapshotPlan(); if (now && typeof now === 'object') delete now.at;
+      return JSON.stringify(was) + '\u0000' + trunkFileworthy(last._work)
+        === JSON.stringify(now) + '\u0000' + trunkFileworthy(trunkWorkFingerprint());
     }
     function trunkEnsureTip() {
       const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
