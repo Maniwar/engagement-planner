@@ -701,6 +701,45 @@ function serveApp() {
           + JSON.stringify(labels.slice(-3)));
       joinClose(true);
       await new Promise(r => setTimeout(r, 250));
+
+      /* ═══ AND THE SAME QUESTION FROM THE OTHER SIDE ══════════════════════
+         A pull is where the changelog earns its place: a push describes work
+         the reader did and remembers, and a pull describes somebody else's,
+         which they have never seen. Driven as a real fast-forward — somebody
+         else moves the trunk, this copy goes back to where it was, and the
+         dialog has to name them and what they did. */
+      const mine0 = capture();
+      beA('Dana Whitfield');
+      editName(B_ID, 'DANA REWORKED THIS');
+      pushVersion('edit', 'dana rework');
+      await trunkPush(true);
+      restore(mine0);
+      const pl = trunkPull(false);
+      await new Promise(r => setTimeout(r, 600));
+      if (!el.classList.contains('open')) {
+        sayP('a pull with the trunk ahead asked nothing — the incoming work arrives unannounced');
+        await pl;
+      } else {
+        const ptxt = (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ');
+        out.pullAsk = ptxt.slice(0, 70);
+        if (!document.querySelector('#joinBody .jn-log'))
+          sayP('the pull question carries no changelog, so somebody is asked to accept edits it will not name');
+        if (ptxt.indexOf('Dana Whitfield') < 0)
+          sayP('the pull does not say WHOSE work is arriving — on somebody else\'s edits that is the first '
+            + 'thing a reader needs and the only one they cannot work out for themselves');
+        if (ptxt.indexOf('DANA REWORKED THIS') < 0)
+          sayP('the pull does not name the activity that changed, so "take it" is being asked about work '
+            + 'the reader cannot see');
+        document.getElementById('joinGo').click();
+        await pl;
+        await new Promise(r => setTimeout(r, 600));
+        const pdone = (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ');
+        out.pullDone = pdone.slice(0, 70);
+        if (!/Level with the team/i.test(pdone))
+          sayP('the pull run never reached its closing frame: ' + pdone.slice(0, 80));
+        joinClose(true);
+        await new Promise(r => setTimeout(r, 250));
+      }
     })();
 
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
