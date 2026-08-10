@@ -54,9 +54,15 @@ const QA = JSON.parse(fs.readFileSync(
 
       // ── capture what a person actually receives ─────────────────────────
       const files = new Map();
+      /* grab() CLEARS `files` between exports so each assertion reads only its
+         own file — right for those, and it means nothing accumulates. The
+         markup check at the end has to see everything that left, so it keeps
+         its own tally that is never cleared. Without this it examined whatever
+         happened to be exported last, and reported "checked" over one file. */
+      const allFiles = new Map();
       const origD = window.download, origB = window.downloadBlobFile;
-      window.download = (fn, content) => files.set(fn, String(content));
-      window.downloadBlobFile = (blob, fn) => files.set(fn, blob);
+      window.download = (fn, content) => { allFiles.set(fn, String(content)); return files.set(fn, String(content)); };
+      window.downloadBlobFile = (blob, fn) => { allFiles.set(fn, blob); return files.set(fn, blob); };
       const grab = name => { files.clear(); try { window[name](); } catch (e) {
         say('Export', name + '() threw: ' + e.message); } return new Map(files); };
 
@@ -326,6 +332,31 @@ const QA = JSON.parse(fs.readFileSync(
          pasted somewhere that is not this page must contain no markup. Driven
          through the product's own clipboard path rather than by reading the
          source, so a formatter swapped anywhere upstream still fails here. */
+      /* ═══ AND EVERY FILE THAT IS NOT A WEB PAGE ═════════════════════════
+         The three pasteable surfaces below were found one at a time, from a
+         screenshot. This asks the same question of everything that leaves:
+         four formatters in this application return MARKUP — fmtDur, and the
+         three entity marks — and any of them reaching a .csv, a .md or a .txt
+         puts a tag where a value should be, in a file somebody opens in Excel
+         or reads in an email.
+
+         .html and .xls are exempt because they ARE markup: the workbook
+         exports are Excel-flavoured HTML on purpose. .json is exempt because a
+         plan legitimately carries markup inside its own fields — a saved SOW
+         version is a document. Everything else is prose and numbers. */
+      allFiles.forEach((body, fn) => {
+        if (!/\.(csv|md|txt)$/i.test(String(fn))) return;
+        const tag = (String(body).match(/<\/?(span|div|td|tr|table|b|i|em|strong|p|br)\b[^>]*>/i) || [null])[0];
+        if (tag)
+          bad.push('Exports :: ' + fn + ' carries markup (' + tag.slice(0, 40) + '). A csv opens in a '
+            + 'spreadsheet and a txt is read in an email — a formatter that returns a tag has reached a '
+            + 'file that has no way to render one, so the reader sees the tag');
+      });
+      out.textExports = Array.from(allFiles.keys()).filter(f => /\.(csv|md|txt)$/i.test(String(f))).sort();
+      if (out.textExports.length < 3)
+        bad.push('Exports :: only ' + out.textExports.length + ' text file(s) were produced for the markup '
+          + 'check to read, so it is reporting a clean bill over almost nothing');
+
       const clip = { html: '', text: '' };
       const nav = navigator.clipboard || {};
       const oW = nav.write, oT = nav.writeText;

@@ -5306,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2003</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2027</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -13633,7 +13633,18 @@ Or say what you want, in your own words:
     }
 
     function calculate() {
-      if (tasks.length === 0) { alert('Add at least one activity first.'); return; }
+      /* ═══ A COMPUTE FUNCTION DOES NOT OPEN A DIALOG ════════════════════════
+         This was alert(), which is modal: it stops the page and waits for a
+         click. On an empty plan any internal recompute reached it — loading a
+         file, clearing a project, a teammate joining a trunk with nothing on
+         their screen yet — so somebody who had pressed NOTHING got a box
+         demanding acknowledgement, from a function whose job is arithmetic.
+         Found by a check that cleared the plan and got the dialog.
+
+         The sentence is right and worth keeping; the interruption is not. Said
+         the way every other passing remark in this application is said, which
+         does not block the page and does not require an answer. */
+      if (tasks.length === 0) { flashSaved('Add at least one activity first.'); return; }
       /* A BUTTON THAT DOES NOTHING IS A BROKEN BUTTON, even when the code is
          behaving. recompute() fails on one thing only — a dependency loop — and
          it opens the wizard on its way out. But a wizard that has already been

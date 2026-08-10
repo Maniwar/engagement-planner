@@ -1194,6 +1194,39 @@ function serveApp() {
       hydrate(JSON.parse(JSON.stringify(base))); calculate();
     })();
 
+    /* ═══ NOTHING ON THE SCREEN MUST NOT OPEN A DIALOG ══════════════════════
+       Surfaced by the newcomer case further down: calculate() opened a modal
+       alert whenever the plan was empty, so a teammate joining a trunk with
+       nothing on their screen yet got a box demanding a click from a function
+       whose job is arithmetic. A modal from a compute path also stops the sync
+       loop, which reads any open dialog as somebody mid-edit. */
+    (function () {
+      /* Counted by standing in front of the modal APIs themselves rather than
+         by watching for a dialog from outside: this whole check runs inside one
+         page.evaluate, and the harness's dialog log lives in the test process
+         where nothing here can read it. alert, confirm and prompt are the three
+         calls that stop the page, so those are the three that get counted. */
+      const realAlert = window.alert, realConfirm = window.confirm, realPrompt = window.prompt;
+      let modals = 0;
+      window.alert = () => { modals++; };
+      window.confirm = () => { modals++; return false; };
+      window.prompt = () => { modals++; return null; };
+      const keep = tasks.slice();
+      try {
+        tasks = [];
+        calculate();
+      } finally {
+        tasks = keep;
+        calculate();
+        window.alert = realAlert; window.confirm = realConfirm; window.prompt = realPrompt;
+      }
+      out.emptyPlanDialogs = modals;
+      if (out.emptyPlanDialogs)
+        say('Empty plan', 'recomputing with no activities opened ' + out.emptyPlanDialogs + ' modal dialog(s). '
+          + 'Nobody pressed anything — a plan can be empty because a file is still loading or because a new '
+          + 'teammate has not pulled yet, and a compute function is the wrong place to demand a click');
+    })();
+
     /* ═══ A COUNT IS NOT A LIST, ON THE LOG THAT SAYS WHY ═══════════════════
        The changelog reported a RAID change as "3 entries → 4 entries", which
        cannot tell a new risk from a closed one. That log is where the cause of
