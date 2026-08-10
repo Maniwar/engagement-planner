@@ -742,6 +742,78 @@ function serveApp() {
       }
     })();
 
+    /* ═══ A DATE ROLLING OVER IS NOT A CHANGE TO THE PLAN ══════════════════
+       trunkEnsureTip decides whether a push has anything new by comparing the
+       plan against its last version. It compared whole snapshots, and a
+       snapshot carries the DATE it was taken — so an untouched plan looked
+       identical all day and different the moment midnight passed, and the next
+       push filed a version whose only content was a new date stamp. Those
+       versions then travelled to the trunk and the changelog had to describe
+       them: "shared with the team — nothing this diff can see". Reported from a
+       real trunk, several of them in one pull.
+
+       Driven by moving the STAMP rather than the clock, which is the same fact
+       from the side this code can reach. */
+    (() => {
+      const sayD = x => bad.push('Ensure tip :: ' + x);
+      const keep = capture();
+      pushVersion('edit', 'a real edit');
+      const n0 = planVersions.length;
+      // nothing has changed: no version should be filed
+      trunkEnsureTip();
+      out.tipNoChange = planVersions.length - n0;
+      if (planVersions.length !== n0)
+        sayD('a push on an untouched plan filed a version anyway, so the trunk gains an entry with nothing '
+          + 'in it every time somebody presses Push');
+      // the snapshot was taken on an earlier DAY, and still nothing has changed
+      const last = planVersions[planVersions.length - 1];
+      last.snap.at = '2020-01-01';
+      trunkEnsureTip();
+      out.tipStaleDate = planVersions.length - n0;
+      if (planVersions.length !== n0)
+        sayD('a version whose snapshot carries an older DATE is treated as a plan that has moved, so the '
+          + 'first push after midnight files a version whose only change is the day it was taken — and the '
+          + 'changelog then has to describe it as "nothing this diff can see"');
+      // and a genuine edit still files one
+      const t0 = leafTasks().find(x => !x.isSummary && !x.milestone);
+      if (t0) { t0.name = 'ENSURE TIP EDIT'; calculate(); trunkEnsureTip();
+        out.tipRealEdit = planVersions.length - n0;
+        if (planVersions.length === n0)
+          sayD('a real edit did not produce a version, so pressing Push would share nothing and say the '
+            + 'trunk already has everything'); }
+      /* ═══ AND PROGRESS COUNTS AS SOMETHING HAVING HAPPENED ═══════════════
+         snapshotPlan() is the COMMITMENT snapshot and deliberately carries no
+         progress and no actuals — it exists so a change order can say what was
+         agreed. Using it to answer "is there anything to push" meant a
+         check-off, a logged day and an invoice all left the fingerprint
+         byte-identical, so no version was filed and Push replied "the trunk
+         already has everything of yours". Reported by use: "I changed the
+         progress and it said no change". Status is the thing a team most needs
+         out of a shared file and it was the one class of edit that could never
+         leave the building. */
+      const t1 = leafTasks().find(x => !x.isSummary && !x.milestone);
+      if (!t1) { sayD('no work package to record progress against, so this proves nothing'); }
+      else {
+        const each = (label, mutate) => {
+          trunkEnsureTip();                       // settle: nothing outstanding
+          const before = planVersions.length;
+          mutate(); calculate(); trunkEnsureTip();
+          const filed = planVersions.length - before;
+          out['tipSees_' + label] = filed;
+          if (!filed)
+            sayD(label + ' did not register as a change, so pressing Push shares nothing and answers "the '
+              + 'trunk already has everything of yours" — the work is recorded here and can never reach '
+              + 'anybody else');
+        };
+        each('progress', () => { t1.percentComplete = (Number(t1.percentComplete) || 0) === 60 ? 25 : 60; });
+        each('loggedEffort', () => { t1.actualEffort = (Number(t1.actualEffort) || 0) + 2; });
+        each('invoicing', () => { t1.invoiced = (Number(t1.invoiced) || 0) + 1500; });
+        if (typeof raid !== 'undefined' && Array.isArray(raid))
+          each('raidEntry', () => { raid.push({ id: 999001, kind: 'risk', title: 'A new risk', status: 'open' }); });
+      }
+      restore(keep); calculate();
+    })();
+
     /* ═══ IDENTITY SURVIVES A ROUND TRIP, OR NONE OF THIS WORKS ════════════
        The single most load-bearing property in the whole sync design, and
        nothing asserted it. hydrate() rebuilds each version field by field and

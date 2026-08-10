@@ -162,8 +162,37 @@ const norm = s => String(s).replace(/\s+/g, ' ').trim().toLowerCase();
     return;
   }
   const j = JSON.parse(fs.readFileSync(JOURNAL, 'utf8'));
-  const fired = [];
-  (j.rows || []).forEach(r => (r.findings || []).forEach(f => fired.push(norm(f))));
+  /* THE ACCUMULATED UNION, not the last run. This read j.rows — the most recent
+     run only — so after any filtered run it compared 1260 assertions against
+     whatever four mutants happened to be re-checked and reported the difference
+     as a coverage figure. The engine now keeps history.fired as a union that
+     only grows; rows is still read as a fallback for a journal written before
+     that existed. */
+  const hist = j.history || {};
+  const firedTexts = Object.keys(hist.fired || {});
+  const fired = (firedTexts.length ? firedTexts
+    : [].concat(...(j.rows || []).map(r => r.findings || []))).map(norm);
+  /* AND ITS PROVENANCE, which is the difference between a measurement and a
+     number. A union drawn from 12 of 339 mutants is not evidence about the
+     suite, and printing a ratio without saying so is how "3 of 1260" came to
+     be read as a finding about the checks rather than about the journal. */
+  const runs = Array.isArray(hist.runs) ? hist.runs : [];
+  const lastFull = runs.filter(r => r && r.full).pop() || null;
+  const everRan = (hist.everRan || []).length;
+  const ofSet = (runs.length ? runs[runs.length - 1].of : (j.of || 0));
+  const provenance = {
+    mutantsEverRun: everRan, mutantsInSet: ofSet,
+    lastFullRun: lastFull ? lastFull.at : null,
+    runsRecorded: runs.length,
+    readAs: !everRan ? 'nothing has been run — this is not a measurement'
+      : (!lastFull ? 'NO FULL RUN IS ON RECORD. The evidence below is drawn from ' + everRan + ' of '
+          + ofSet + ' mutants, so a low "ever fired" count says more about what has been run than '
+          + 'about the checks. Run `node tests/mutation-engine.js` with no filter before reading it '
+          + 'as coverage.'
+        : (everRan < ofSet ? 'the last full run was ' + lastFull.at + '; the union since covers '
+            + everRan + ' of ' + ofSet + ' mutants'
+          : 'the union covers every mutant in the set; this is a measurement'))
+  };
 
   const files = fs.readdirSync(DIR)
     .filter(f => /sweep.*\.js$/.test(f) || f === 'golden-reference.js' || f === 'run-test-plan.js')
@@ -191,18 +220,25 @@ const norm = s => String(s).replace(/\s+/g, ' ').trim().toLowerCase();
   const tot = rows.reduce((s, r) => s + r.assertions, 0);
   const hitTot = rows.reduce((s, r) => s + r.everFired, 0);
   console.log(JSON.stringify({
-    journal: { at: j.at, full: !!j.full, ran: j.ran, of: j.of },
-    caveat: j.full ? undefined
-      : 'THIS JOURNAL IS FROM A FILTERED RUN, so almost everything below reads as unproven for want of '
-        + 'mutants that were never attempted. Run the engine unfiltered before believing any of it.',
+    journal: { lastRun: j.at, lastRunWasFull: !!j.full, lastRunSize: j.ran, mutantsInSet: j.of },
+    evidence: provenance,
     totals: { assertions: tot, everFired: hitTot,
               proven: tot ? Math.round(100 * hitTot / tot) + '%' : '—' },
     byCheck: rows,
     neverFired: never
   }, null, 1));
+  /* THE HEADLINE CARRIES ITS OWN PROVENANCE. This printed the bare ratio, and a
+     bare ratio off a four-mutant journal read as a finding about 1260
+     assertions — which is how "507 of 800" came to be quoted as a fact about
+     the suite long after the run that produced it had been overwritten. A
+     number nobody can tell the weight of is worse than no number. */
+  const solid = provenance.mutantsEverRun >= provenance.mutantsInSet && provenance.lastFullRun;
   console.log('\n' + hitTot + ' of ' + tot + ' MATCHABLE assertions have been the one that went red at '
-    + 'least once.'
-    + '\nThe rest carry no evidence — which is not the same as being wrong. Read the list and decide '
-    + 'which\ndeserve a mutant; an assertion nobody can make fail is the thing this directory exists to '
-    + 'find.');
+    + 'least once.');
+  console.log(solid
+    ? 'Evidence: every one of ' + provenance.mutantsInSet + ' mutants has been run; last full run '
+      + provenance.lastFullRun + '. This is a measurement.'
+    : '⚠ NOT A MEASUREMENT — ' + provenance.readAs);
+  console.log('An assertion with no evidence is not the same as a wrong one. Read the list and decide '
+    + 'which\ndeserve a mutant; an assertion nobody can make fail is what this directory exists to find.');
 })();

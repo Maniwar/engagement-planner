@@ -2238,17 +2238,50 @@ function assertionsIn(out) {
       + '\n         nothing in the suite noticed. This identity is unguarded.'); }
   });
 
-  /* Written on every run, filtered or not, because a partial journal that says
-     which run produced it is more useful than none — and the coverage probe
-     that reads it refuses to draw conclusions from a filtered one. */
+  /* ═══ EVIDENCE ACCUMULATES; IT DOES NOT GET OVERWRITTEN ═══════════════════
+     This replaced the file on every run, so a four-mutant filtered run — the
+     normal way anybody works here — erased the record of every catch the suite
+     had ever made. The coverage probe then read four rows and announced "3 of
+     1260 assertions have ever been the one that went red", which is a
+     statement about the last two minutes wearing the clothes of a statement
+     about the project. The 507-of-800 figure this task was written to
+     re-measure had been destroyed by the next partial run after it was taken.
+
+     An assertion that fired last week still fired. So `fired` is a union that
+     only grows, keyed by the sentence, remembering when it was first and last
+     seen and which mutants produced it. `runs` keeps the provenance a reader
+     needs to know how much of the set that union is drawn from. The last run
+     is still recorded whole, because "what happened just now" is a different
+     question and both are worth having. */
   try {
-    fs.writeFileSync(path.join(__dirname, '.mutation-journal.json'), JSON.stringify({
-      at: new Date().toISOString(),
+    const JP = path.join(__dirname, '.mutation-journal.json');
+    let prior = {};
+    try { prior = JSON.parse(fs.readFileSync(JP, 'utf8')) || {}; } catch (e) {}
+    const hist = (prior.history && typeof prior.history === 'object') ? prior.history : {};
+    const fired = (hist.fired && typeof hist.fired === 'object') ? hist.fired : {};
+    const everRan = new Set(Array.isArray(hist.everRan) ? hist.everRan : []);
+    const at = new Date().toISOString();
+    results.filter(Boolean).forEach(r => {
+      everRan.add(r.m.what);
+      (r.findings || []).forEach(f => {
+        const k = String(f);
+        const e = fired[k] || { first: at, last: at, byMutants: [] };
+        e.last = at;
+        if (e.byMutants.indexOf(r.m.what) < 0) e.byMutants.push(r.m.what);
+        fired[k] = e;
+      });
+    });
+    const runs = (Array.isArray(hist.runs) ? hist.runs : []).concat([{
+      at: at, full: !ONLY.length, ran: SELECTED.length, of: MUTANTS.length,
+      caught: results.filter(r => r && r.by).length }]).slice(-40);
+    fs.writeFileSync(JP, JSON.stringify({
+      at: at,
       full: !ONLY.length,
       ran: SELECTED.length, of: MUTANTS.length,
       rows: results.filter(Boolean).map(r => ({
         what: r.m.what, by: r.by || null, survived: !!r.survived, skipped: !!r.skipped,
-        findings: r.findings || [] }))
+        findings: r.findings || [] })),
+      history: { fired: fired, everRan: [...everRan].sort(), runs: runs }
     }, null, 1));
   } catch (e) { console.log('(could not write the mutation journal: ' + (e.message || e) + ')'); }
 

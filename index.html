@@ -5258,7 +5258,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0249</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0326</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6974,10 +6974,63 @@ Or say what you want, in your own words:
     /* Pushing publishes where you ARE, so if the plan has moved since the last
        version it mints one first. Otherwise "push" would send a checkpoint from
        an hour ago and quietly call it your latest. */
+    /* A DATE IS NOT A CHANGE. This compared whole snapshots, and snapshotPlan()
+       stamps `at` with today's date — so a plan nobody had touched compared
+       EQUAL all day and then UNEQUAL the moment the date rolled over. The first
+       push after midnight filed a version whose only difference from the one
+       before it was the day it was taken, pushed it to the trunk, and the
+       changelog then had to describe it: "shared with the team — nothing this
+       diff can see". Reported by use, in a real trunk, several times over.
+
+       The stamp is metadata about when the snapshot was taken and not part of
+       what the plan says, so it is left out of the comparison. Everything else
+       is compared exactly as before. */
+    /* ═══ "IS THERE ANYTHING TO SHARE" IS A WIDER QUESTION THAN "HAS THE DEAL
+           CHANGED" ═══════════════════════════════════════════════════════════
+       This asked snapshotPlan(), which is the COMMITMENT snapshot: it exists to
+       let a change order say what was agreed and what is being asked for now,
+       so it deliberately carries no progress and no actuals. Using it to answer
+       "has anything happened worth pushing" meant ticking an activity to 60%,
+       logging four days against it, or invoicing it left the fingerprint
+       byte-identical — no version was filed, and Push answered "the trunk
+       already has everything of yours".
+
+       Reported by use: "I changed the progress and it said no change". Status
+       is the single thing a team most needs from a shared file, and it was the
+       one class of edit that could never leave the building.
+
+       So the fingerprint is the commitment PLUS the record of what has actually
+       happened: progress, actuals, invoicing, and the RAID log and status
+       narrative, all of which travel in a push and none of which the commitment
+       snapshot sees. The commitment snapshot itself is untouched — widening it
+       would make a check-off read as a scope change on every change order. */
+    function trunkWorkFingerprint() {
+      return JSON.stringify({
+        work: (typeof leafTasks === 'function' ? leafTasks() : []).map(t => [t.id,
+          Number(t.percentComplete) || 0, Number(t.actualEffort) || 0,
+          t.actualStart || '', t.actualFinish || '', Number(t.actualCost) || 0,
+          Number(t.invoiced) || 0, t.invoicedDate || '', Number(t.paid) || 0, t.paidDate || '']),
+        raid: (typeof raid !== 'undefined' && Array.isArray(raid)) ? raid : [],
+        narrative: (typeof statusNarrative !== 'undefined') ? statusNarrative : '',
+        status: (typeof statusHistory !== 'undefined' && Array.isArray(statusHistory)) ? statusHistory : []
+      });
+    }
+    function trunkPlanFingerprint() {
+      const s = snapshotPlan();
+      if (s && typeof s === 'object') delete s.at;
+      return JSON.stringify(s) + '\u0000' + trunkWorkFingerprint();
+    }
     function trunkEnsureTip() {
       const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
-      const now = JSON.stringify(snapshotPlan());
-      if (last && JSON.stringify(last.snap) === now) return last;
+      const now = trunkPlanFingerprint();
+      /* The work half is compared against what was recorded when that version
+         was FILED, which is what `_work` carries. A version from before this
+         existed has none, and the honest answer there is "cannot tell" — so it
+         files one rather than assuming nothing happened. */
+      if (last && last.snap && typeof last._work === 'string') {
+        const was = Object.assign({}, last.snap); delete was.at;
+        if (JSON.stringify(was) + '\u0000' + last._work === now) return last;
+      }
       return pushVersion('sync', 'shared with the team');
     }
     /* ═══ STARTING A TRUNK AND JOINING ONE ARE DIFFERENT ACTS ═════════════════
@@ -9041,6 +9094,7 @@ Or say what you want, in your own words:
                          vid: x.vid || null, pvid: x.pvid || null,
                          lineage: x.lineage || null,
                          by: x.by || '', byKey: x.byKey || '',
+                         _work: typeof x._work === 'string' ? x._work : undefined,
                          snap: x.snap }))
         : [];
       nextVersionNo = Math.max(1, ...planVersions.map(x => x.v + 1),
@@ -35937,7 +35991,13 @@ Do not write payment terms or exclusions — both are generated from the project
                      instead of picking up whoever imported it. */
                   by: (typeof trunkIdentity === 'function' ? trunkIdentity().label : ''),
                   byKey: (typeof trunkIdentity === 'function' ? trunkIdentity().key : ''),
-                  snap: JSON.parse(JSON.stringify(snapshotPlan())) };
+                  snap: JSON.parse(JSON.stringify(snapshotPlan())),
+                  /* What had actually HAPPENED at the moment this version was
+                     filed — progress, actuals, invoicing, RAID, narrative. The
+                     snapshot beside it is the commitment and carries none of
+                     that, so without this a push cannot tell a plan where four
+                     days were logged from one where nothing was. */
+                  _work: trunkWorkFingerprint() };
       planVersions.push(v);
       trimVersions();
       return v;
