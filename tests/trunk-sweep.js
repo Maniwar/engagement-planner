@@ -742,6 +742,70 @@ function serveApp() {
       }
     })();
 
+    /* ═══ IDENTITY SURVIVES A ROUND TRIP, OR NONE OF THIS WORKS ════════════
+       The single most load-bearing property in the whole sync design, and
+       nothing asserted it. hydrate() rebuilds each version field by field and
+       did not name vid or pvid, so every page load, every project switch and
+       every fast-forward pull erased the identity of the entire history.
+
+       trunkRelation reads planVersions.map(v => v.vid).filter(Boolean); with
+       none it takes the !myVids.length branch and answers "behind by everything
+       they have", permanently. Reported by use: "everytime i pull i get the
+       same dialog... no one is working on the trunk it's only me, i have pushed
+       and pulled to it and not changed a thing." The pull fast-forwarded,
+       hydrate wiped the ids, and the next pull said the same thing forever.
+
+       Asserted as the ROUND TRIP rather than as the presence of a field name,
+       because the property that matters is that two files which ARE in step
+       still say so after being saved and loaded. */
+    (() => {
+      const sayI = x => bad.push('Version identity :: ' + x);
+      /* Versions filed HERE, not taken from the fixture. The fixture arrives
+         through hydrate, so on a build with the defect its ids are already gone
+         before this block starts and the check reported "fewer than two
+         identified versions" — true, and about the wrong thing. Filing them
+         first makes the "before" a fact rather than an assumption. */
+      const keep = capture();
+      pushVersion('edit', 'identity a');
+      pushVersion('edit', 'identity b');
+      pushVersion('edit', 'identity c');
+      const before = planVersions.map(v => v.vid).filter(Boolean);
+      if (before.length < 3) {
+        sayI('filing three versions produced ' + before.length + ' with an id — a version with no id cannot '
+          + 'be compared with anything, so the chain is not a chain');
+        restore(keep); calculate(); return;
+      }
+      const doc = JSON.parse(JSON.stringify(serialize()));
+      hydrate(doc); calculate();
+      const after = planVersions.map(v => v.vid).filter(Boolean);
+      out.vidsBefore = before.length; out.vidsAfter = after.length;
+      out.pvidsAfter = planVersions.map(v => v.pvid).filter(Boolean).length;
+      if (after.length !== before.length)
+        sayI(before.length + ' versions carried an id before saving and ' + after.length + ' carry one after '
+          + 'loading. Every comparison with a trunk is made on these ids, so a plan that loses them is '
+          + 'permanently "behind by everything" and no pull can ever catch it up');
+      if (before.some((v, i) => after[i] !== v))
+        sayI('the ids came back in a different order or with different values, so the chain no longer '
+          + 'describes the history it came from');
+      if (!out.pvidsAfter)
+        sayI('no version carries a parent id after loading, so the chain has no links — every version reads '
+          + 'as a root and no common ancestor can ever be found');
+      /* AND THE VERDICT ITSELF SURVIVES, which is the thing a person sees. */
+      const t2 = { _format: TRUNK_FORMAT, lineage: planLineageId(), name: 'roundtrip', base: null, log: [] };
+      planVersions.forEach((v, i) => t2.log.push(trunkEntryFromVersion(v,
+        JSON.parse(JSON.stringify(i === planVersions.length - 1 ? serialize()
+          : Object.assign({}, serialize(), v.snap))))));
+      const relA = trunkRelation(t2).relation;
+      hydrate(JSON.parse(JSON.stringify(trunkTip(t2).doc))); calculate();
+      const relB = trunkRelation(t2);
+      out.relRoundTrip = [relA, relB.relation];
+      if (relA === 'same' && relB.relation !== 'same')
+        sayI('a plan in step with a trunk reports "' + relB.relation + (relB.behind ? ' by ' + relB.behind : '')
+          + '" after taking that trunk\'s own tip — so pulling can never finish, and the same dialog comes '
+          + 'back every time somebody presses Pull');
+      restore(keep); calculate();
+    })();
+
     /* ═══ THE CHANGELOG'S THREE SILENCES, AND ITS ONE OVERWHELMING CASE ════
        Reported live, from a real trunk: three of five arriving versions read
        "payload trimmed" and the fourth listed four deletions and "and 16 more".
