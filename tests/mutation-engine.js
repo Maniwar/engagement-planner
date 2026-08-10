@@ -1866,6 +1866,75 @@ const MUTANTS = [
   { what: 'NFR: the section never says how much it holds',
     find: '        <p style="font-size:11.5px;color:#64748b;margin:4px 0 0">${rows.length} requirement${rows.length === 1 ? \'\' : \'s\'} across ${keys.length} categor${keys.length === 1 ? \'y\' : \'ies\'}',
     with: '        <p style="font-size:11.5px;color:#64748b;margin:4px 0 0">${\'\'}' },
+
+  /* ═══ THE SYNC DEFECTS, EACH ONE FOUND BY A PERSON ══════════════════════════
+     Fourteen mutants that were already written, run and watched go red — and
+     then thrown away. Every one of them was a plant made while fixing a defect
+     somebody reported: break it, watch the check catch it, put it back. That
+     cycle IS a mutant; it simply was not written down, so the coverage probe
+     could not see it and trunk-sweep read 2 of 54 assertions with evidence
+     behind them while more than a dozen had been proven by hand that afternoon.
+
+     Recording them costs nothing and turns a habit into a measurement. Each is
+     the exact edit that produced the reported symptom, so the `what` reads as
+     the complaint rather than as a description of the code. */
+
+  { what: 'sync: a version files itself and the changelog has no word for what moved',
+    find: "          rows = rows.concat(trunkExtraRows(from, to));",
+    with: "          rows = rows.concat([]);" },
+
+  { what: 'sync: the daily status snapshot is enough to file a version of its own',
+    find: "      try { const o = JSON.parse(work); delete o.status; return JSON.stringify(o); }",
+    with: "      try { const o = JSON.parse(work); return JSON.stringify(o); }" },
+
+  { what: 'sync: a focused but idle box stops the automatic loop for good',
+    find: "      return inBox && (Date.now() - trunkLastKey) < TRUNK_QUIET_MS;",
+    with: "      return inBox;" },
+
+  { what: 'sync: progress cannot be compared against a history older than the work record',
+    find: "      if (t && t.base) fromDoc(t.base.vid, t.base.doc);",
+    with: "      if (false) fromDoc(t.base.vid, t.base.doc);" },
+
+  { what: 'merge: the RAID log, the stories, the phases and the roster have no ancestor',
+    find: "      const baseDoc = trunkDocOfVid(trunkFile, found.mine && found.mine.vid);",
+    with: "      const baseDoc = null; void trunkDocOfVid;" },
+
+  { what: 'changelog: a change shows where it landed but not where it came from',
+    find: "          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: a[f], to: b[f] });",
+    with: "          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: null, to: b[f] });" },
+
+  { what: 'a plan with nothing in it opens a modal from inside a compute function',
+    find: "      if (tasks.length === 0) { flashSaved('Add at least one activity first.'); return; }",
+    with: "      if (tasks.length === 0) { alert('Add at least one activity first.'); return; }" },
+
+  { what: 'the emailable status table prints a tooltip where an estimate should be',
+    find: "${escapeHtml(fmtDurCell(t.te || 0))}</td>",
+    with: "${escapeHtml(fmtDur(t.te || 0))}</td>" },
+
+  { what: 'the plain-text status request carries markup into Slack and mail',
+    find: "estimate ${fmtDurCell(t.te || 0)}, currently",
+    with: "estimate ${fmtDur(t.te || 0)}, currently" },
+
+  { what: 'the activity list sent to the model carries markup instead of a unit',
+    find: "', time spent so far ' + fmtDurText(t.actualEffort)",
+    with: "', time spent so far ' + fmtDur(t.actualEffort)" },
+
+  { what: 'a push onto a trunk that moved after it was read is not refused',
+    find: "        if (rel.relation === 'behind' || rel.relation === 'diverged') {",
+    with: "        if (false && (rel.relation === 'behind' || rel.relation === 'diverged')) {" },
+
+  { what: 'a pull fast-forwards over work that was never shared',
+    find: "        if ((rel.relation === 'behind' || rel.relation === 'same') && leafTasks().length) {",
+    with: "        if (false && (rel.relation === 'behind' || rel.relation === 'same') && leafTasks().length) {" },
+
+  { what: 'the changelog counts RAID entries instead of naming which one moved',
+    find: "      trunkRaidRows(a.raid, b.raid).forEach(r => rows.push(r));",
+    with: "      void trunkRaidRows;" },
+
+  { what: 'the sync control never says why it is holding off',
+    find: "      if (trunkBusyEditing()) { trunkHeld = 'editing'; updateTrunkBtn(); return; }",
+    with: "      if (trunkBusyEditing()) return;" },
+
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and

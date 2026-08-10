@@ -2270,8 +2270,18 @@
       text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text);
     }
     /* W2a: numeric typography — right-aligned tabular figures */
-    #taskTable th:nth-child(n+6):nth-child(-n+9), #taskTable td:nth-child(n+6):nth-child(-n+9),
-    #taskTable th:nth-child(13), #taskTable td:nth-child(13) { text-align: right; }
+    /* ═══ A COLUMN IS NOT A POSITION ════════════════════════════════════════
+       This was nth-child ranges, and nth-child counts ELEMENTS. A milestone row
+       draws its reach as one cell spanning five columns, so every cell after it
+       sits four places earlier than on an ordinary row — and "right-align the
+       tenth, twelfth and fourteenth child" then right-aligned the milestone's
+       STATUS chip, which is why one row in the table had its status floating
+       away from the column everybody else's sat in. Reported by eye, from a
+       screenshot, which is the only instrument that was ever going to see it.
+
+       The lesson is already written thirty lines below this, about the rate
+       columns: align by what a cell IS. The cells say so themselves now. */
+    #taskTable th.num, #taskTable td.num { text-align: right; }
     #taskTable th:nth-child(15), #taskTable td:nth-child(15) { min-width: 104px; }
     #wbsContainer th:nth-child(4), #wbsContainer td:nth-child(4),
     #wbsContainer th:nth-child(7), #wbsContainer td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; }
@@ -2658,25 +2668,22 @@
        sat left-aligned beside a right-aligned TE, so a ragged left edge of
        digits ran down the middle of the estimate block, and Start disagreed
        with the Finish beside it. Right, tabular, every one of them. */
-    #taskTable th:nth-child(10), #taskTable td:nth-child(10),
-    #taskTable th:nth-child(12), #taskTable td:nth-child(12),
-    #taskTable th:nth-child(14), #taskTable td:nth-child(14) { text-align: right; }
+       Right, tabular, every one of them — and addressed by class rather than
+       by child number, for the reason set out where .num is declared: a
+       milestone row has four fewer cells than the rest, so a rule that counts
+       positions lands on the wrong column for exactly one kind of row. */
+    #taskTable td.num, #taskTable th.num { font-variant-numeric: tabular-nums; }
 
     /* A GROUP OF COLUMNS IS A THING, so say where it begins. Sixteen columns
        with identical separators is sixteen columns you count along; a hairline
        before the estimates, before the dates and before progress turns one
        long read into four short ones. Lighter than --border on purpose — it
        has to organise the row without competing with the row below it. */
-    #taskTable th:nth-child(6), #taskTable td:nth-child(6),
-    #taskTable th:nth-child(11), #taskTable td:nth-child(11),
-    #taskTable th:nth-child(15), #taskTable td:nth-child(15) { border-left: 1px solid #eef2f7; }
+    #taskTable th.grp, #taskTable td.grp { border-left: 1px solid #eef2f7; }
     /* The estimate block is five short numbers wearing prose padding. Tabular
        digits need far less breathing room than words do, and 0.3rem off each
        side of five columns is 30px back on a table fighting for width. */
-    #taskTable th:nth-child(n+6):nth-child(-n+10),
-    #taskTable td:nth-child(n+6):nth-child(-n+10),
-    #taskTable th:nth-child(n+12):nth-child(-n+14),
-    #taskTable td:nth-child(n+12):nth-child(-n+14) { padding-left: 0.4rem; padding-right: 0.4rem; }
+    #taskTable th.num, #taskTable td.num { padding-left: 0.4rem; padding-right: 0.4rem; }
 
     /* FIFTEEN NUMBER BOXES DOWN THE % COLUMN, nearly all of them showing 0.
        The box is chrome around a value that is usually nothing, and it was the
@@ -4305,21 +4312,21 @@
                   <th title="Work Breakdown Structure code — the outline number of this item">WBS</th>
                   <th title="Click ▸/▾ on a phase to collapse it, or use Phases / L2 / Expand all above to move every level at once. Buttons: ⇤ outdent, ⇥ indent, ⑂ AI-decompose">Activity</th>
                   <th title="Who does the work (⚠ = over-allocated during this task; @n% = partial allocation; +N = additional attendees)">Owner</th>
-                  <th title="Optimistic: best-case DURATION — how long the activity stays open, not hours of work">O</th>
-                  <th title="Most likely DURATION — your realistic single-point estimate of how long it stays open">M</th>
-                  <th title="Pessimistic: worst-case DURATION if things go wrong">P</th>
-                  <th title="Expected DURATION = (O + 4M + P) / 6. On a phase row this is the SPAN through its dependency network, not the sum of its children — parallel activities overlap, so a phase is often shorter than its parts added up.">TE</th>
+                  <th class="num grp" title="Optimistic: best-case DURATION — how long the activity stays open, not hours of work">O</th>
+                  <th class="num" title="Most likely DURATION — your realistic single-point estimate of how long it stays open">M</th>
+                  <th class="num" title="Pessimistic: worst-case DURATION if things go wrong">P</th>
+                  <th class="num" title="Expected DURATION = (O + 4M + P) / 6. On a phase row this is the SPAN through its dependency network, not the sum of its children — parallel activities overlap, so a phase is often shorter than its parts added up.">TE</th>
                   <!-- The four columns beside this one are all DURATION. Without
                        the work beside them the table reads as though a 3.17h
                        activity is 3.17h of somebody's time, which at 20% it is
                        not — and this is the last major surface that had no
                        column saying so. -->
-                  <th title="The WORK inside that duration: TE x this row's allocation. Equal to TE only at 100%. A phase sums the work of its children, which — unlike the duration beside it — does add up.">Work</th>
-                  <th title="What must happen first. FS=finish→start, SS=start→start, FF=finish→finish, SF=start→finish; +n = lag days">Predecessors</th>
-                  <th title="Earliest calendar start (skips weekends & holidays)">Start</th>
-                  <th title="Earliest calendar finish">Finish</th>
-                  <th title="Float: how many days this can slip WITHOUT moving the project finish. 0 = critical">Slack</th>
-                  <th title="Progress — drives earned value, rollups and the status report. Milestones track automatically">% Done</th>
+                  <th class="num" title="The WORK inside that duration: TE x this row's allocation. Equal to TE only at 100%. A phase sums the work of its children, which — unlike the duration beside it — does add up.">Work</th>
+                  <th class="grp" title="What must happen first. FS=finish→start, SS=start→start, FF=finish→finish, SF=start→finish; +n = lag days">Predecessors</th>
+                  <th class="num" title="Earliest calendar start (skips weekends &amp; holidays)">Start</th>
+                  <th class="num" title="Earliest calendar finish">Finish</th>
+                  <th class="num" title="Float: how many days this can slip WITHOUT moving the project finish. 0 = critical">Slack</th>
+                  <th class="grp" title="Progress — drives earned value, rollups and the status report. Milestones track automatically">% Done</th>
                   <th title="Hover any badge for what it means and how to act on it">Status</th>
                   <th></th>
                 </tr>
@@ -5306,7 +5313,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2047</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2122</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -12705,11 +12712,11 @@ Or say what you want, in your own words:
                and only two of them said why on hover. */
             const msEst = msNone('A milestone is a date, not work — there is nothing to estimate. '
               + 'The estimates that get you TO it are on the activities before it.');
-            return `<td${a}${ed('o')}>${summary ? rollCell(t.oUp, 'optimistic') : t.milestone ? msEst : fmtDurCell(t.o)}</td>
-          <td${a}${ed('m')}>${summary ? rollCell(t.mUp, 'most-likely') : t.milestone ? msEst : fmtDurCell(t.m)}</td>
-          <td${a}${ed('p')}>${summary ? rollCell(t.pUp, 'pessimistic') : t.milestone ? msEst : fmtDurCell(t.p)}</td>
-          <td${a}><strong>${noEst ? '⚠ 0' : teStr}</strong></td>
-          <td${a} style="color:#475569${t.milestone ? ';cursor:help' : ''}" title="${escapeHtml(workCellTip(t))}">${(() => {
+            return `<td class="num grp"${a}${ed('o')}>${summary ? rollCell(t.oUp, 'optimistic') : t.milestone ? msEst : fmtDurCell(t.o)}</td>
+          <td class="num"${a}${ed('m')}>${summary ? rollCell(t.mUp, 'most-likely') : t.milestone ? msEst : fmtDurCell(t.m)}</td>
+          <td class="num"${a}${ed('p')}>${summary ? rollCell(t.pUp, 'pessimistic') : t.milestone ? msEst : fmtDurCell(t.p)}</td>
+          <td class="num"${a}><strong>${noEst ? '⚠ 0' : teStr}</strong></td>
+          <td class="num"${a} style="color:#475569${t.milestone ? ';cursor:help' : ''}" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.milestone) return msNone('A milestone consumes no effort — nobody works ON a date.');
             if (!calculated) return '—';
             const w = t.isSummary
@@ -12717,14 +12724,14 @@ Or say what you want, in your own words:
               : workingDaysToUnit(plannedEffortDays(t));
             return w > 0 ? fmtDur(w) : '—';
           })()}</td>`; })()}
-          <td data-pred-id="${t.id}" style="font-size:var(--t-md)${summary ? '' : ';cursor:text'}" title="${escapeHtml(summary ? predTitle(t) : (predTitle(t) ? predTitle(t) + '\n' : '') + 'Click to edit right here — comma-separated WBS codes or names, optional FS/SS/FF/SF±lag (e.g. “1.2, 2.1SS+1”). Enter saves, Esc cancels.')}"${summary ? '' : ` onclick="beginPredEdit(${t.id}, this)"`}>${summary ? '—' : (t.predecessors.length ? escapeHtml(predLabel(t)) : '<span class="help-text" style="font-style:italic">+ link</span>')}</td>
-          ${(() => { if (summary) return `<td style="font-size:var(--t-md);white-space:nowrap" title="${t.startNoEarlier ? escapeHtml('📌 Pinned: nothing under this phase starts before ' + t.startNoEarlier + '. Dependencies can push it later, never earlier.') : 'Earliest start across everything under this phase'}">${t.startNoEarlier ? '📌 ' : ''}${calculated ? fmtNice(t.startDate) : (t.startNoEarlier || '—')}</td>
-          <td style="font-size:var(--t-md);white-space:nowrap">${calculated ? fmtNice(t.finishDate) : '—'}</td>`;
+          <td class="grp" data-pred-id="${t.id}" style="font-size:var(--t-md)${summary ? '' : ';cursor:text'}" title="${escapeHtml(summary ? predTitle(t) : (predTitle(t) ? predTitle(t) + '\n' : '') + 'Click to edit right here — comma-separated WBS codes or names, optional FS/SS/FF/SF±lag (e.g. “1.2, 2.1SS+1”). Enter saves, Esc cancels.')}"${summary ? '' : ` onclick="beginPredEdit(${t.id}, this)"`}>${summary ? '—' : (t.predecessors.length ? escapeHtml(predLabel(t)) : '<span class="help-text" style="font-style:italic">+ link</span>')}</td>
+          ${(() => { if (summary) return `<td class="num" style="font-size:var(--t-md);white-space:nowrap" title="${t.startNoEarlier ? escapeHtml('📌 Pinned: nothing under this phase starts before ' + t.startNoEarlier + '. Dependencies can push it later, never earlier.') : 'Earliest start across everything under this phase'}">${t.startNoEarlier ? '📌 ' : ''}${calculated ? fmtNice(t.startDate) : (t.startNoEarlier || '—')}</td>
+          <td class="num" style="font-size:var(--t-md);white-space:nowrap">${calculated ? fmtNice(t.finishDate) : '—'}</td>`;
             const breach = calculated && t.deadline && t.finishDate && fmtISO(t.finishDate) > t.deadline;
-            return `<td data-start-id="${t.id}" style="font-size:var(--t-md);white-space:nowrap;cursor:text" onclick="beginStartEdit(${t.id}, this)" title="${t.startNoEarlier ? 'Pinned: starts no earlier than ' + t.startNoEarlier + '. ' : ''}Click to pin a start date (start-no-earlier-than). Dependencies can push the start LATER than the pin, never earlier. Clear the date to unpin.">${t.startNoEarlier ? '📌 ' : ''}${calculated ? fmtNice(t.startDate) : (t.startNoEarlier || '—')}</td>
-          <td data-finish-id="${t.id}" style="font-size:var(--t-md);white-space:nowrap;cursor:text" onclick="beginFinishEdit(${t.id}, this)" title="${t.deadline ? 'Deadline ⚑ ' + t.deadline + (breach ? ' — BREACHED by the current forecast. ' : '. ') : ''}Finish is computed from estimates + dependencies. Click to set a deadline (commitment marker) — the ⚑ turns red if the forecast slips past it.">${calculated ? fmtNice(t.finishDate) : '—'}${t.deadline ? ` <span style="color:${breach ? '#dc2626;font-weight:700' : '#64748b'}">⚑</span>` : ''}</td>`; })()}
-          <td>${slackStr}</td>
-          <td data-effort-id="${t.id}">${pctCell}</td>
+            return `<td class="num" data-start-id="${t.id}" style="font-size:var(--t-md);white-space:nowrap;cursor:text" onclick="beginStartEdit(${t.id}, this)" title="${t.startNoEarlier ? 'Pinned: starts no earlier than ' + t.startNoEarlier + '. ' : ''}Click to pin a start date (start-no-earlier-than). Dependencies can push the start LATER than the pin, never earlier. Clear the date to unpin.">${t.startNoEarlier ? '📌 ' : ''}${calculated ? fmtNice(t.startDate) : (t.startNoEarlier || '—')}</td>
+          <td class="num" data-finish-id="${t.id}" style="font-size:var(--t-md);white-space:nowrap;cursor:text" onclick="beginFinishEdit(${t.id}, this)" title="${t.deadline ? 'Deadline ⚑ ' + t.deadline + (breach ? ' — BREACHED by the current forecast. ' : '. ') : ''}Finish is computed from estimates + dependencies. Click to set a deadline (commitment marker) — the ⚑ turns red if the forecast slips past it.">${calculated ? fmtNice(t.finishDate) : '—'}${t.deadline ? ` <span style="color:${breach ? '#dc2626;font-weight:700' : '#64748b'}">⚑</span>` : ''}</td>`; })()}
+          <td class="num">${slackStr}</td>
+          <td class="grp" data-effort-id="${t.id}">${pctCell}</td>
           <td>${statusBadge}</td>
           ${/* ORDER IS A SAFETY PROPERTY HERE. At rest the cluster shows only ⑂,
                 anchored to the right edge. It used to sit third of five, so the
@@ -15115,7 +15122,9 @@ Or say what you want, in your own words:
        work in the plan's unit, which is exactly the confusion #84 exists to
        prevent. Words, in caps, above the numbers: no hover required. */
     function milestoneBandCell(t) {
-      const wrap = inner => '<td class="ms-band" colspan="5">' + inner + '</td>';
+      // grp, because this cell is where the estimate group begins on a
+      // milestone row exactly as the O cell is on every other row
+      const wrap = inner => '<td class="ms-band grp" colspan="5">' + inner + '</td>';
       if (!calculated) return wrap('<span class="ms-gate is-idle">Calculate to see what it takes '
         + 'to reach this gate</span>');
       const r = milestoneReach(t);

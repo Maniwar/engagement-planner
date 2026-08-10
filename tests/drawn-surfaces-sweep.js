@@ -267,6 +267,41 @@ const QA = JSON.parse(fs.readFileSync(
       switchTab('tasks'); renderTaskTable();
       const rows = [...document.querySelectorAll('#taskTable tbody tr[data-task-id]')];
       out.gridRows = rows.length;
+      /* ═══ A COLUMN IS A COLUMN ON EVERY ROW ═══════════════════════════════
+         Reported by eye, from a screenshot: "is it on purpose that status for
+         milestones is not aligned correctly?" It was not. A milestone draws its
+         reach as one cell spanning five columns, so every cell after it sits
+         four places earlier — and the table's alignment, padding and group
+         separators were all addressed by CHILD NUMBER. "Right-align the twelfth
+         child" is the WORK column on an ordinary row and the STATUS chip on a
+         milestone, so one row in the table had its status floating 72px away
+         from the column everybody else's sat in.
+         Nothing in this directory could see it: it is not clipped, not
+         overlapping, not unreachable, not wrong. It is just not in line. So the
+         property is measured directly — the same cell on every row starts at
+         the same x — which is a fact about a table that no per-row check can
+         express. */
+      (() => {
+        const xs = new Map();
+        rows.forEach(tr => {
+          const t = tasks.find(x => x.id === Number(tr.dataset.taskId));
+          const chip = tr.querySelector('.badge-st');
+          if (!chip) return;
+          const x = Math.round(chip.getBoundingClientRect().left);
+          if (!xs.has(x)) xs.set(x, []);
+          xs.get(x).push((t && t.milestone ? '◆ ' : '') + ((t && t.name) || '?').slice(0, 22));
+        });
+        out.statusColumnX = [...xs.keys()].sort((a, b) => a - b);
+        if (xs.size > 1) {
+          const groups = [...xs.entries()].sort((a, b) => b[1].length - a[1].length);
+          const odd = groups.slice(1).map(g => g[1].join(', ')).join(' | ');
+          say('Grid', 'the status chip starts at ' + xs.size + ' different x positions down one column ('
+            + out.statusColumnX.join(', ') + '). The rows out of line with the rest: ' + odd
+            + '. A column that is a column on most rows and not on others is read as a mistake, and the '
+            + 'usual cause is styling addressed by child number on a table where one kind of row spans '
+            + 'cells');
+        }
+      })();
       rows.forEach(tr => {
         const t = tasks.find(x => x.id === Number(tr.dataset.taskId));
         if (!t) { say('Grid', 'a row points at a task not in the plan'); return; }

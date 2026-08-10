@@ -337,5 +337,14 @@
  "criteria: attendee allocations are hard-coded past whatever the plan said": "ai-boundary-sweep.js",
  "editor: nothing pairs side by side, so the second column stays empty": "dialog-sweep.js",
  "SOW panel: the document is read through a letterbox again": "navigation-sweep.js",
- "editor: the form is one tall column on any screen": "dialog-sweep.js"
+ "editor: the form is one tall column on any screen": "dialog-sweep.js",
+ "sync: a version files itself and the changelog has no word for what moved": "trunk-sweep.js",
+ "sync: the daily status snapshot is enough to file a version of its own": "trunk-sweep.js",
+ "sync: a focused but idle box stops the automatic loop for good": "trunk-sweep.js",
+ "merge: the RAID log, the stories, the phases and the roster have no ancestor": "trunk-sweep.js",
+ "changelog: a change shows where it landed but not where it came from": "trunk-sweep.js",
+ "the emailable status table prints a tooltip where an estimate should be": "export-sweep.js",
+ "the plain-text status request carries markup into Slack and mail": "export-sweep.js",
+ "the activity list sent to the model carries markup instead of a unit": "export-sweep.js",
+ "a plan with nothing in it opens a modal from inside a compute function": "trunk-sweep.js"
 }
