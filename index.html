@@ -5306,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1815</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1837</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -27124,7 +27124,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
             <td style="${td};white-space:nowrap">${escapeHtml(t.wbs)}</td>
             <td style="${td}">${t.milestone ? '◆ ' : ''}${escapeHtml(t.name)}${isLate(t) ? ' <span style="color:#b91c1c;font-weight:700">⚠ behind</span>' : ''}</td>
             <td style="${td};white-space:nowrap">${calculated && t.startDate ? escapeHtml(fmtDoc(t.startDate) + ' → ' + fmtDoc(t.finishDate)) : ''}</td>
-            <td style="${td};text-align:right;white-space:nowrap">${escapeHtml(fmtDur(t.te || 0))}</td>
+            <td style="${td};text-align:right;white-space:nowrap">${escapeHtml(fmtDurCell(t.te || 0))}</td>
             <td style="${td};text-align:right">${t.percentComplete || 0}%</td>
             <td style="${fill}">&nbsp;</td><td style="${fill}">&nbsp;</td><td style="${fill}">&nbsp;</td><td style="${fill};min-width:200px">&nbsp;</td>
           </tr>`).join('')}
@@ -27146,7 +27146,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         L.push('== ' + roleText(o) + ' ==');
         byOwner[o].forEach(t => {
           const win = calculated && t.startDate ? fmtDoc(t.startDate) + ' → ' + fmtDoc(t.finishDate) + ', ' : '';
-          L.push(`• [${t.wbs}] ${t.name}${t.milestone ? ' (milestone)' : ''} — ${win}estimate ${fmtDur(t.te || 0)}, currently ${t.percentComplete || 0}%${isLate(t) ? '  ⚠ behind schedule' : ''}`);
+          L.push(`• [${t.wbs}] ${t.name}${t.milestone ? ' (milestone)' : ''} — ${win}estimate ${fmtDurCell(t.te || 0)}, currently ${t.percentComplete || 0}%${isLate(t) ? '  ⚠ behind schedule' : ''}`);
           L.push('    now at: ____%    time spent: ____ (90m / 1.5h / 2d)    actual finish (if done): YYYY-MM-DD    blockers/notes:');
         });
       });
@@ -32072,9 +32072,16 @@ ${aiSchemaHint()}`];
     }
 
     // ---- AI: update progress / actuals from pasted meeting or standup notes ----
+    /* Named and lifted out of the prompt it feeds, so a check can read what the
+       model is actually being told. Inline, the only way to see this string was
+       to make an API call — which is how it went so long carrying markup from a
+       formatter whose job is to return a tooltip. */
+    function statusTaskList() {
+      return leafTasks().map(t => `"${t.name}" (${t.percentComplete || 0}% now${t.actualStart ? ', started ' + t.actualStart : ''}${t.actualEffort != null ? ', time spent so far ' + fmtDurText(t.actualEffort) : ''}${t.milestone ? '' : ', estimate TE ' + fmtDurText(t.te || 0) + ', O/M/P ' + t.o + '/' + t.m + '/' + t.p})`).join('; ');
+    }
     async function updateProgressFromNotes(notes, btn, status, errEl) {
       if (!tasks.length) { errEl.textContent = 'No tasks to update yet.'; errEl.style.display = 'block'; return; }
-      const taskList = leafTasks().map(t => `"${t.name}" (${t.percentComplete || 0}% now${t.actualStart ? ', started ' + t.actualStart : ''}${t.actualEffort != null ? ', time spent so far ' + fmtDur(t.actualEffort) : ''}${t.milestone ? '' : ', estimate TE ' + fmtDur(t.te || 0) + ', O/M/P ' + t.o + '/' + t.m + '/' + t.p})`).join('; ');
+      const taskList = statusTaskList();
       const prompt = `You are updating project tracking data from meeting/standup notes or replies to a status-update request or an ESTIMATE REVIEW request.
 Today is ${fmtISO(new Date())}. Current tasks: ${taskList}.
 NOTES (may be free text, a filled-in status table — columns like WBS | Task | Planned window | Est. | % today | Now at % | Time spent | Done? (finish date) | Blockers / notes — or a filled-in estimate-review table with Current O / M / P and New O / New M / New P + Basis columns, possibly tab- or space-separated):\n"""${notes}"""

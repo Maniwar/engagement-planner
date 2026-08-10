@@ -308,6 +308,61 @@ const QA = JSON.parse(fs.readFileSync(
         }
       }
 
+      /* ═══ WHAT GETS PASTED INTO AN EMAIL IS NOT A WEB PAGE ═════════════════
+         Reported with a screenshot of the status-request table: one cell read
+         <span style="cursor:help" title="= 0.75 hrs — stored as a fraction so
+         rollups and the schedule stay in one unit (1 day = 8 h)">45m</span>,
+         printed as text where an estimate should be.
+
+         fmtDur RETURNS MARKUP for values it wants to explain — a tooltip on a
+         rescaled duration — and three text surfaces were calling it: the
+         emailable table (escaped, so the tags printed), the plain-text fallback
+         for Slack (not escaped, so the tags WERE the text), and the prompt sent
+         to the model. Only one of those was visible in a screenshot; all three
+         were the same mistake, and fmtDurText and fmtDurCell already existed
+         for exactly this.
+
+         The class is what is guarded, not the three sites: anything built to be
+         pasted somewhere that is not this page must contain no markup. Driven
+         through the product's own clipboard path rather than by reading the
+         source, so a formatter swapped anywhere upstream still fails here. */
+      const clip = { html: '', text: '' };
+      const nav = navigator.clipboard || {};
+      const oW = nav.write, oT = nav.writeText;
+      try {
+        nav.write = async items => {
+          for (const it of (items || [])) {
+            for (const type of (it.types || [])) {
+              const blob = await it.getType(type);
+              const body = await blob.text();
+              if (type === 'text/html') clip.html += body; else clip.text += body;
+            }
+          }
+        };
+        nav.writeText = async t => { clip.text += String(t); };
+        if (typeof copyUpdateRequest === 'function') await copyUpdateRequest();
+      } catch (e) { bad.push('Pasteables :: copyUpdateRequest threw: ' + (e && e.message)); }
+      finally { if (oW) nav.write = oW; if (oT) nav.writeText = oT; }
+
+      out.pasteHtmlLen = clip.html.length;
+      out.pasteTextLen = clip.text.length;
+      // the AI prompt is a third pasteable, assembled the same way
+      const prompt = (typeof statusTaskList === 'function') ? statusTaskList() : '';
+      const tagIn = str => (String(str).match(/<\/?(span|div|td|b|i|em|strong)\b/i) || [null])[0];
+      const escIn = str => (String(str).match(/&lt;\/?(span|div|td|b|i|em|strong)\b/i) || [null])[0];
+      if (!clip.html.length && !clip.text.length)
+        bad.push('Pasteables :: the status request produced nothing on the clipboard, so this checked nothing');
+      if (escIn(clip.html))
+        bad.push('Pasteables :: the emailable status table prints escaped markup (' + escIn(clip.html)
+          + ') as if it were a value — a formatter that returns HTML is being escaped into the cell, so the '
+          + 'reader sees a tag where an estimate should be');
+      if (tagIn(clip.text))
+        bad.push('Pasteables :: the plain-text status request contains markup (' + tagIn(clip.text)
+          + '). Nothing escapes it on the way out, so the tag IS the text a colleague reads in Slack or mail');
+      if (prompt && tagIn(prompt))
+        bad.push('Pasteables :: the activity list sent to the model contains markup (' + tagIn(prompt)
+          + ') — tokens spent on tooltip text, in the one place where an unambiguous unit matters most');
+
       window.download = origD; window.downloadBlobFile = origB;
       return { contradictions: bad, counts: out };
     }, label);
