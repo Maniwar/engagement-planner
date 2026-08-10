@@ -302,6 +302,36 @@ const QA = JSON.parse(fs.readFileSync(
             + 'cells');
         }
       })();
+      /* THE SAME PROPERTY, ONE COLUMN EARLIER. The work-type tag has no <td> of
+         its own — it lives inside the Activity cell — so nothing above can see
+         it, and for a long time it simply trailed the name and started wherever
+         that row's name happened to stop. Asked for directly: "these category
+         chips ... don't look graphically advanced maybe we can have them be
+         more like a part of the overall column ... that way they don't look
+         like this thing just at the end." What makes it a column rather than a
+         suffix is exactly this: one x, every row. It is worth measuring because
+         the ways it silently stops being true are ordinary CSS — a flex item's
+         default min-width is auto, so one long label is enough to drag the rule
+         out of line on its own row and nowhere else. */
+      (() => {
+        const xs = new Map();
+        rows.forEach(tr => {
+          const strip = tr.querySelector('.tn-tag');
+          if (!strip) return;
+          const t = tasks.find(x => x.id === Number(tr.dataset.taskId));
+          const x = Math.round(strip.getBoundingClientRect().left);
+          if (!xs.has(x)) xs.set(x, []);
+          xs.get(x).push(((t && t.name) || '?').slice(0, 22));
+        });
+        out.workTypeColumnX = [...xs.keys()].sort((a, b) => a - b);
+        if (xs.size > 1) {
+          const groups = [...xs.entries()].sort((a, b) => b[1].length - a[1].length);
+          say('Grid', 'the work-type strip inside the Activity cell starts at ' + xs.size + ' different x '
+            + 'positions (' + out.workTypeColumnX.join(', ') + '), so the tags read as trailing the names '
+            + 'rather than as a column of values. Out of line with the rest: '
+            + groups.slice(1).map(g => g[1].join(', ')).join(' | '));
+        }
+      })();
       rows.forEach(tr => {
         const t = tasks.find(x => x.id === Number(tr.dataset.taskId));
         if (!t) { say('Grid', 'a row points at a task not in the plan'); return; }

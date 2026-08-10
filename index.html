@@ -803,7 +803,33 @@
        nth-child(-n+2) width, td:nth-child(4) min-width, and the two mobile
        blocks. The hand-counted <td>s in the PROJECT TOTAL row also stay correct. */
 
-    .tx-chip { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 999px;
+    /* .tn- — the geometry of the Activity cell. The name and the work type are
+       two different kinds of thing sharing one <td>, so the cell is split into
+       a growing name and a fixed strip. The strip's left edge is the same x on
+       every row, which is what makes the tags read as a column of values
+       rather than as twenty labels stuck onto the ends of twenty sentences,
+       and it is reserved even where there is no tag so that names wrap at the
+       same point whether or not the row carries one. */
+    .tn-cell { display: block; }
+    .tn-row { display: flex; align-items: baseline; }
+    /* overflow-wrap:anywhere, not break-word: only the former lowers the
+       element's MIN-CONTENT width, and min-width:0 alone still leaves the
+       longest single word as a floor. One row with "configuration" in it was
+       enough to push its strip 11px right of every other row's, which is the
+       one thing a column cannot do. */
+    .tn-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
+      display: inline-flex; align-items: center; }
+    /* min-width:0 is load-bearing. A flex item's default min-width is auto, so
+       the strip silently grew to fit "~integration" and that one row's rule
+       stood 11px left of all the others — the column drawn by the widest label
+       instead of by the layout. The basis covers the longest label there is;
+       min-width:0 makes a longer one overflow rather than move the rule. */
+    .tn-tag { flex: 0 0 6.4rem; min-width: 0; align-self: stretch;
+      margin-left: 0.55rem; padding-left: 0.55rem; border-left: 1px solid #eef2f7; }
+    /* Squared off and quiet, the way the numeric columns are. The pill shape
+       was the other half of reading as decoration: a rounded badge is a thing
+       ABOUT a row, and a value IN a row is a cell. */
+    .tx-chip { display: inline-block; padding: 0 5px; border-radius: 5px;
       font-size: var(--t-xs); font-weight: 700; line-height: 1.5; white-space: nowrap;
       vertical-align: middle; cursor: help;
       background: var(--primary-50); border: 1px solid var(--primary-200); color: var(--primary-700); }
@@ -811,8 +837,10 @@
       color: var(--muted); font-weight: 600; }
     /* an inferred tag is a working note; a printed plan may reach a client */
     @media print { .tx-chip.tx-inf { display: none; } }
-    /* the chip is the first thing to give up when the name column is squeezed */
-    @media (max-width: 768px), (pointer: coarse) { .tx-chip { display: none; } }
+    /* the strip is the first thing to give up when the name column is squeezed,
+       and it goes WITH its rule — a hairline with nothing behind it is worse
+       than no column at all */
+    @media (max-width: 768px), (pointer: coarse) { .tn-tag { display: none; } }
 
     /* .tl- — team library sync review. The direction tag is the whole safety
        story in one word per row, and `conflict` must never look like a state
@@ -2379,7 +2407,10 @@
        the width bought here is most of what a 1728 laptop was short. The last
        few pixels come off the WBS code column, which carried prose padding
        around a chip that reads "A 1.1". */
-    #taskTable td:nth-child(4) { min-width: 220px; }
+    /* 220 was the floor for a name alone. The work type now takes a fixed
+       strip inside this cell, so the floor has to cover both or the strip is
+       paid for entirely out of the name and every second activity wraps. */
+    #taskTable td:nth-child(4) { min-width: 340px; }
     #taskTable th:nth-child(3), #taskTable td:nth-child(3) { padding-left: 0.4rem; padding-right: 0.4rem; }
     #taskTable td { padding: 0.5rem 0.6rem; line-height: 1.35; }
     .wl-keys { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.3rem 0 0.15rem !important; }
@@ -5313,7 +5344,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2122</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2230</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -12686,7 +12717,18 @@ Or say what you want, in your own words:
            around it. milestoneReachChips still serves the WBS dictionary,
            whose columns are different and where no such span exists. */
         const msReach = '';
-        const nameCell = `<span style="display:${msReach ? 'block' : 'inline-flex'};align-items:center;padding-left:${depth * 16}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}${taxChip(t)}</span>${msReach}</span>`;
+        /* THE WORK TYPE IS A COLUMN, NOT A SUFFIX. It used to trail the name
+           inline, so its x position was wherever that row's name happened to
+           stop — twenty ragged tags down the page, each reading as something
+           stuck on the end of a sentence rather than as a value belonging to
+           every row. It is a FIELD, and the way a table says "field" is a
+           band: the name takes the space it needs, the tag sits in a fixed
+           strip at the cell's right edge behind a hairline, and every tag
+           starts at the same x whether the name above it is two words or two
+           lines. The strip is reserved on rows without one so the names all
+           wrap at the same point. No <td> is added, so none of the six
+           index-keyed table rules move. */
+        const nameCell = `<span class="tn-cell" style="padding-left:${depth * 16}px"><span class="tn-row"><span class="tn-name">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}</span><span class="tn-tag">${taxChip(t)}</span></span>${msReach}</span>`;
         const pctCell = summary
           ? `<span title="Rolled up automatically from sub-tasks, weighted by expected duration (TE) — check off the children and this updates itself">${calculated ? (t.percentComplete || 0) + '%' : '—'} <span class="help-text" style="font-size:0.65rem">auto</span></span>`
           : (t.milestone && effectivePreds(t).length)
@@ -23571,7 +23613,8 @@ Or say what you want, in your own words:
         : inf
           ? 'INFERRED from the activity name: ' + g.label + '. Nothing is stored, so it re-reads itself if you rename the activity. Set it explicitly to pin it.'
           : 'Work type set by hand: ' + g.label + '.';
-      return ` <span class="tx-chip${inf ? ' tx-inf' : ''}" title="${escapeHtml(tip + ' This is the dimension your estimate bank groups by.')}">${inf ? '~' : ''}${escapeHtml(TAX_BY_ID[g.id].short)}</span>`;
+      // no leading space: it sits in its own strip now, not after a word
+      return `<span class="tx-chip${inf ? ' tx-inf' : ''}" title="${escapeHtml(tip + ' This is the dimension your estimate bank groups by.')}">${inf ? '~' : ''}${escapeHtml(TAX_BY_ID[g.id].short)}</span>`;
     }
     // says out loud what "Auto" currently resolves to, so the user can see the
     // decision they are about to accept by not changing it
@@ -37066,6 +37109,13 @@ Do not write payment terms or exclusions — both are generated from the project
         .map(t => t.parentId).filter(x => x != null).map(Number));
       const theirT = new Map((theirDoc.tasks || [])
         .filter(t => !theirParents.has(Number(t.id))).map(t => [t.id, t]));
+      /* COMPUTED HERE AND RETURNED. It was computed here and dropped: the panel
+         reads r.rel to decide which of four opening sentences to print, and an
+         absent one falls through to "one of these files predates version
+         identity" — so EVERY reviewed merge, including every one against a
+         trunk where both sides carry ids, opened by telling the reader their
+         history could not be used. The fast-forward and diverged summaries the
+         panel was written around had never once been on screen. */
       const rel = found.rel || versionRelation(theirDoc);
       const auto = [], conflicts = [], theirAdds = [], myAdds = [], theirDeletes = [], deleteEdits = [];
       // ids added on BOTH sides since the ancestor are two different activities
@@ -37106,7 +37156,7 @@ Do not write payment terms or exclusions — both are generated from the project
       }
       return { base: found, auto: auto, conflicts: conflicts, theirAdds: theirAdds, myAdds: myAdds,
                theirDeletes: theirDeletes, collisions: collisions, deleteEdits: deleteEdits,
-               haveBaseDoc: !!baseDoc,
+               rel: rel, haveBaseDoc: !!baseDoc,
                raidAdds: (extra && extra.raidAdds) || [], raidDeletes: (extra && extra.raidDeletes) || [],
                storyAdds: (extra && extra.storyAdds) || [], storyDeletes: (extra && extra.storyDeletes) || [] };
     }
@@ -37411,12 +37461,25 @@ Do not write payment terms or exclusions — both are generated from the project
          not exist. Where I am strictly ahead, taking their file would move the
          plan BACKWARDS, which is the one outcome nobody wants and which the old
          dialog would happily have walked somebody into. */
+      /* ═══ ASK THE CONTENT, NOT ONLY THE CHAIN ═══════════════════════════
+         Both branches below were unreachable until the relation started being
+         returned, and the first of them was wrong the moment it could run: it
+         read "same version id" as "nothing to bring across" and sent somebody
+         away from a file full of their colleague's work. The chain is silent
+         about UNFILED edits, and a colleague who saved and sent you their copy
+         without filing a version is the ordinary case for a file merge — the
+         same blind spot that let a pull fast-forward over unshared work.
+         So the gate is what the merge actually found. Nothing to take is
+         nothing to take, whatever the ids say; something to take opens the
+         review, whatever the ids say. */
       const rel = r.rel || { relation: 'unknown' };
-      if (rel.relation === 'same') {
+      const take = (r.auto || []).length + (r.conflicts || []).length + (r.theirAdds || []).length
+        + (r.theirDeletes || []).length + (r.collisions || []).length;
+      if (!take) {
         await trunkTell({ title: 'Already in step', ico: '✓',
-          verdict: 'That copy and yours are at the same version, so there is nothing to bring across.',
-          why: 'Both files end on the same version id, which means every edit either of you has filed is '
-             + 'already in the other. Opening a review would offer choices between a value and itself.',
+          verdict: 'Nothing in that copy is missing from your plan.',
+          why: 'Every field, activity, risk and story in their file either matches yours or was already '
+             + 'merged. Opening a review would offer choices between a value and itself.',
           next: ['Nothing to do — press Close'] });
         return;
       }
@@ -37427,8 +37490,12 @@ Do not write payment terms or exclusions — both are generated from the project
            make sure they know. */
         const go = await trunkAsk({ title: 'That copy is behind yours', ico: '⏪',
           verdict: 'Your plan is ' + rel.ahead + ' version' + (rel.ahead === 1 ? '' : 's') + ' ahead of that one.',
-          why: 'Everything in their file is already in your history and they have added nothing since, so a '
-             + 'merge can only move your plan backwards. The review still opens if that is what you want.',
+          /* It says "every version", not "everything". Their file can still
+             carry edits nobody filed — that is why this is reached at all,
+             since a copy with nothing to take never gets here. */
+          why: 'Every version in their file is already in your history, so anything the review offers is '
+             + 'either older than what you hold or was never filed as a version. The review still opens if '
+             + 'that is what you want.',
           cards: false, count: rel.ahead, countLabel: 'versions ahead',
           kept: ['Nothing is applied until you press Merge in the review',
                  '↶ Undo reverses the whole merge afterwards'],

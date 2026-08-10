@@ -346,5 +346,12 @@
  "the emailable status table prints a tooltip where an estimate should be": "export-sweep.js",
  "the plain-text status request carries markup into Slack and mail": "export-sweep.js",
  "the activity list sent to the model carries markup instead of a unit": "export-sweep.js",
- "a plan with nothing in it opens a modal from inside a compute function": "trunk-sweep.js"
+ "a plan with nothing in it opens a modal from inside a compute function": "trunk-sweep.js",
+ "sync: progress cannot be compared against a history older than the work record": "trunk-sweep.js",
+ "a push onto a trunk that moved after it was read is not refused": "trunk-sweep.js",
+ "a pull fast-forwards over work that was never shared": "trunk-sweep.js",
+ "the changelog counts RAID entries instead of naming which one moved": "trunk-sweep.js",
+ "the sync control never says why it is holding off": "trunk-sweep.js",
+ "a file merge is turned away by the version chain while holding their unfiled edits": "persistence-sweep.js",
+ "the review panel disowns the relation the merge just worked out": "trunk-sweep.js"
 }

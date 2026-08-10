@@ -1409,8 +1409,30 @@ function serveApp() {
         sayM('they raised a new RAID entry and the merge brings across no RAID additions, so an issue logged '
           + 'by one person never reaches anybody else');
 
-      // and it must actually LAND, not merely be listed
+      /* ── WHAT THE PANEL SAYS IT IS DOING ───────────────────────────────
+         Asserted through the RENDERED subtitle rather than through r.rel,
+         because the defect this replaces lived entirely in the gap between
+         the two: mergeCompute worked the relation out, dropped it on the way
+         out, and the panel — reading an undefined — fell through to its last
+         branch and opened EVERY reviewed merge with "one of these files
+         predates version identity". Both copies carried version ids the whole
+         time. The three sentences the panel was written around had never once
+         been on screen, and nothing here noticed, because every assertion in
+         this block asked the computation and none of them asked the surface a
+         person actually reads. */
       mergePlanState = { r: r4, name: 'the team trunk' };
+      renderMergePanel();
+      const subTxt = ((document.getElementById('mergeSub') || {}).innerText || '').replace(/\s+/g, ' ');
+      out.mergeSub = subTxt.slice(0, 70);
+      if (/predates version identity/.test(subTxt))
+        sayM('both copies came out of the same trunk and carry version ids, and the review panel opens by '
+          + 'telling the reader their histories could not be used: "' + subTxt.slice(0, 60) + '"');
+      if (!/both been working|Fast-forward|version[s]? ahead/i.test(subTxt))
+        sayM('the review panel never says where the two copies stand relative to each other. It opens with: "'
+          + subTxt.slice(0, 60) + '" — somebody deciding field by field needs to know first whether they are '
+          + 'behind, ahead, or whether both of them moved');
+
+      // and it must actually LAND, not merely be listed
       await mergeApply({ run: false });
       const after = raid.find(x => x.id === 9001) || {};
       const story = (reqs && reqs.stories || []).find(x => x.id === 'S900') || {};

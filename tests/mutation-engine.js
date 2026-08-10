@@ -1899,6 +1899,14 @@ const MUTANTS = [
     find: "      const baseDoc = trunkDocOfVid(trunkFile, found.mine && found.mine.vid);",
     with: "      const baseDoc = null; void trunkDocOfVid;" },
 
+  { what: 'the review panel disowns the relation the merge just worked out',
+    find: "               rel: rel, haveBaseDoc: !!baseDoc,",
+    with: "               haveBaseDoc: !!baseDoc," },
+
+  { what: 'a file merge is turned away by the version chain while holding their unfiled edits',
+    find: "      if (!take) {",
+    with: "      if (rel.relation === 'same') {" },
+
   { what: 'changelog: a change shows where it landed but not where it came from',
     find: "          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: a[f], to: b[f] });",
     with: "          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: null, to: b[f] });" },
