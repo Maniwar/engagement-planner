@@ -5306,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1738</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1815</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7630,13 +7630,51 @@ Or say what you want, in your own words:
 
        These rows are built HERE and never in planDiff, deliberately: planDiff
        feeds change orders, and a check-off is not scope to be priced. */
+    /* ═══ THE WORK RECORD IS IN THE DOCUMENT, NOT ONLY IN THE STAMP ══════════
+       `_work` is stamped on versions this build files, and a trunk that has
+       been going for a while is full of versions filed before it existed. With
+       the index built only from that stamp, the FIRST version pushed after such
+       a history had a parent with no work record — so progress could not be
+       compared against it, and a push that moved an activity to 100% reported
+       "nothing this diff can see". Reported with a screenshot: "i changed this
+       to 100% but i don't see the bars".
+
+       But every trunk entry carries a full copy of the plan, and a plan holds
+       percentComplete, the actual dates, effort and invoicing on every task. So
+       the parent's work state was recoverable the whole time — the index simply
+       was not looking in the document. Derived from the payload wherever the
+       stamp is missing, which reaches back through the entire existing history
+       rather than only forward from this build. */
+    function trunkWorkOfDoc(doc) {
+      if (!doc || !Array.isArray(doc.tasks)) return null;
+      /* Leaves by the same rule the rest of the sync uses: isSummary is
+         computed and is not in the file, so a row is a summary when something
+         claims it as a parent. */
+      const parents = new Set(doc.tasks.map(t => t.parentId).filter(x => x != null).map(Number));
+      return JSON.stringify({
+        work: doc.tasks.filter(t => !parents.has(Number(t.id)))
+          .map(t => [t.id].concat(WORK_COLS.map(c => workCell(t, c[0], c[1])))),
+        raid: Array.isArray(doc.raid) ? doc.raid : [],
+        narrative: doc.statusNarrative || '',
+        status: Array.isArray(doc.statusHistory) ? doc.statusHistory : []
+      });
+    }
     function trunkWorkIndex(t) {
       const m = new Map();
       const add = doc => (((doc && doc.planVersions) || [])).forEach(v => {
         if (v.vid && typeof v._work === 'string' && !m.has(v.vid)) m.set(v.vid, v._work); });
+      // the stamp first, wherever it exists — it is exact
       if (t && t.base && t.base.doc) add(t.base.doc);
       ((t && t.log) || []).forEach(e => add(e.doc));
       add({ planVersions: planVersions });
+      // then the payloads, which reach back before the stamp existed
+      const fromDoc = (vid, doc) => {
+        if (!vid || m.has(vid)) return;
+        const w = trunkWorkOfDoc(doc);
+        if (w) m.set(vid, w);
+      };
+      if (t && t.base) fromDoc(t.base.vid, t.base.doc);
+      ((t && t.log) || []).forEach(e => fromDoc(e.vid, e.doc));
       return m;
     }
     const WORK_DIFF_KIND = {
@@ -7950,6 +7988,10 @@ Or say what you want, in your own words:
           : dl.noBase
           ? '<ul class="jn-dl"><li class="jn-more">the version before this one is no longer in the file, so '
             + 'there is nothing to compare it against — its own contents are intact</li></ul>'
+          : (!n && dl.noWork)
+          ? '<ul class="jn-dl"><li class="jn-more">the version before this one carries no record of what had '
+            + 'been DONE at the time — progress, actuals and invoicing cannot be compared against it, so this '
+            + 'entry can only report changes to the plan itself, and there were none</li></ul>'
           : dl.wholesale
           ? '<ul class="jn-dl"><li class="jn-more">this version does not edit the plan before it, it '
             + '<b>replaces</b> it: ' + dl.wasN + ' activit' + (dl.wasN === 1 ? 'y' : 'ies') + ' before, '
@@ -8805,8 +8847,17 @@ Or say what you want, in your own words:
           const mySnaps = new Map((planVersions || []).map(v => [v.vid, v.snap]).filter(x => x[0] && x[1]));
           const myWork = new Map((planVersions || [])
             .filter(v => v.vid && typeof v._work === 'string').map(v => [v.vid, v._work]));
+          /* AND THE TRUNK'S OWN COPY, for the parent this push sits on. The
+             version my first new one descends from is the trunk's tip — filed
+             by somebody else, possibly by a build that stamped no work record —
+             and my local copy of it is a snapshot with no progress in it. The
+             trunk file is already open here and carries that version's whole
+             document, so the comparison is available; without this the first
+             push after joining an existing history could never show progress. */
+          const trunkWork = trunkWorkIndex(t);
+          const workOf = vid => myWork.get(vid) || trunkWork.get(vid);
           const pushLog = trunkLogHtml(
-            trunkDeltas(mine, vid => mySnaps.get(vid), mine[mine.length - 1].vid, vid => myWork.get(vid)),
+            trunkDeltas(mine, vid => mySnaps.get(vid), mine[mine.length - 1].vid, workOf),
             { head: 'What the team receives' });
           const okGo = await trunkAsk({
             log: pushLog,

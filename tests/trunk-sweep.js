@@ -1194,6 +1194,69 @@ function serveApp() {
       hydrate(JSON.parse(JSON.stringify(base))); calculate();
     })();
 
+    /* ═══ PUSHING ONTO A HISTORY OLDER THAN THE WORK RECORD ═════════════════
+       The check above moves one thing and asks whether the changelog can name
+       it — and it passed while the reported defect was live, because it built
+       BOTH sides of the comparison itself and gave both a work record. Real
+       histories are not like that. A trunk that has been going for a while is
+       full of versions filed before `_work` existed, and the first version
+       pushed onto one has a parent with no work record at all.
+
+       That is exactly what was reported, with a screenshot: "i changed this to
+       100% but i don't see the bars", over an entry reading "nothing this diff
+       can see". The progress had moved; the comparison had nowhere to stand.
+
+       So this stages the real shape — strip the stamp off the trunk's history
+       the way an older build would have left it, move progress, and require the
+       push dialog to name it. The work state was in the payload the whole time;
+       nothing was reading it. */
+    await (async () => {
+      const sayO = m => say('Older history', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h3 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h3;
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      pushVersion('edit', 'old build'); await trunkPush(true);
+
+      // as an older build left it: full payloads, no work stamp anywhere
+      const raw = await trunkRead(h3);
+      const strip = doc => ((doc && doc.planVersions) || []).forEach(v => { delete v._work; });
+      if (raw.base) strip(raw.base.doc);
+      (raw.log || []).forEach(e => { delete e._work; strip(e.doc); });
+      await trunkWrite(h3, raw);
+      (planVersions || []).forEach(v => { delete v._work; });
+
+      const t3 = await trunkRead(h3);
+      out.oldHistoryStamps = ((t3.log || [])[0] || {}).doc
+        ? ((t3.log[0].doc.planVersions || []).filter(v => typeof v._work === 'string').length) : -1;
+
+      const tgt = tasks.find(x => x.id === A_ID);
+      const wasPct2 = Number(tgt.percentComplete) || 0;
+      updatePct(A_ID, wasPct2 === 100 ? 40 : 100);
+      const nowPct = Number(tgt.percentComplete) || 0;
+      trunkEnsureTip();
+      const mineVids3 = new Set(((t3.log || []).map(e => e.vid)).concat(t3.base ? [t3.base.vid] : []));
+      const mine3 = (planVersions || []).filter(v => v.vid && !mineVids3.has(v.vid));
+      const mySnaps3 = new Map((planVersions || []).map(v => [v.vid, v.snap]).filter(x => x[0] && x[1]));
+      const trunkWork3 = trunkWorkIndex(t3);
+      const myWork3 = new Map((planVersions || [])
+        .filter(v => v.vid && typeof v._work === 'string').map(v => [v.vid, v._work]));
+      const html3 = trunkLogHtml(trunkDeltas(mine3, v => mySnaps3.get(v),
+        mine3.length ? mine3[mine3.length - 1].vid : null,
+        v => myWork3.get(v) || trunkWork3.get(v)), { head: 'What the team receives' });
+      const plain3 = String(html3).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      out.oldHistoryText = plain3.slice(0, 200);
+      const pair3 = new RegExp(wasPct2 + '%[^%]{0,14}' + nowPct + '%');
+      if (!mine3.length) sayO('nothing was staged to push, so this case checked nothing');
+      else if (!pair3.test(plain3))
+        sayO('progress moved from ' + wasPct2 + '% to ' + nowPct + '% and the push dialog does not show it. '
+          + 'The parent version was filed before the work record existed, which is every version in a trunk '
+          + 'that predates it — and the work state is in that version\'s stored PLAN, not only in the stamp, '
+          + 'so there was always something to compare against');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
     /* ═══ AND THE LOOP THAT WAS RUNNING THE WHOLE TIME ══════════════════════
        "Why isn't this done automatically, why do I have to push it and pull
        it?" — because the guard that stops a sync landing under somebody's
