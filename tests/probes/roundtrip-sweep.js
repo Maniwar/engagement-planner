@@ -41,6 +41,23 @@
    the identity defect would have failed instantly and loudly: 8 of 8 versions
    lost `vid`, 7 lost `pvid`.
 
+   ── WHAT IT HAS BEEN ATTACKED WITH ───────────────────────────────────────
+
+   VALUES, not key names, and that distinction is the whole probe. Adversarial
+   review of a weaker design — one comparing key sets — found two ways the same
+   family survives a key-only check, and both were then planted here:
+
+     · `vid: x.vId || null` — a typo in the SOURCE field. The key comes back
+       holding null, trunkRelation's filter(Boolean) empties again, and the
+       original defect returns verbatim. Caught: "vid: v_… went in and null
+       came back."
+     · hydrate's task mapper drops invoicedDate, and makeTask() — an
+       Object.assign over about forty-five defaults — supplies '' underneath,
+       so the key IS present afterwards. Caught the same way. This is the more
+       likely spelling in this file, because almost every loader here layers
+       defaults; the version mapper was a bare literal, which is the only
+       reason the original showed up as an absence at all.
+
    ── WHY IT WILL NOT CRY WOLF ─────────────────────────────────────────────
 
    Volatile-by-design values — a stamp that says when the file was written, a
@@ -178,14 +195,32 @@ const DROPS = {
         /* Grouped, because one forgotten field in a mapper shows up once per
            element and forty identical lines hide the second defect behind the
            first. */
-        const byKey = {};
+        const byKey = {}, how = {};
         losses.forEach(l => { const k = l.path.replace(/\[\d+\]/g, '[]');
-          byKey[k] = (byKey[k] || 0) + 1; });
+          byKey[k] = (byKey[k] || 0) + 1;
+          if (!how[k]) how[k] = l;
+        });
         out.byField = byKey;
+        /* WHICH KIND OF LOSS, because the two need different fixes and the
+           second is the one a weaker probe would miss. A key that does not come
+           back is a mapper that forgot to name it. A key that comes back
+           holding something else is a mapper that named it WRONG — a typo in
+           the source field, or a default layered underneath that fills the hole
+           so convincingly the key survives. This file's own loaders make the
+           second the more likely: tasks go through makeTask(), which supplies
+           about forty-five defaults, so a dropped field returns as '' rather
+           than as an absence. Both were planted and both are caught; saying
+           only "loses" about the second sends somebody hunting for a missing
+           line that is right there. */
         Object.keys(byKey).sort((x, y) => byKey[y] - byKey[x]).slice(0, 8).forEach(k => {
-          say('saving and loading loses ' + k + (byKey[k] > 1 ? ' (' + byKey[k] + ' times)' : '')
-            + '. Whatever reads it after a reload gets undefined, and nothing else in this suite asks — '
-            + 'every other check reads these objects in the session that built them');
+          const l = how[k], gone = l.now === 'MISSING';
+          say(gone
+            ? 'saving and loading DROPS ' + k + (byKey[k] > 1 ? ' (' + byKey[k] + ' times)' : '')
+              + ' — the key does not come back at all, so whatever reads it after a reload gets undefined'
+            : 'saving and loading CHANGES ' + k + (byKey[k] > 1 ? ' (' + byKey[k] + ' times)' : '')
+              + ': ' + l.was + ' went in and ' + l.now + ' came back. The key is still there, which is why '
+              + 'a check on key names alone would call this clean — a default underneath, or a mis-spelled '
+              + 'source field, fills the hole and the value is gone anyway');
         });
       }
       return { bad, out };
