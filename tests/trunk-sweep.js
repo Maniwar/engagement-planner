@@ -1476,6 +1476,58 @@ function serveApp() {
         sayM('the automatic loop measures "nothing contested" the same way this panel does, and it reads this '
           + 'as clean — so an unattended sync would decide a disagreement between two people');
 
+      /* ── AND THROUGH THE DOOR THE PULL ACTUALLY USES ───────────────────
+         Everything above calls mergeCompute itself. The contested pull does
+         not: it hands the tip to mergeReview, which recomputed the merge on
+         its own — and did it WITHOUT the trunk file, throwing away the only
+         stored copy of the shared version there is. So the clean path carried
+         the whole plan and the reviewed path carried only the activities, and
+         the panel printed a paragraph blaming that on there being no trunk
+         while sitting in front of one. Every assertion in this block passed
+         throughout, because not one of them went through the door.
+         Driven end to end here, and read off the rendered panel. */
+      /* Started, not awaited, and given a beat. Without the trunk file this
+         call does not return at all — it falls into a path that opens a modal
+         and waits for somebody to press Close, and an assertion that hangs is
+         a guard that reports "still running" instead of "wrong". */
+      const settle = ms => new Promise(r => setTimeout(r, ms));
+      mergeReview(trunkTip(t5).doc, 'the team trunk', t5);
+      await settle(400);
+      const body = ((document.getElementById('mergeBody') || {}).innerText || '').replace(/\s+/g, ' ');
+      if (!document.getElementById('mergeModal').classList.contains('open'))
+        sayM('a contested merge against the trunk never opened the review panel — it went somewhere else, '
+          + 'which with two people holding different figures for one activity is the wrong somewhere');
+      out.reviewedPanel = { chars: body.length, raid: /RAID/.test(body),
+                            lostWholePlan: /no stored copy/.test(body) };
+      if (/no stored copy of the shared version/.test(body))
+        sayM('the contested pull opens a review saying it has no stored copy of the shared version to compare '
+          + 'against — while merging a TRUNK, which is the one place that copy always exists. The RAID log, '
+          + 'the stories, the phases and the roster are dropped on the reviewed path only');
+      if (!/RAID/.test(body))
+        sayM('the reviewed merge lists no RAID row even though both sides moved the same risk, so the panel a '
+          + 'person opens BECAUSE they disagree is the one that cannot show them the disagreement');
+      document.getElementById('mergeModal').classList.remove('open');
+
+      /* THE CALL SITE, NOT ONLY THE FUNCTION. The lines above prove mergeReview
+         uses a trunk file when it is handed one; they cannot prove trunkPull
+         hands it over, because they do the handing themselves. So the pull is
+         driven for real — the contested branch reaches mergeReview without
+         awaiting a dialog — and the panel is read the same way. Two assertions
+         because there are two ways to lose this: the function forgetting the
+         argument, and the caller forgetting to pass it. */
+      trunkHandle = h4;
+      trunkPull(false);
+      await settle(500);
+      const viaPull = ((document.getElementById('mergeBody') || {}).innerText || '').replace(/\s+/g, ' ');
+      out.reviewedViaPull = { opened: document.getElementById('mergeModal').classList.contains('open'),
+                              lostWholePlan: /no stored copy/.test(viaPull) };
+      if (!out.reviewedViaPull.opened)
+        sayM('a pull holding a contested field did not open the review panel at all');
+      if (/no stored copy of the shared version/.test(viaPull))
+        sayM('mergeReview can merge the whole plan, and the contested PULL does not hand it the trunk file to '
+          + 'do it with — so everything outside the activity list is dropped on the way into the panel');
+      document.getElementById('mergeModal').classList.remove('open');
+
       hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     })();
 

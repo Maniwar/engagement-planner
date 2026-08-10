@@ -1907,6 +1907,14 @@ const MUTANTS = [
     find: "      if (!take) {",
     with: "      if (rel.relation === 'same') {" },
 
+  { what: 'the reviewed merge is recomputed without the trunk it came from',
+    find: "      const r = mergeCompute(doc, trunkFile);",
+    with: "      const r = mergeCompute(doc);" },
+
+  { what: 'the contested pull hands the review panel no trunk to find the ancestor in',
+    find: "        mergeReview(tip.doc, 'the team trunk', t);",
+    with: "        mergeReview(tip.doc, 'the team trunk');" },
+
   { what: 'changelog: a change shows where it landed but not where it came from',
     find: "          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: a[f], to: b[f] });",
     with: "          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: null, to: b[f] });" },

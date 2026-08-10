@@ -5344,7 +5344,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2230</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2332</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8795,7 +8795,7 @@ Or say what you want, in your own words:
            so abandoning the review leaves the history untouched. */
         trunkAdoptPending = (t.log || []).slice();
         flashSaved('You and the trunk have both changed the same things — opening the review');
-        mergeReview(tip.doc, 'the team trunk');
+        mergeReview(tip.doc, 'the team trunk', t);
       } catch (e) {
         /* Whatever is left is a failure APPLYING the pull, not reading it, and
            now says so. Undo is named because by this point some of it may have
@@ -37431,7 +37431,18 @@ Do not write payment terms or exclusions — both are generated from the project
       rd.readAsText(f);
       ev.target.value = '';
     }
-    async function mergeReview(doc, fname) {
+    /* trunkFile is the third argument, and where there is one it is not
+       optional. The reviewed path recomputed the merge WITHOUT it, so the
+       shared version's stored document — the only ancestor the RAID log, the
+       stories, the phase rows and the roster have — was dropped on the way
+       into the panel. The clean path carried the whole plan and the reviewed
+       path carried only the activities, which is exactly backwards: the review
+       exists because two people disagree, and a disagreement is the moment
+       losing somebody's account of a risk costs the most. It also made the
+       panel say so, in a paragraph blaming the absence on there being no
+       trunk, while sitting in front of one. A merge from a FILE still passes
+       nothing and that paragraph is then true. */
+    async function mergeReview(doc, fname, trunkFile) {
       if (!doc || !Array.isArray(doc.tasks)) {
         await trunkTell({ title: 'No plan in that file', ico: '📄', bad: true,
           verdict: 'That file carries no plan, so there is nothing to merge.',
@@ -37440,7 +37451,7 @@ Do not write payment terms or exclusions — both are generated from the project
           next: ['Ask for a copy made with Export ▸ Download backup (.json)'] });
         return;
       }
-      const r = mergeCompute(doc);
+      const r = mergeCompute(doc, trunkFile);
       if (r.noBase) {
         await trunkTell({ title: 'No shared history', ico: '⛔', bad: true,
           verdict: 'This file and yours have no version in common, so there is nothing to merge onto.',
