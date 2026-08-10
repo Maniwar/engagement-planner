@@ -1129,6 +1129,97 @@ function serveApp() {
       trunkHandle = h2;
     })();
 
+    /* ═══ A VERSION THAT CANNOT SAY WHAT IT DID ═════════════════════════════
+       Asked as "why can we add versions with no changes?", over a push reading
+       "0 changes across 1 version". Nothing was wrong with the version — a
+       version is filed only when the fingerprint moves, so something HAD moved.
+       What was wrong is that the diff had no word for it, and the dialog
+       reported the absence of a word as the absence of a change.
+
+       Two comparisons, and they were never the same comparison: the fingerprint
+       reads the whole commitment snapshot plus the whole work record, and the
+       changelog read a hand-written list of fields. Everything in the gap filed
+       a silent version. Twelve things were in the gap.
+
+       This closes it mechanically rather than by listing today's twelve: move
+       one thing, and if that is enough to file a version it must also be enough
+       to produce a row. Anything added to the snapshot later and not taught to
+       the changelog fails here, which is the whole point — the next field is
+       the one nobody will remember. */
+    await (async () => {
+      const sayS = m => say('Silent version', m);
+      const base = JSON.parse(JSON.stringify(window.__fixture));
+      const cases = [
+        ['a pass-when condition', () => { leafTasks()[0].acceptance = 'Signed by the sponsor.'; }],
+        ['a deliverable', () => { leafTasks()[0].deliverable = 'Kick-off pack'; }],
+        ['a work type', () => { leafTasks()[0].taxonomy = 'analysis'; }],
+        ['an audience', () => { leafTasks()[0].audience = 'client'; }],
+        ['who is on it', () => { const t = leafTasks()[0];
+          t.attendees = (t.attendees || []).concat(['Somebody New']); }],
+        ['an estimate range that keeps its mean', () => { const t = leafTasks()[0];
+          t.o = Math.max(0.1, (Number(t.o) || 2) - 1); t.p = (Number(t.p) || 6) + 1; }],
+        ['the pricing model', () => { pricing.model = pricing.model === 'tm' ? 'fixed' : 'tm'; }],
+        ['the contract price', () => { pricing.contractPrice = (Number(pricing.contractPrice) || 0) + 5000; }],
+        ['the status narrative', () => { statusNarrative = 'Week six: on track.'; }],
+        ['progress', () => { const t = leafTasks().find(x => !x.milestone);
+          t.percentComplete = (Number(t.percentComplete) || 0) === 50 ? 60 : 50; }]
+      ];
+      const silent = [];
+      out.silentTried = cases.length;
+      cases.forEach(([label, mutate]) => {
+        hydrate(JSON.parse(JSON.stringify(base))); calculate();
+        const s0 = JSON.parse(JSON.stringify(snapshotPlan())), w0 = trunkWorkFingerprint();
+        try { mutate(); recompute(); } catch (e) { silent.push(label + ' (threw: ' + e.message + ')'); return; }
+        const s1 = JSON.parse(JSON.stringify(snapshotPlan())), w1 = trunkWorkFingerprint();
+        const a = Object.assign({}, s0), b = Object.assign({}, s1); delete a.at; delete b.at;
+        const filesAVersion = JSON.stringify(a) !== JSON.stringify(b) || w0 !== w1;
+        /* THROUGH trunkDeltas, which is what the dialog calls — not through the
+           row builders one at a time. The first draft called those directly and
+           stayed green when the builders were unwired from the changelog: it was
+           proving the parts exist, while the reader's question is whether the
+           DIALOG can say anything. Anchor the check where the answer is
+           assembled and both failures show. */
+        const deltas = trunkDeltas([{ vid: 'B', pvid: 'A', by: 'Test' }],
+          v => (v === 'A' ? s0 : s1), null, v => (v === 'A' ? w0 : w1));
+        const rows = (deltas[0] && deltas[0].rows) || [];
+        if (filesAVersion && !rows.length) silent.push(label);
+      });
+      out.silent = silent;
+      if (silent.length)
+        sayS(silent.length + ' of ' + cases.length + ' edits file a version and produce no row in the '
+          + 'changelog, so a push reports "0 changes" over a version that really did move something: '
+          + silent.join('; ') + '. The fingerprint that decides to FILE a version and the diff that '
+          + 'decides what to SAY about it are two different comparisons, and everything in the gap '
+          + 'between them becomes a version nobody can read');
+      hydrate(JSON.parse(JSON.stringify(base))); calculate();
+    })();
+
+    /* ═══ AND THE LOOP THAT WAS RUNNING THE WHOLE TIME ══════════════════════
+       "Why isn't this done automatically, why do I have to push it and pull
+       it?" — because the guard that stops a sync landing under somebody's
+       cursor asked "is a box focused", and typing a percentage leaves the
+       cursor in that box until the next click somewhere else. Focus is not
+       typing. Both halves are asserted, because a guard that never holds off
+       is as wrong as one that never releases. */
+    (function () {
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      document.body.appendChild(inp);
+      inp.focus();
+      const idle = trunkBusyEditing();
+      inp.dispatchEvent(new KeyboardEvent('keydown', { key: '7', bubbles: true }));
+      const typing = trunkBusyEditing();
+      inp.blur(); inp.remove();
+      out.busyIdle = idle; out.busyTyping = typing;
+      if (idle)
+        say('Auto sync', 'a box that is focused but idle stops the automatic loop. Recording a percentage '
+          + 'leaves the cursor in the cell, so the one workflow the loop exists for is the workflow that '
+          + 'switches it off — reported as "why do I have to push it and pull it?"');
+      if (!typing)
+        say('Auto sync', 'the loop does not hold off while somebody is actually typing, so a half-entered '
+          + 'number can be pushed to the team or a merge can land under the cursor');
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════

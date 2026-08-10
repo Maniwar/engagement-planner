@@ -2949,17 +2949,53 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 16rem; }
     .jn-vsum { font-size: var(--t-xs); color: var(--muted); margin-left: auto;
       font-variant-numeric: tabular-nums; }
-    .jn-dl { list-style: none; margin: .35rem 0 0 1.65rem; padding: 0; }
-    .jn-dl li { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap;
+    /* ═══ THE CHANGE LIST IS GROUPED, AND MOVEMENT IS DRAWN ══════════════
+       One card per ACTIVITY. The name sits at the top once and its changed
+       fields sit under it, so three edits to one kick-off call read as one
+       event rather than three. */
+    .jn-grp { margin: .4rem 0 0 1.65rem; padding: .35rem .5rem .4rem;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+      animation: jnRise .42s var(--easeo) backwards; }
+    .jn-grp + .jn-grp { margin-top: .3rem; }
+    .jn-gh { display: flex; align-items: baseline; gap: .4rem; }
+    .jn-gn { font-size: var(--t-sm); font-weight: 700; color: var(--header); overflow-wrap: anywhere; }
+    .jn-gc { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+    .jn-dl { list-style: none; margin: .2rem 0 0; padding: 0; }
+    .jn-dl li { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
       font-size: var(--t-sm); padding: .12rem 0; }
     /* The KIND is a chip and the activity is the sentence, because "Re-estimated"
        repeated down a column is scannable and "Re-estimated Build & Configure"
        eight times is a wall. */
     .jn-k { flex: 0 0 auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .04em; color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+      letter-spacing: .04em; color: var(--muted); background: var(--card); border: 1px solid var(--border);
       border-radius: 5px; padding: 1px 5px; }
     .jn-nmx { color: var(--header); font-weight: 600; overflow-wrap: anywhere; }
     .jn-ft { color: var(--muted); font-variant-numeric: tabular-nums; }
+    /* WHAT IT WAS, IN MUTED TEXT, AND WHAT IT IS NOW, IN THE PLAN'S OWN INK.
+       Both sides always, because "45%" alone cannot be told from a move of
+       forty-five points or of one. */
+    .jn-pair { display: inline-flex; align-items: baseline; gap: .3rem;
+      font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .jn-was { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px;
+      text-decoration-color: rgb(100 116 139 / .5); }
+    .jn-arw { color: var(--muted); font-size: 11px; }
+    .jn-now { color: var(--header); font-weight: 700; }
+    /* The ghost is where it was; the fill grows from there to where it is. */
+    .jn-bar { position: relative; flex: 0 0 auto; width: 76px; height: 6px; border-radius: 999px;
+      background: rgb(148 163 184 / .25); overflow: hidden; }
+    .jn-bar i { position: absolute; top: 0; bottom: 0; left: 0; display: block; border-radius: 999px; }
+    .jn-bar .b-was { width: var(--was); background: rgb(100 116 139 / .35); }
+    .jn-bar .b-now { width: var(--now); background: var(--primary);
+      animation: jnBar .6s var(--easeo) backwards; }
+    .jn-r.up .jn-bar .b-now { background: var(--success); }
+    .jn-r.dn .jn-bar .b-now { background: var(--warn); }
+    @keyframes jnBar { from { width: var(--was); } }
+    .jn-pt { font-weight: 700; font-size: var(--t-xs); font-variant-numeric: tabular-nums;
+      border-radius: 999px; padding: 0 .35rem; color: var(--muted); background: var(--card);
+      border: 1px solid var(--border); }
+    .jn-pt.up { color: #047857; border-color: rgb(4 120 87 / .35); background: rgb(4 120 87 / .08); }
+    .jn-pt.dn { color: #b45309; border-color: rgb(180 83 9 / .35); background: rgb(180 83 9 / .08); }
     .jn-dv { color: #1d4ed8; font-weight: 600; font-variant-numeric: tabular-nums; }
     .jn-mv { font-weight: 700; font-variant-numeric: tabular-nums; }
     .jn-mv.up { color: #b45309; }
@@ -2967,6 +3003,7 @@
     .jn-more { color: var(--muted); font-style: italic; }
     /* The shape of a version, before any single row of it is read. */
     .jn-shape { display: flex; flex-wrap: wrap; gap: .3rem; margin: .35rem 0 .1rem 1.65rem; }
+    .jn-all .jn-grp { margin-left: 0; }
     .jn-kc { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
       color: var(--header); background: var(--bg); border: 1px solid var(--border);
       border-radius: 999px; padding: 1px 7px; }
@@ -5269,7 +5306,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1705</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1738</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7251,7 +7288,7 @@ Or say what you want, in your own words:
        loop stops for a conflict, the buttons are what you reach for. */
     const TRUNK_POLL_MS = 15000;
     const TRUNK_QUIET_MS = 6000;      // a push is a thought that finished
-    let trunkAuto = true, trunkTimer = null, trunkLastLocal = 0, trunkPaused = '';
+    let trunkAuto = true, trunkTimer = null, trunkLastLocal = 0, trunkPaused = '', trunkPending = 0;
     function trunkAutoSet(on) {
       trunkAuto = !!on;
       try { localStorage.setItem('pertGantt.trunkAuto', trunkAuto ? '1' : '0'); } catch (e) {}
@@ -7269,12 +7306,33 @@ Or say what you want, in your own words:
        every one of them already goes through, so nothing has to remember to
        report itself here. */
     function trunkNoteLocalEdit() { trunkLastLocal = Date.now(); }
+    /* ═══ A FOCUSED BOX IS NOT SOMEBODY TYPING ═══════════════════════════════
+       Reported as "why isn't this done automatically, why do I have to push it
+       and pull it?" — and the loop was running the whole time, refusing to act
+       on every tick.
+
+       This asked "is an input focused", and the answer after somebody records
+       progress is yes, FOREVER: typing a percentage into the cell leaves the
+       cursor sitting in it, and nothing takes focus away until the next click
+       somewhere else. Measured, not guessed — a probe clicked the % cell and
+       found trunkBusyEditing() still true with no key pressed since. So the
+       one workflow the automatic loop exists for — record progress, let it
+       share itself — was the one workflow that switched it off.
+
+       What the guard is actually for is not typing over somebody: a half-typed
+       number must not be pushed, and a merge must not land under a cursor. Both
+       are about RECENT KEYSTROKES, not about focus, so that is what it reads
+       now. An idle box releases the loop after the same quiet period a push
+       already waits for. */
+    let trunkLastKey = 0;
+    ['keydown', 'paste', 'cut'].forEach(ev =>
+      document.addEventListener(ev, () => { trunkLastKey = Date.now(); }, true));
     function trunkBusyEditing() {
       if (document.querySelector('.modal-overlay.open')) return true;
       const a = document.activeElement;
-      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'
-        || a.isContentEditable)) return true;
-      return false;
+      const inBox = !!(a && (a.tagName === 'TEXTAREA' || a.isContentEditable
+        || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range)$/.test(a.type || ''))));
+      return inBox && (Date.now() - trunkLastKey) < TRUNK_QUIET_MS;
     }
     async function trunkAutoTick() {
       if (!trunkAuto || !trunkHandle || trunkBusy) return;
@@ -7322,6 +7380,15 @@ Or say what you want, in your own words:
         trunkAutoStart();
         return;
       }
+      /* WHAT THE LOOP CAN SEE, WHERE THE PERSON CAN SEE IT. "Why do I have to
+         push it and pull it?" is a fair question to ask of a control that says
+         only "Auto sync: on" — on is not the same as up to date, and a loop
+         with nothing to report looks identical to a loop that is being held
+         back. Now it says how much is waiting, so a number that sits there is
+         a symptom rather than a mystery. */
+      trunkPending = rel.relation === 'ahead' ? (rel.ahead || 1)
+        : (rel.relation === 'same' && !trunkTipIsCurrent()) ? 1 : 0;
+      updateTrunkBtn();
       if (rel.relation === 'ahead' || rel.relation === 'same') {
         /* Send only what has settled. `same` still needs the check: the plan can
            have moved since the last version was filed, and trunkEnsureTip mints
@@ -7594,6 +7661,79 @@ Or say what you want, in your own words:
       });
       return rows;
     }
+    /* EVERYTHING THE COMMITMENT DIFF CARRIES BUT DOES NOT SPEAK. planDiff
+       answers "what would this cost", so it reads estimates, owners, links,
+       dates and price and ignores the rest. The snapshot holds the rest
+       anyway, which is why a version gets filed for it — and why the changelog
+       has to be able to name it. See the kinds above for the list and how it
+       was measured. */
+    function trunkClip(v, n) {
+      const s = String(v == null ? '' : v);
+      if (!s) return '(blank)';
+      return s.length > n ? s.slice(0, n - 1) + '…' : s;
+    }
+    function trunkExtraRows(from, to) {
+      const rows = [];
+      const push = (kind, id, name, a, b) => rows.push({ kind: kind, id: id, name: name, from: a, to: b });
+      const nameIn = (snap, id) => {
+        if (id == null) return '(top level)';
+        const t = ((snap && snap.tasks) || []).find(x => x.id === id);
+        return t ? t.name : '#' + id;
+      };
+      const A = new Map(((from && from.tasks) || []).map(t => [t.id, t]));
+      const B = new Map(((to && to.tasks) || []).map(t => [t.id, t]));
+      B.forEach((b, id) => {
+        const a = A.get(id);
+        if (!a) return;                    // planDiff already calls that an addition
+        const f = (x, k) => String((x && x[k]) || '');
+        [['acceptance', 'acceptance'], ['deliverable', 'deliverable'],
+         ['taxonomy', 'taxonomy'], ['audience', 'audience']].forEach(([k, kind]) => {
+          if (f(a, k) !== f(b, k)) push(kind, id, b.name, f(a, k), f(b, k));
+        });
+        const who = x => (x.attendees || []).slice().sort().join(', ');
+        if (who(a) !== who(b)) push('attendees', id, b.name, who(a), who(b));
+        if (String(a.parentId) !== String(b.parentId))
+          push('reparented', id, b.name, nameIn(from, a.parentId), nameIn(to, b.parentId));
+        /* The three estimates can be rewritten around the same mean — 3/5/9
+           becomes 2/5/10 and te does not move, so the commitment diff is
+           silent while the RISK on that line has widened by a third. */
+        const rng = t => [t.o, t.m, t.p].map(x => Number(x) || 0).join(' / ');
+        if (rng(a) !== rng(b) && Math.abs((a.te || 0) - (b.te || 0)) <= 0.05)
+          push('estimate-range', id, b.name, rng(a), rng(b));
+      });
+      const SA = new Map(((from && from.stories) || []).map(x => [x.id, x]));
+      ((to && to.stories) || []).forEach(b => {
+        const a = SA.get(b.id);
+        if (a && String(a.want || '') !== String(b.want || ''))
+          push('story-reworded', 's:' + b.id, b.want || b.id, a.want || '', b.want || '');
+      });
+      const pa = (from && from.pricing) || {}, pb = (to && to.pricing) || {};
+      if (String(pa.model || '') !== String(pb.model || ''))
+        push('pricing-model', 0, 'The plan', pa.model || '', pb.model || '');
+      if (Math.abs((Number(pa.contractPrice) || 0) - (Number(pb.contractPrice) || 0)) >= 1)
+        push('contract-price', 0, 'The plan', Number(pa.contractPrice) || 0, Number(pb.contractPrice) || 0);
+      return rows;
+    }
+    /* The work fingerprint is not only per-activity: it carries the RAID log,
+       the status narrative and the status history, all of which travel in a
+       push and none of which any per-activity row can account for. */
+    function trunkWorkMetaRows(fromW, toW) {
+      const rows = [];
+      let a = null, b = null;
+      try { a = JSON.parse(fromW || 'null'); b = JSON.parse(toW || 'null'); } catch (e) { return rows; }
+      if (!a || !b) return rows;
+      const n = x => (Array.isArray(x) ? x.length : 0);
+      const ent = k => k + ' entr' + (k === 1 ? 'y' : 'ies');
+      if (JSON.stringify(a.raid || []) !== JSON.stringify(b.raid || []))
+        rows.push({ kind: 'raid-log', id: 0, name: 'The plan', from: ent(n(a.raid)), to: ent(n(b.raid)) });
+      if (String(a.narrative || '') !== String(b.narrative || ''))
+        rows.push({ kind: 'narrative', id: 0, name: 'The plan',
+                    from: String(a.narrative || ''), to: String(b.narrative || '') });
+      if (n(a.status) !== n(b.status))
+        rows.push({ kind: 'status-snapshot', id: 0, name: 'The plan',
+                    from: n(a.status) + ' recorded', to: n(b.status) + ' recorded' });
+      return rows;
+    }
     /* A version whose snapshot was trimmed away cannot be diffed, and saying so
        is the honest answer — inventing "no changes" for a payload nobody kept
        would read as a quiet version rather than an unknown one. */
@@ -7609,10 +7749,30 @@ Or say what you want, in your own words:
            in the file. Calling both "payload trimmed" told people their history
            was being eaten when it was not. */
         let rows = (from && to) ? planDiff(from, to) : null;
-        if (rows && workOf) {
-          const nm = new Map(((to && to.tasks) || []).map(x => [x.id, x.name]));
-          rows = rows.concat(trunkWorkRows(workOf(e.pvid),
-            live ? trunkWorkFingerprint() : workOf(e.vid), id => nm.get(id) || ('#' + id)));
+        if (rows) {
+          rows = rows.concat(trunkExtraRows(from, to));
+          if (workOf) {
+            const nm = new Map(((to && to.tasks) || []).map(x => [x.id, x.name]));
+            const fw = workOf(e.pvid), tw = live ? trunkWorkFingerprint() : workOf(e.vid);
+            rows = rows.concat(trunkWorkRows(fw, tw, id => nm.get(id) || ('#' + id)))
+                       .concat(trunkWorkMetaRows(fw, tw));
+          }
+          /* LAST RESORT, and only then. The plan's total value and its finish
+             date move as a CONSEQUENCE of the rows above, so printing them
+             every time would put two lines of arithmetic on top of every real
+             change. Printed only when nothing else accounts for the movement —
+             which is what a rate-card or roster edit looks like from here, and
+             is the difference between a version that says nothing and a
+             version that says what it did. */
+          if (!rows.length) {
+            const money = (Number(to.price) || 0) - (Number(from.price) || 0);
+            if (Math.abs(money) >= 1)
+              rows.push({ kind: 'plan-value', id: 0, name: 'The plan',
+                          from: Number(from.price) || 0, to: Number(to.price) || 0, priceDelta: money });
+            if (String(from.finish || '') !== String(to.finish || ''))
+              rows.push({ kind: 'plan-finish', id: 0, name: 'The plan',
+                          from: String(from.finish || ''), to: String(to.finish || '') });
+          }
         }
         /* A REPLACEMENT IS NOT A LIST OF EDITS. Two copies of one engagement
            that were joined by lineage can hold genuinely different plans, and
@@ -7710,20 +7870,69 @@ Or say what you want, in your own words:
             default:             return typeof v === 'number' ? String(n2(v)) : String(v);
           }
         };
+        /* ═══ A CHANGE IS A MOVEMENT, SO DRAW THE MOVEMENT ═══════════════
+           Every row used to be a sentence: kind, name, "0% → 45%". True, and
+           unreadable in bulk — twelve of them are twelve lines of small text
+           and the eye has no way in. Asked for as "better formatting to see
+           what's changed visually with graphics and animations".
+
+           So where a row has two comparable numbers it gets a BAR: the old
+           value as a ghost, the new value filled over it, growing from one to
+           the other on entry. Direction is a colour — forward is green,
+           backward amber — because "went from 100% to 0%" is the row somebody
+           most needs to catch and it should not look like every other line.
+           Rows without two numbers (a reworded criterion, a new owner) keep
+           the sentence, which is the right shape for them. */
+        const bars = { progressed: 100, logged: 0, 're-estimated': 0, 'actual-cost': 0,
+                       invoiced: 0, paid: 0, 'contract-price': 0, 'plan-value': 0,
+                       repriced: 0, reallocated: 100 };
+        const a = Number(r.from), b2 = Number(r.to);
+        const measurable = bars[r.kind] !== undefined && isFinite(a) && isFinite(b2);
+        const dir = !measurable || a === b2 ? '' : (b2 > a ? 'up' : 'dn');
+        let bar = '';
+        if (measurable) {
+          // a fixed scale where the field has one (a percentage), otherwise the
+          // larger of the two, so the pair is always readable against itself
+          const top = bars[r.kind] || Math.max(Math.abs(a), Math.abs(b2)) || 1;
+          const pc = v => Math.max(0, Math.min(100, (Math.abs(v) / top) * 100)).toFixed(1) + '%';
+          bar = '<span class="jn-bar" aria-hidden="true" style="--was:' + pc(a) + ';--now:' + pc(b2) + '">'
+            + '<i class="b-was"></i><i class="b-now"></i></span>';
+        }
         const pair = r.kind === 'renamed'
-          ? '<span class="jn-ft">was “' + escapeHtml(String(r.from || '')) + '”</span>'
+          ? '<span class="jn-ft">was “' + escapeHtml(trunkClip(r.from, 44)) + '”</span>'
           : (r.from != null && r.to != null && r.kind !== 'added' && r.kind !== 'removed')
-          ? '<span class="jn-ft">' + escapeHtml(fmtSide(r.from)) + ' → '
-            + escapeHtml(fmtSide(r.to)) + '</span>' : '';
+          ? '<span class="jn-pair"><span class="jn-was">' + escapeHtml(trunkClip(fmtSide(r.from), 46))
+            + '</span><span class="jn-arw" aria-hidden="true">→</span>'
+            + '<b class="jn-now">' + escapeHtml(trunkClip(fmtSide(r.to), 46)) + '</b></span>' : '';
         const m = Math.abs(r.priceDelta || 0) >= 1
           ? '<span class="jn-mv ' + ((r.priceDelta || 0) > 0 ? 'up' : 'dn') + '">'
             + ((r.priceDelta || 0) > 0 ? '+' : '−') + escapeHtml(fmtMoney(Math.abs(r.priceDelta))) + '</span>' : '';
         const d = Math.abs(r.days || 0) >= 0.05
           ? '<span class="jn-dv">' + ((r.days || 0) > 0 ? '+' : '−')
             + escapeHtml(String(Math.round(Math.abs(r.days) * 10) / 10)) + 'd</span>' : '';
-        return '<li><span class="jn-k">' + escapeHtml(k.lbl) + '</span>'
-          + '<span class="jn-nmx">' + escapeHtml(String(r.name || r.id)) + '</span>'
-          + pair + d + m + '</li>';
+        // the size of the move, in the unit the field is in, when nothing else says it
+        const pts = (measurable && !m && !d && Math.abs(b2 - a) > 0.001)
+          ? '<span class="jn-pt ' + dir + '">' + (b2 > a ? '+' : '−')
+            + escapeHtml(fmtSide(Math.abs(b2 - a))) + '</span>' : '';
+        return '<li class="jn-r ' + dir + '"><span class="jn-k">' + escapeHtml(k.lbl) + '</span>'
+          + pair + bar + pts + d + m + '</li>';
+      };
+      /* ONE CARD PER ACTIVITY, not one line per field. Three changes to the
+         same kick-off call read as three unrelated events when the name is
+         repeated down a column; grouped, they read as what they are — somebody
+         reopened that activity. */
+      const jnGroups = (rows, base) => {
+        const m = new Map();
+        rows.forEach(r => {
+          const key = String(r.id == null ? '?' : r.id);
+          if (!m.has(key)) m.set(key, { name: String(r.name || r.id), rows: [] });
+          m.get(key).rows.push(r);
+        });
+        return Array.from(m.values()).map((g, gi) =>
+          '<div class="jn-grp" style="animation-delay:' + (base + gi * 70) + 'ms">'
+          + '<div class="jn-gh"><span class="jn-gn">' + escapeHtml(g.name) + '</span>'
+          + (g.rows.length > 1 ? '<span class="jn-gc">' + g.rows.length + ' changes</span>' : '')
+          + '</div><ul class="jn-dl">' + g.rows.map(dv).join('') + '</ul></div>').join('');
       };
       const blocks = deltas.map((dl, i) => {
         const n = (dl.rows || []).length;
@@ -7772,14 +7981,37 @@ Or say what you want, in your own words:
                   + (r.kind === 'removed' || r.kind === 'added' ? 0.5 : 0);
               }
             };
-            const top = dl.rows.slice().sort((a, b) => weight(b) - weight(a)).slice(0, TRUNK_LOG_CAP);
-            const shown = new Set(top);
-            const rest = dl.rows.filter(r => !shown.has(r));
+            /* THE CAP FALLS BETWEEN CARDS, NEVER THROUGH ONE. Cutting at the
+               twelfth ROW left an activity with three changes showing two of
+               them under a header that said "3 changes" — the card would have
+               been lying about its own contents, which is worse than folding
+               one card earlier. So groups are taken whole, in order of the
+               biggest thing inside them, until the budget runs out; a single
+               group larger than the budget still shows, because a card nobody
+               can open is not a summary. */
+            const byId = new Map();
+            dl.rows.forEach(r => {
+              const key = String(r.id == null ? '?' : r.id);
+              if (!byId.has(key)) byId.set(key, []);
+              byId.get(key).push(r);
+            });
+            const ord = r => (DIFF_KINDS[r.kind] || { order: 99 }).order;
+            const groups = Array.from(byId.values())
+              .map(g => g.slice().sort((a, b) => ord(a) - ord(b)))
+              .sort((a, b) => Math.max.apply(null, b.map(weight)) - Math.max.apply(null, a.map(weight)));
+            const top = [], rest = [];
+            let budget = TRUNK_LOG_CAP;
+            groups.forEach(g => {
+              if (budget > 0 || !top.length) { top.push.apply(top, g); budget -= g.length; }
+              else rest.push.apply(rest, g);
+            });
+            const restN = new Set(rest.map(r => String(r.id == null ? '?' : r.id))).size;
             return '<div class="jn-shape">' + shape + '</div>'
-              + '<ul class="jn-dl">' + top.map(dv).join('') + '</ul>'
+              + jnGroups(top, i * 60)
               + (rest.length ? '<details class="jn-all"><summary>' + rest.length
-                  + ' more change' + (rest.length === 1 ? '' : 's') + '</summary>'
-                  + '<ul class="jn-dl jn-dl-rest">' + rest.map(dv).join('') + '</ul></details>' : '');
+                  + ' more change' + (rest.length === 1 ? '' : 's') + ' on ' + restN
+                  + ' more activit' + (restN === 1 ? 'y' : 'ies') + '</summary>'
+                  + '<div class="jn-dl-rest">' + jnGroups(rest, 0) + '</div></details>' : '');
           })()
           : '';
         return '<div class="jn-lvb" style="animation-delay:' + (i * 60) + 'ms">' + head + list + '</div>';
@@ -8714,6 +8946,7 @@ Or say what you want, in your own words:
           : paused === 'conflict' ? '⚠ Auto sync: paused, needs you'
           : paused === 'permission' ? '⚠ Auto sync: waiting for permission'
           : paused === 'lineage' ? '⚠ Auto sync: that trunk is another engagement'
+          : trunkPending ? '🔄 Auto sync: on · ' + trunkPending + ' to send'
           : '🔄 Auto sync: on';
         ab.style.color = paused ? 'var(--warn)' : 'var(--text)';
         ab.title = !trunkAuto
@@ -36294,6 +36527,37 @@ Do not write payment terms or exclusions — both are generated from the project
          of them is unbillable by construction: recording that an activity
          reached 60% is not a scope change, and a change order that priced it
          would be invoicing somebody for their own progress. */
+      /* ═══ AND THE TWELVE KINDS OF EDIT THAT FILED A SILENT VERSION ══════
+         Asked as "why can we add versions with no changes?", over a push
+         reading "0 changes across 1 version". The version was real — something
+         had moved, which is the only reason one gets filed — but the diff had
+         no vocabulary for it, so the dialog reported the absence of a WORD as
+         the absence of a change.
+
+         Measured rather than guessed, by moving one thing at a time and asking
+         whether a version would be filed and how many rows appeared:
+         acceptance, deliverable, work type, audience, attendees, the parent,
+         an estimate range that keeps its mean, a story's wording, the pricing
+         model, the contract price, the RAID log and the status narrative all
+         came back "files a version, says nothing". Every one has a name now.
+
+         They are emitted by the changelog and never by planDiff, deliberately:
+         a change order is priced off planDiff, and none of these is scope. */
+      acceptance:     { lbl: 'Pass-when',       billable: false, order: 30 },
+      deliverable:    { lbl: 'Deliverable',     billable: false, order: 31 },
+      taxonomy:       { lbl: 'Work type',       billable: false, order: 32 },
+      audience:       { lbl: 'Audience',        billable: false, order: 33 },
+      attendees:      { lbl: 'People on it',    billable: false, order: 34 },
+      reparented:     { lbl: 'Moved under',     billable: false, order: 35 },
+      'estimate-range': { lbl: 'Estimate range', billable: false, order: 36 },
+      'story-reworded': { lbl: 'Story reworded', billable: false, order: 37 },
+      'pricing-model': { lbl: 'Pricing model',  billable: false, order: 40 },
+      'contract-price': { lbl: 'Contract price', billable: false, order: 41 },
+      'plan-value':   { lbl: 'Plan value',      billable: false, order: 42 },
+      'plan-finish':  { lbl: 'Finish date',     billable: false, order: 43 },
+      'raid-log':     { lbl: 'RAID log',        billable: false, order: 44 },
+      narrative:      { lbl: 'Status narrative', billable: false, order: 45 },
+      'status-snapshot': { lbl: 'Status snapshot', billable: false, order: 46 },
       progressed:     { lbl: 'Progress',        billable: false, order: 20 },
       logged:         { lbl: 'Time logged',     billable: false, order: 21 },
       started:        { lbl: 'Actual start',    billable: false, order: 22 },
