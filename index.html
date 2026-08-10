@@ -2919,6 +2919,17 @@
        initials disc is doing real work: on a plan three people share, WHOSE
        edit this is is the first thing a reader wants and a name in body text
        does not carry it. */
+    /* A DECISION DIALOG KEEPS ITS ANSWER IN VIEW. The changelog inside this one
+       grows with how much the team has done, and the modal scrolls as a whole —
+       so past a certain amount of history the buttons went off the bottom and
+       left somebody reading a list with no visible way to agree to it. The
+       mobile layout already pinned the footer for the same reason. */
+    #joinModal .modal-footer { position: sticky; bottom: 0; background: #fff; z-index: 2;
+      box-shadow: 0 -6px 14px -8px rgb(15 23 42 / .2); }
+    /* The fold is for the version that moved sixty activities. Letting it open
+       to full height would push the decision off the screen it was opened to
+       make, so the remainder scrolls inside itself. */
+    .jn-dl-rest { max-height: 38vh; overflow-y: auto; }
     .jn-log { border: 1px solid var(--border); border-radius: 10px; background: var(--card);
       padding: .55rem .7rem .6rem; margin-bottom: .9rem; box-shadow: var(--sh-1); }
     .jn-logh { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
@@ -5258,7 +5269,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0706</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.1705</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6838,6 +6849,18 @@ Or say what you want, in your own words:
        another copy's history in a file. */
     function trunkRelation(t) {
       if (!t || t._format !== TRUNK_FORMAT) return { relation: 'notatrunk' };
+      const theirVids = [].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid));
+      const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
+      /* ═══ NOTHING OF YOUR OWN IS NOT A DIFFERENT ENGAGEMENT ════════════════
+         A page with no activities and no versions has no history that could
+         contradict anybody's. The lineage stamp sitting on it was minted by the
+         act of saving, not by any work — so comparing stamps first told a
+         newcomer who opened the app, let it save once and then joined the team
+         trunk that they had a different engagement, with an empty screen in
+         front of them to be different with. Joining is the entire thing they
+         are doing, and there is nothing here to protect. */
+      if (theirVids.length && !myVids.length && !(tasks || []).length)
+        return { relation: 'behind', behind: theirVids.length, ahead: 0 };
       /* A FORK IS NOT A STRANGER. Both are "different lineage", and telling a
          person their copy "was not started from a copy of this plan" — when it
          was started from exactly that — is a dead end delivered as a fact. */
@@ -6850,8 +6873,6 @@ Or say what you want, in your own words:
         const k = trunkKinship(t);
         return k.shared > 0 ? { relation: 'kin', kin: k } : { relation: 'unrelated', kin: k };
       }
-      const theirVids = [].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid));
-      const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
       if (!theirVids.length) return { relation: 'empty' };
       if (!myVids.length) return { relation: 'behind', behind: theirVids.length, ahead: 0 };
       const theirSet = new Set(theirVids), mySet = new Set(myVids);
@@ -7004,12 +7025,20 @@ Or say what you want, in your own words:
        narrative, all of which travel in a push and none of which the commitment
        snapshot sees. The commitment snapshot itself is untouched — widening it
        would make a check-off read as a scope change on every change order. */
+    /* THE COLUMNS OF THE WORK RECORD, IN ORDER, DECLARED ONCE. The merge reads
+       an ancestor's progress back out of this fingerprint (see mergeWorkBase),
+       so a reader and a writer that disagree about column 4 would silently
+       compare a date against a cost. One list, used by both ends. */
+    const WORK_COLS = [
+      ['percentComplete', 'n'], ['actualEffort', 'n'],
+      ['actualStart', 's'], ['actualFinish', 's'], ['actualCost', 'n'],
+      ['invoiced', 'n'], ['invoicedDate', 's'], ['paid', 'n'], ['paidDate', 's']
+    ];
+    function workCell(t, f, kind) { return kind === 'n' ? (Number(t[f]) || 0) : (t[f] || ''); }
     function trunkWorkFingerprint() {
       return JSON.stringify({
-        work: (typeof leafTasks === 'function' ? leafTasks() : []).map(t => [t.id,
-          Number(t.percentComplete) || 0, Number(t.actualEffort) || 0,
-          t.actualStart || '', t.actualFinish || '', Number(t.actualCost) || 0,
-          Number(t.invoiced) || 0, t.invoicedDate || '', Number(t.paid) || 0, t.paidDate || '']),
+        work: (typeof leafTasks === 'function' ? leafTasks() : []).map(t =>
+          [t.id].concat(WORK_COLS.map(c => workCell(t, c[0], c[1])))),
         raid: (typeof raid !== 'undefined' && Array.isArray(raid)) ? raid : [],
         narrative: (typeof statusNarrative !== 'undefined') ? statusNarrative : '',
         status: (typeof statusHistory !== 'undefined' && Array.isArray(statusHistory)) ? statusHistory : []
@@ -7020,17 +7049,24 @@ Or say what you want, in your own words:
       if (s && typeof s === 'object') delete s.at;
       return JSON.stringify(s) + '\u0000' + trunkWorkFingerprint();
     }
-    function trunkEnsureTip() {
+    /* Does the newest version still describe what is on screen? Asked in three
+       places — before a push, before a pull decides where you stand, and by the
+       unattended loop — and each had written its own version of the comparison.
+       Two of the three compared only the commitment snapshot, so an afternoon of
+       recorded progress counted as "nothing has moved". */
+    function trunkTipIsCurrent() {
       const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
-      const now = trunkPlanFingerprint();
       /* The work half is compared against what was recorded when that version
          was FILED, which is what `_work` carries. A version from before this
          existed has none, and the honest answer there is "cannot tell" — so it
-         files one rather than assuming nothing happened. */
-      if (last && last.snap && typeof last._work === 'string') {
-        const was = Object.assign({}, last.snap); delete was.at;
-        if (JSON.stringify(was) + '\u0000' + last._work === now) return last;
-      }
+         counts as out of date rather than assuming nothing happened. */
+      if (!last || !last.snap || typeof last._work !== 'string') return false;
+      const was = Object.assign({}, last.snap); delete was.at;
+      return JSON.stringify(was) + '\u0000' + last._work === trunkPlanFingerprint();
+    }
+    function trunkEnsureTip() {
+      const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
+      if (trunkTipIsCurrent()) return last;
       return pushVersion('sync', 'shared with the team');
     }
     /* ═══ STARTING A TRUNK AND JOINING ONE ARE DIFFERENT ACTS ═════════════════
@@ -7254,7 +7290,16 @@ Or say what you want, in your own words:
         return;
       }
       if (!t) return;
-      const rel = trunkRelation(t);
+      let rel = trunkRelation(t);
+      /* The same blind spot pull had, and worse here because nobody is
+         watching: a quiet fast-forward over unshared work leaves no dialog
+         behind to notice. File the tip first so the loop is answering about
+         the plan, not about the last thing filed. */
+      if (rel.relation === 'behind' && leafTasks().length) {
+        const before = planVersions.length;
+        trunkEnsureTip();
+        if (planVersions.length !== before) rel = trunkRelation(t);
+      }
       /* ADOPTING A LINEAGE IS A DECISION, so the unattended loop stops and
          says so rather than making it. Same rule as a contested merge. */
       if (rel.relation === 'fork' || rel.relation === 'kin' || rel.relation === 'twin'
@@ -7282,9 +7327,9 @@ Or say what you want, in your own words:
            have moved since the last version was filed, and trunkEnsureTip mints
            one at push time. */
         if (!trunkLastLocal || Date.now() - trunkLastLocal < TRUNK_QUIET_MS) return;
-        const last = planVersions.length ? planVersions[planVersions.length - 1] : null;
-        const moved = !last || JSON.stringify(last.snap) !== JSON.stringify(snapshotPlan());
-        if (rel.relation === 'ahead' || moved) { trunkLastLocal = 0; await trunkPush(true); trunkAutoStart(); }
+        // the commitment snapshot alone was the comparison here, so a day of
+        // check-offs read as "nothing has moved" and never left the machine
+        if (rel.relation === 'ahead' || !trunkTipIsCurrent()) { trunkLastLocal = 0; await trunkPush(true); trunkAutoStart(); }
       }
     }
     /* ═══ "A DIFFERENT ENGAGEMENT" IS A VERDICT AND MUST SHOW ITS EVIDENCE ════
@@ -7507,12 +7552,55 @@ Or say what you want, in your own words:
       add({ planVersions: planVersions });
       return m;
     }
+    /* ═══ THE CHANGELOG HAS A WORK HALF TOO ═════════════════════════════════
+       Same index, over `_work` instead of `snap`. Without it the two halves of
+       one dialog contradicted each other in the same screenshot: "0 changes
+       across 1 version — nothing this comparison looks at moved" printed
+       directly above a panel counting "2 fields they changed and you did not".
+       Both were reading their own truth. The commitment snapshot carries no
+       progress, so a version whose entire content was a morning of check-offs
+       diffs to nothing.
+
+       These rows are built HERE and never in planDiff, deliberately: planDiff
+       feeds change orders, and a check-off is not scope to be priced. */
+    function trunkWorkIndex(t) {
+      const m = new Map();
+      const add = doc => (((doc && doc.planVersions) || [])).forEach(v => {
+        if (v.vid && typeof v._work === 'string' && !m.has(v.vid)) m.set(v.vid, v._work); });
+      if (t && t.base && t.base.doc) add(t.base.doc);
+      ((t && t.log) || []).forEach(e => add(e.doc));
+      add({ planVersions: planVersions });
+      return m;
+    }
+    const WORK_DIFF_KIND = {
+      percentComplete: 'progressed', actualEffort: 'logged',
+      actualStart: 'started', actualFinish: 'finished', actualCost: 'actual-cost',
+      invoiced: 'invoiced', invoicedDate: 'invoice-dated',
+      paid: 'paid', paidDate: 'paid-dated'
+    };
+    function trunkWorkRows(fromW, toW, nameOf) {
+      const A = mergeWorkBase({ _work: fromW }), B = mergeWorkBase({ _work: toW });
+      if (!A || !B) return [];
+      const rows = [];
+      B.forEach((b, id) => {
+        const a = A.get(id);
+        // an activity that did not exist before is already an "added" row
+        if (!a) return;
+        WORK_COLS.forEach(c => {
+          const f = c[0];
+          if (String(a[f]) === String(b[f])) return;
+          rows.push({ kind: WORK_DIFF_KIND[f], id: id, name: nameOf(id), from: a[f], to: b[f] });
+        });
+      });
+      return rows;
+    }
     /* A version whose snapshot was trimmed away cannot be diffed, and saying so
        is the honest answer — inventing "no changes" for a payload nobody kept
        would read as a quiet version rather than an unknown one. */
-    function trunkDeltas(list, snapOf, liveVid) {
+    function trunkDeltas(list, snapOf, liveVid, workOf) {
       return (list || []).map(e => {
-        const to = (liveVid && liveVid === e.vid) ? snapshotPlan() : snapOf(e.vid);
+        const live = !!(liveVid && liveVid === e.vid);
+        const to = live ? snapshotPlan() : snapOf(e.vid);
         const from = snapOf(e.pvid);
         /* Three different silences, and they are not the same answer. No
            snapshot for THIS version means its contents were trimmed away. No
@@ -7520,7 +7608,12 @@ Or say what you want, in your own words:
            — which is normal for the oldest version in view and is not a defect
            in the file. Calling both "payload trimmed" told people their history
            was being eaten when it was not. */
-        const rows = (from && to) ? planDiff(from, to) : null;
+        let rows = (from && to) ? planDiff(from, to) : null;
+        if (rows && workOf) {
+          const nm = new Map(((to && to.tasks) || []).map(x => [x.id, x.name]));
+          rows = rows.concat(trunkWorkRows(workOf(e.pvid),
+            live ? trunkWorkFingerprint() : workOf(e.vid), id => nm.get(id) || ('#' + id)));
+        }
         /* A REPLACEMENT IS NOT A LIST OF EDITS. Two copies of one engagement
            that were joined by lineage can hold genuinely different plans, and
            diffing across that seam produces every activity on one side as
@@ -7571,7 +7664,15 @@ Or say what you want, in your own words:
        read. The preview rows chosen by how far they move the money and the
        dates, so the ones shown are the ones worth reading. And the whole list
        one click away, because "and 16 more" is a dead end. */
-    const TRUNK_LOG_CAP = 4;      // rows previewed per version before the rest folds away
+    /* WAS 4, AND FOUR IS NOT A LIST — it is a sample, and a sample answers a
+       different question from the one somebody has open a sync dialog to ask.
+       Reported as "i need to be able to see exactly which items were adjusted
+       like activity went from 0 to 44": an ordinary sync moves a handful of
+       things, and a handful should be READ, not clicked open. Twelve covers
+       essentially every real version; past that the remainder still folds,
+       because a version that moved sixty activities is a different kind of
+       event and the fold is what keeps the dialog a dialog. */
+    const TRUNK_LOG_CAP = 12;     // rows shown per version before the rest folds away
     function trunkLogHtml(deltas, opts) {
       opts = opts || {};
       const all = deltas.filter(d => d.rows && d.rows.length);
@@ -7598,6 +7699,14 @@ Or say what you want, in your own words:
             case 're-estimated': return fmtDurCell(n2(v));
             case 'repriced':     return fmtMoney(Number(v) || 0);
             case 'reallocated':  return (Number(v) || 0) + '%';
+            case 'progressed':   return (Number(v) || 0) + '%';
+            // "0 → 1.25d" leaves the reader working out whether the 0 is days,
+            // hours or a blank cell. Nothing logged is nothing logged.
+            case 'logged':       return (Number(v) || 0) === 0 ? 'none' : fmtDurCell(n2(v));
+            case 'actual-cost': case 'invoiced': case 'paid': return fmtMoney(Number(v) || 0);
+            // a date that has not been recorded is blank, and "" prints as nothing
+            case 'started': case 'finished': case 'invoice-dated': case 'paid-dated':
+              return String(v || 'not recorded');
             default:             return typeof v === 'number' ? String(n2(v)) : String(v);
           }
         };
@@ -7646,8 +7755,23 @@ Or say what you want, in your own words:
               .sort((a, b) => (DIFF_KINDS[a] || { order: 99 }).order - (DIFF_KINDS[b] || { order: 99 }).order)
               .map(k => '<span class="jn-kc">' + byKind[k] + ' '
                 + escapeHtml((DIFF_KINDS[k] || { lbl: k }).lbl.toLowerCase()) + '</span>').join('');
-            const weight = r => Math.abs(r.priceDelta || 0) / 1000 + Math.abs(r.days || 0)
-              + (r.kind === 'removed' || r.kind === 'added' ? 0.5 : 0);
+            /* WORK ROWS CARRY NEITHER A PRICE NOR A DURATION, so on the
+               original weighting every one of them scored zero and sorted
+               below every re-estimate — which put the progress somebody
+               actually pulled for underneath the fold. Each kind is scored on
+               the thing it moves, normalised so a full activity crossing the
+               line, a day logged and a thousand pounds are comparable. */
+            const span = r => Math.abs((Number(r.to) || 0) - (Number(r.from) || 0));
+            const weight = r => {
+              switch (r.kind) {
+                case 'progressed':  return 0.5 + span(r) / 100;
+                case 'logged':      return 0.5 + span(r);
+                case 'actual-cost': case 'invoiced': case 'paid': return 0.5 + span(r) / 1000;
+                case 'started': case 'finished': case 'invoice-dated': case 'paid-dated': return 0.6;
+                default: return Math.abs(r.priceDelta || 0) / 1000 + Math.abs(r.days || 0)
+                  + (r.kind === 'removed' || r.kind === 'added' ? 0.5 : 0);
+              }
+            };
             const top = dl.rows.slice().sort((a, b) => weight(b) - weight(a)).slice(0, TRUNK_LOG_CAP);
             const shown = new Set(top);
             const rest = dl.rows.filter(r => !shown.has(r));
@@ -7655,7 +7779,7 @@ Or say what you want, in your own words:
               + '<ul class="jn-dl">' + top.map(dv).join('') + '</ul>'
               + (rest.length ? '<details class="jn-all"><summary>' + rest.length
                   + ' more change' + (rest.length === 1 ? '' : 's') + '</summary>'
-                  + '<ul class="jn-dl">' + rest.map(dv).join('') + '</ul></details>' : '');
+                  + '<ul class="jn-dl jn-dl-rest">' + rest.map(dv).join('') + '</ul></details>' : '');
           })()
           : '';
         return '<div class="jn-lvb" style="animation-delay:' + (i * 60) + 'ms">' + head + list + '</div>';
@@ -7668,7 +7792,12 @@ Or say what you want, in your own words:
               + (Math.round(Math.abs(days) * 10) / 10) + 'd' : '')
           + (Math.abs(money) >= 1 ? ' · ' + (money > 0 ? '+' : '−') + fmtMoney(Math.abs(money)) : '')
         + '</span></div>' + blocks
-        + (totalRows === 0 && !deltas.some(d => d.unknown)
+        /* "Nothing moved" and "there was nothing to compare against" are two
+           different sentences, and printing the first under a block that has
+           just said the second contradicts it in the same box. A version whose
+           parent is not in the file, or whose own payload was trimmed, has
+           already explained itself. */
+        + (totalRows === 0 && !deltas.some(d => d.unknown || d.noBase)
             ? '<p class="jn-alt" style="border:0;padding:0;margin:.3rem 0 0">Nothing this comparison looks at '
               + 'moved. A version can record a note, a sign-off or a baseline without changing an activity.</p>' : '')
         + '</div>';
@@ -8029,7 +8158,36 @@ Or say what you want, in your own words:
         }
         if (!t) { flashSaved('The trunk is empty — push yours to start it.'); return; }
         const chk = trunkVerifyChain(t);
-        const rel = trunkRelation(t);
+        let rel = trunkRelation(t);
+        /* ═══ WHERE YOU STAND IS A QUESTION ABOUT WHAT YOU HAVE ════════════
+           …not about what you last filed. The relation is read off the version
+           chain, and work done since the newest version is not in that chain —
+           so a plan carrying an afternoon of unshared progress reads as
+           "behind, and you have changed nothing", and the fast-forward below
+           replaces the whole document.
+
+           Photographed by the two-person demo: one person corrected an
+           activity from 100% down to 25%, pulled, and got 100% back. No
+           dialog, no mention, no undo prompt — the fast-forward is applied
+           straight through precisely BECAUSE it believes there is nothing to
+           weigh. Push has filed the tip before asking since the day it was
+           written; pull never did, and pull is the direction that overwrites.
+
+           Filed here rather than on every tick because this is the moment it
+           changes an answer: it turns a fast-forward that would discard the
+           work into the merge it always was, and turns "in step with the
+           trunk" into the truthful "you are 1 ahead — push to share it".
+
+           Only when there is something to lose. A plan with nothing in it has
+           nothing a fast-forward can destroy, and filing a version of one is
+           how a first-time join broke: minting a version mints a lineage, the
+           new teammate's empty page became an engagement of its own, and the
+           trunk they were trying to join came back as a stranger. */
+        if ((rel.relation === 'behind' || rel.relation === 'same') && leafTasks().length) {
+          const before = planVersions.length;
+          trunkEnsureTip();
+          if (planVersions.length !== before) rel = trunkRelation(t);
+        }
         if (rel.relation === 'same') { flashSaved('✓ In step with the trunk' + (chk.ok ? '' : ' — but it has ' + chk.gaps.length + ' gap(s), see Connect')); return; }
         if (rel.relation === 'ahead') { flashSaved('You are ' + rel.ahead + ' ahead of the trunk — push to share it'); return; }
         if (rel.relation === 'fork') {
@@ -8087,11 +8245,11 @@ Or say what you want, in your own words:
             /* The snapshots come out of the trunk tip's OWN version chain,
                which travels inside every payload — so an incoming version can
                be diffed against its parent without either side being here. */
-            const theirSnaps = trunkSnapIndex(t);
+            const theirSnaps = trunkSnapIndex(t), theirWork = trunkWorkIndex(t);
             const mineVids = new Set((planVersions || []).map(v => v.vid));
             const incoming = (t.log || []).filter(e => e.vid && !mineVids.has(e.vid));
-            const ffLog = trunkLogHtml(trunkDeltas(incoming, vid => theirSnaps.get(vid)),
-              { head: 'What is arriving' });
+            const ffLog = trunkLogHtml(trunkDeltas(incoming, vid => theirSnaps.get(vid), null,
+              vid => theirWork.get(vid)), { head: 'What is arriving' });
             const okFf = await trunkAsk({
               log: ffLog,
               title: 'Take the team\'s latest', ico: '⬇',
@@ -8183,11 +8341,11 @@ Or say what you want, in your own words:
           const keep = (r.myAdds || []).length;
           const incoming = (r.auto || []).length + (r.theirAdds || []).length;
           if (!quiet) {
-            const theirSnaps2 = trunkSnapIndex(t);
+            const theirSnaps2 = trunkSnapIndex(t), theirWork2 = trunkWorkIndex(t);
             const mineVids2 = new Set((planVersions || []).map(v => v.vid));
             const incoming2 = (t.log || []).filter(e => e.vid && !mineVids2.has(e.vid));
-            const clLog = trunkLogHtml(trunkDeltas(incoming2, vid => theirSnaps2.get(vid)),
-              { head: 'What is arriving' });
+            const clLog = trunkLogHtml(trunkDeltas(incoming2, vid => theirSnaps2.get(vid), null,
+              vid => theirWork2.get(vid)), { head: 'What is arriving' });
             const okCl = await trunkAsk({
               log: clLog,
               title: 'Take their changes — nothing conflicts', ico: '🤝',
@@ -8413,8 +8571,10 @@ Or say what you want, in your own words:
              when it was filed and the plan may have moved since. Showing the
              snapshot would describe a file nobody is about to write. */
           const mySnaps = new Map((planVersions || []).map(v => [v.vid, v.snap]).filter(x => x[0] && x[1]));
+          const myWork = new Map((planVersions || [])
+            .filter(v => v.vid && typeof v._work === 'string').map(v => [v.vid, v._work]));
           const pushLog = trunkLogHtml(
-            trunkDeltas(mine, vid => mySnaps.get(vid), mine[mine.length - 1].vid),
+            trunkDeltas(mine, vid => mySnaps.get(vid), mine[mine.length - 1].vid, vid => myWork.get(vid)),
             { head: 'What the team receives' });
           const okGo = await trunkAsk({
             log: pushLog,
@@ -36128,7 +36288,21 @@ Do not write payment terms or exclusions — both are generated from the project
       'ac-removed': { lbl: 'Criterion removed', billable: true,  order: 11 },
       'ac-reworded': { lbl: 'Criterion reworded', billable: false, order: 12 },
       'story-added': { lbl: 'Story added',      billable: true,  order: 13 },
-      'story-removed': { lbl: 'Story removed',  billable: true,  order: 14 }
+      'story-removed': { lbl: 'Story removed',  billable: true,  order: 14 },
+      /* WHAT HAPPENED, not what was agreed. planDiff never emits these — they
+         are built by trunkWorkRows for the sync changelog only — and every one
+         of them is unbillable by construction: recording that an activity
+         reached 60% is not a scope change, and a change order that priced it
+         would be invoicing somebody for their own progress. */
+      progressed:     { lbl: 'Progress',        billable: false, order: 20 },
+      logged:         { lbl: 'Time logged',     billable: false, order: 21 },
+      started:        { lbl: 'Actual start',    billable: false, order: 22 },
+      finished:       { lbl: 'Actual finish',   billable: false, order: 23 },
+      'actual-cost':  { lbl: 'Actual cost',     billable: false, order: 24 },
+      invoiced:       { lbl: 'Invoiced',        billable: false, order: 25 },
+      'invoice-dated': { lbl: 'Invoice date',   billable: false, order: 26 },
+      paid:           { lbl: 'Paid',            billable: false, order: 27 },
+      'paid-dated':   { lbl: 'Payment date',    billable: false, order: 28 }
     };
     function predKey(ps) {
       return (ps || []).map(p => p.id + ':' + p.type + ':' + (p.lag || 0)).sort().join(',');
@@ -36150,14 +36324,75 @@ Do not write payment terms or exclusions — both are generated from the project
        existing version diff has always had the same shape — so phase rows,
        stories, the RAID log and the roster are NOT merged, and the panel says
        so rather than letting somebody assume they were. */
+    /* ═══ WHAT A MERGE CARRIES, AND THE HALF IT USED TO LEAVE BEHIND ═══════
+       These seventeen fields describe the plan as AGREED — what the work is,
+       how long it was estimated at, whose it is, what it costs. That is the
+       right list for a change order and it was the whole list here, so a merge
+       between two people never moved a single thing about what had actually
+       HAPPENED: progress, time logged, actual dates and cost, invoicing and
+       payment. Each side kept its own and neither was told.
+
+       Photographed rather than argued, by tests/demo-two-people. One person
+       moving at a time was already fine — that is a fast-forward, and a
+       fast-forward takes the whole document. The case that dropped everything
+       is two people moving AT ONCE, because then the pull is a merge and a
+       merge copies this list and nothing else: one recorded 25% on one
+       activity, the other 45% on another, and after the merge each still held
+       only their own. The two screens agreed about the plan and disagreed
+       about the work.
+
+       It is the same root cause as the push that answered "the trunk already
+       has everything of yours" after somebody ticked an activity: this
+       application's sync was built around the commitment, and the record of
+       what has been done was never part of it. Both halves are now.
+
+       They merge like every other field, which means two people who moved the
+       same one meet the conflict review rather than one of them winning
+       silently — two people reporting different progress on one activity is
+       exactly the disagreement a person should settle. */
     const MERGE_FIELDS = [
       ['name', 'Name'], ['o', 'Optimistic'], ['m', 'Most likely'], ['p', 'Pessimistic'],
       ['milestone', 'Is a milestone'], ['owner', 'Owner'], ['units', 'Units %'],
       ['parentId', 'Parent'], ['predecessors', 'Predecessors'],
       ['startNoEarlier', 'Start no earlier than'], ['deadline', 'Deadline'],
       ['fixedCost', 'Fixed cost'], ['acceptance', 'Acceptance'], ['deliverable', 'Deliverable'],
-      ['curve', 'Spend shape'], ['audience', 'Audience'], ['taxonomy', 'Work type']
+      ['curve', 'Spend shape'], ['audience', 'Audience'], ['taxonomy', 'Work type'],
+      // what has actually happened, which a team shares more often than the plan
+      ['percentComplete', '% complete'], ['actualEffort', 'Time spent'],
+      ['actualStart', 'Actual start'], ['actualFinish', 'Actual finish'],
+      ['actualCost', 'Actual cost'],
+      ['invoiced', 'Invoiced'], ['invoicedDate', 'Invoiced on'],
+      ['paid', 'Paid'], ['paidDate', 'Paid on']
     ];
+    /* WHERE THE ANCESTOR'S PROGRESS COMES FROM. The seventeen fields above the
+       comment live in the commitment snapshot, so a three-way merge can ask
+       "what did this say before either of us touched it" and get an answer. The
+       nine below it cannot: snapshotPlan() carries no progress on purpose, as a
+       check-off is not a scope change and widening it would put one on every
+       change order.
+       Merging them against that snapshot anyway is how a demo of two people
+       working at once ended with one person's own 25% replaced by the other
+       side's number: with no ancestor, every difference reads as "both of us
+       moved" and the tie is broken by whoever the dialog defaults to. The work
+       fingerprint filed with the version does record what had happened at that
+       moment, so it is the ancestor for these fields. */
+    const MERGE_WORK = new Map(WORK_COLS);
+    function mergeWorkVal(t, f) { return t ? workCell(t, f, MERGE_WORK.get(f)) : undefined; }
+    function mergeWorkBase(rec) {
+      // a version filed before the fingerprint existed has no answer to give
+      if (!rec || typeof rec._work !== 'string') return null;
+      let parsed;
+      try { parsed = JSON.parse(rec._work); } catch (e) { return null; }
+      if (!parsed || !Array.isArray(parsed.work)) return null;
+      const out = new Map();
+      parsed.work.forEach(row => {
+        if (!Array.isArray(row) || row.length < WORK_COLS.length + 1) return;
+        const o = {};
+        WORK_COLS.forEach((c, i) => { o[c[0]] = row[i + 1]; });
+        out.set(row[0], o);
+      });
+      return out;
+    }
     function mergeFieldVal(t, f) {
       if (!t) return undefined;
       if (f === 'predecessors') return JSON.stringify((t.predecessors || [])
@@ -36172,6 +36407,13 @@ Do not write payment terms or exclusions — both are generated from the project
         catch (e) { return String(v); }
       }
       if (f === 'milestone') return v ? 'yes' : 'no';
+      /* A number needs its unit to be read as a fact. "45" beside "% complete"
+         is legible; "4200" beside "Invoiced" is not obviously money, and "0.5"
+         beside "Time spent" could be days, hours or a fraction of the job. */
+      if (f === 'percentComplete') return (Number(v) || 0) + '%';
+      // a bare "0" beside "Time spent" is not readable as an amount of time
+      if (f === 'actualEffort') return (Number(v) || 0) === 0 ? '(none)' : fmtDurCell(Number(v));
+      if (f === 'actualCost' || f === 'invoiced' || f === 'paid') return fmtMoney(Number(v) || 0);
       return String(v);
     }
     // the newest version whose snapshot is byte-identical in both files
@@ -36250,6 +36492,12 @@ Do not write payment terms or exclusions — both are generated from the project
       if (!found) return { noBase: true, rel: versionRelation(theirDoc) };
       const baseT = new Map(((found.snap && found.snap.tasks) || []).map(t => [t.id, t]));
       const mineT = new Map(leafTasks().map(t => [t.id, t]));
+      /* Both copies of the ancestor are the same version, so either fingerprint
+         will do; mine is preferred only because my own history is the half I
+         can vouch for. Where there is none, the work fields are left out of the
+         merge entirely — reporting a difference nobody can attribute is exactly
+         how somebody's status gets overwritten. */
+      const workBase = mergeWorkBase(found.mine) || mergeWorkBase(found.theirs);
       /* isSummary is COMPUTED by calculate() and is not in the file, so trusting
          the flag on a serialized task kept every phase row and made the whole
          plan look like additions. A row is a summary if something claims it as
@@ -36268,7 +36516,13 @@ Do not write payment terms or exclusions — both are generated from the project
         if (!c && a) { theirDeletes.push({ id: id, name: a.name }); return; }
         if (!a) return;                                   // I deleted it; their edits do not resurrect it
         MERGE_FIELDS.forEach(([f, lbl]) => {
-          const vb = mergeFieldVal(b, f), va = mergeFieldVal(a, f), vc = mergeFieldVal(c, f);
+          const wk = MERGE_WORK.has(f);
+          // no ancestor for this field, or none for this row, means no opinion
+          const bw = wk ? (workBase && workBase.get(id)) : null;
+          if (wk && !bw) return;
+          const vb = wk ? mergeWorkVal(bw, f) : mergeFieldVal(b, f);
+          const va = wk ? mergeWorkVal(a, f) : mergeFieldVal(a, f);
+          const vc = wk ? mergeWorkVal(c, f) : mergeFieldVal(c, f);
           if (vc === undefined || String(vc) === String(vb)) return;   // they did not touch it
           if (String(va) === String(vb)) { auto.push({ id: id, name: a.name, field: f, label: lbl, mine: va, theirs: vc }); return; }
           if (String(va) === String(vc)) return;                        // same edit, both sides
@@ -36661,8 +36915,19 @@ Do not write payment terms or exclusions — both are generated from the project
         ? '<details ' + (open ? 'open' : '') + ' style="margin-bottom:0.5rem"><summary style="cursor:pointer;font-weight:600">'
           + title + '</summary><div class="help-text" style="margin:0.2rem 0 0.4rem">' + note + '</div>' + inner + '</details>'
         : '';
+      /* BOTH SIDES OF EVERY NUMBER. This printed the incoming value alone —
+         "Integration Testing · % complete 45" — which says what the field will
+         BE and not what it was, so there was no way to tell an activity that
+         went 0 → 45 from one that went 40 → 45. Asked for directly: "i need to
+         be able to see exactly which items were adjusted like activity went
+         from 0 to 44". The old value was already on the row; it simply was not
+         being drawn. */
       const line = x => '<div style="font-size:0.82rem;padding:0.15rem 0"><b>' + esc(x.name) + '</b>'
-        + (x.label ? ' · ' + esc(x.label) + ' <span style="color:#15803d">' + esc(mergeShow(x.field, x.theirs)) + '</span>' : '') + '</div>';
+        + (x.label
+            ? ' · ' + esc(x.label) + ' <span class="help-text">' + esc(mergeShow(x.field, x.mine))
+              + '</span> <span style="color:var(--muted)">→</span> <span style="color:#15803d;font-weight:600">'
+              + esc(mergeShow(x.field, x.theirs)) + '</span>'
+            : '') + '</div>';
       const conflictRows = r.conflicts.map((c, i) => `
         <div style="border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;margin-bottom:0.4rem">
           <div style="font-weight:600;font-size:0.85rem">${esc(c.name)} <span class="help-text">· ${esc(c.label)}</span></div>
@@ -36745,7 +37010,16 @@ Do not write payment terms or exclusions — both are generated from the project
       const setField = (t, f, raw) => {
         if (f === 'predecessors') { try { t.predecessors = JSON.parse(raw).map(normalizePred); } catch (e) {} return; }
         if (f === 'milestone') { t.milestone = !!raw; return; }
-        if (['o', 'm', 'p', 'units', 'fixedCost'].indexOf(f) >= 0) { t[f] = Number(raw) || 0; return; }
+        /* The work fields are numbers too, and a merged '60' arriving as the
+           STRING '60' would sort, sum and compare wrong everywhere downstream —
+           mergeFieldVal stringifies on the way out, so the way back in has to
+           undo it for every numeric field, not just the estimate ones. */
+        if (['o', 'm', 'p', 'units', 'fixedCost', 'percentComplete', 'actualEffort',
+             'actualCost'].indexOf(f) >= 0) { t[f] = Number(raw) || 0; return; }
+        // money that is genuinely "not recorded" stays null rather than becoming 0
+        if (['invoiced', 'paid'].indexOf(f) >= 0) {
+          t[f] = (raw === '' || raw == null) ? null : (Number(raw) || 0); return;
+        }
         if (f === 'parentId') { t.parentId = (raw === '' || raw == null) ? null : Number(raw); return; }
         t[f] = raw;
       };

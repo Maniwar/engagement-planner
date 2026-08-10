@@ -1002,6 +1002,133 @@ function serveApp() {
       await new Promise(r => setTimeout(r, 200));
     })();
 
+    /* ═══ A PULL MUST NOT SPEND WORK THAT WAS NEVER SHARED ═══════════════════
+       Found by photographing two people rather than by any check here, which is
+       why this block exists: somebody corrected an activity from 100% down to
+       25%, pressed Pull, and got 100% back — no dialog, no mention, nothing to
+       undo. Every assertion in this file passed while that was true.
+
+       The reason it passed is worth more than the fix. Where you stand relative
+       to the trunk was read off the VERSION CHAIN, and work done since the last
+       version is not in the chain — so an hour of recorded progress read as
+       "behind, and you have changed nothing", and a fast-forward is applied
+       straight through precisely BECAUSE it believes there is nothing to weigh.
+       Every case above filed a version before syncing, the way the product's
+       own push does, so none of them ever presented the state where the two
+       disagree. The bug lived in the gap between what the sweep set up and what
+       a person does, which is the only place a bug can live once the obvious
+       cases are covered.
+
+       So this drives the sequence a PERSON produces: change something, and
+       press the button without filing anything first. Three properties, and all
+       three are needed — the first alone is satisfied by a build that never
+       fast-forwards, and the first two by one that files a version for
+       everybody including the newcomer who has nothing yet. */
+    await (async () => {
+      const sayW = m => say('Unshared work', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h2 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h2;
+      const pct = id => { const t = tasks.find(x => x.id === id); return t ? (Number(t.percentComplete) || 0) : null; };
+      const setPct = (id, v) => { const t = tasks.find(x => x.id === id); if (t) t.percentComplete = v; };
+
+      // one shared starting point both sides agree on
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      pushVersion('edit', 'shared start');
+      await trunkPush(true);
+      const start = capture();
+
+      // the other person moves, files a version the way a push does, and shares
+      restore(start); beA('Bob');
+      const wasPct = pct(B_ID);            // read, never assumed — 1b compares against it
+      out.wasPct = wasPct;
+      setPct(B_ID, 45); editName(B_ID, 'BOB MOVED THIS');
+      pushVersion('edit', 'bob progress');
+      await trunkPush(true);
+
+      // ── 1. and back here, progress recorded and NOT filed as a version ────
+      restore(start); beA('Alice');
+      setPct(A_ID, 25);
+      out.unsharedBefore = { mine: pct(A_ID), versions: (planVersions || []).length };
+      await trunkPull(true);
+      out.unsharedAfter = { mine: pct(A_ID), theirs: pct(B_ID) };
+      if (pct(A_ID) !== 25)
+        sayW('25% was recorded here and never shared, then a pull replaced it with ' + pct(A_ID)
+          + '. A pull that reads its position off the version chain cannot see work done since the last '
+          + 'version, so it fast-forwards over it — silently, because a fast-forward is the path that '
+          + 'believes there is nothing to weigh');
+      if (pct(B_ID) !== 45)
+        sayW('the other side recorded 45% on a different activity and after the pull this copy holds '
+          + pct(B_ID) + ' — protecting local work must not cost the work that was pulled for');
+
+      /* ── 1b. AND THE DIALOG SAYS WHICH ITEMS, WITH BOTH SIDES OF EACH ─────
+         Asked for in exactly these words: "i need to be able to see exactly
+         which items were adjusted like activity went from 0 to 44". A count is
+         not that, and neither is the new value on its own — "45%" could be a
+         move from 0 or from 44, and only one of those is worth reading a
+         dialog about. So the assertion is on the two VALUES and the activity's
+         NAME, never on how they are dressed: tags are stripped first, so a
+         restyling cannot make this go red and cannot make it pass either. */
+      restore(start); beA('Alice');
+      const snaps = trunkSnapIndex(await trunkRead(h2)), wk = trunkWorkIndex(await trunkRead(h2));
+      const tt = await trunkRead(h2);
+      const mineV = new Set((planVersions || []).map(v => v.vid));
+      const arriving = (tt.log || []).filter(e => e.vid && !mineV.has(e.vid));
+      const html = trunkLogHtml(trunkDeltas(arriving, v => snaps.get(v), null, v => wk.get(v)),
+        { head: 'What is arriving' });
+      const plain = String(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      out.changelogText = plain.slice(0, 220);
+      const bName = (tasks.find(x => x.id === B_ID) || {}).name || '';
+      if (plain.indexOf(bName) < 0)
+        sayW('the changelog for an incoming version does not name “' + bName + '”, the activity that moved. '
+          + 'A count of changes is not a list of them');
+      /* BOTH VALUES, ADJACENT AND IN ORDER. Checking for "45%" alone is
+         satisfied by a build that prints only the destination; checking for the
+         old value alone is satisfied by "100%" appearing anywhere on the page.
+         The separator between them is presentation and is allowed to be
+         anything short, so a restyled arrow does not turn this red. */
+      const pair = new RegExp(wasPct + '%[^%]{0,14}45%');
+      if (!pair.test(plain))
+        sayW('the changelog does not show ' + wasPct + '% → 45% for “' + bName + '”. Printed with only the '
+          + 'destination, "0 → 45%" and "44 → 45%" read identically, and one of those is a week of work and '
+          + 'the other is a rounding — asked for in exactly those terms');
+
+      // ── 2. …and with nothing of my own, it is still a straight catch-up ───
+      restore(start); beA('Alice');
+      const vBefore = (planVersions || []).length;
+      await trunkPull(true);
+      out.cleanFf = { theirs: pct(B_ID), versionsAdded: (planVersions || []).length - vBefore };
+      if (pct(B_ID) !== 45)
+        sayW('with nothing changed here, a pull did not bring the other side\'s 45% across — the catch-up '
+          + 'path has been disabled rather than made safe, which passes the check above for the wrong reason');
+
+      // ── 3. …and somebody with nothing yet can still join ──────────────────
+      const fresh = JSON.parse(JSON.stringify(window.__fixture));
+      fresh.tasks = []; fresh.planVersions = []; fresh.planLineage = '';
+      restore({ doc: fresh, versions: [], lineage: '' });
+      beA('Newcomer');
+      /* MINTED ON PURPOSE, because leaving it to chance is what this sub-check
+         did first and it disagreed with itself between runs: the stamp appears
+         the moment anything saves, so whether an empty page had one depended on
+         which async write landed first. Minting it makes the case the harder
+         of the two — a newcomer who opened the app and let it save once before
+         joining — and makes the answer the same every run. */
+      planLineageId();
+      const tN = await trunkRead(h2);
+      out.newcomerSaw = { rel: trunkRelation(tN).relation, hasStamp: !!planLineage,
+                          versions: (planVersions || []).length, tasks: tasks.length };
+      await trunkPull(true);
+      out.newcomerJoined = leafTasks().length;
+      if (!leafTasks().length)
+        sayW('somebody opened the app, let it save once, then pulled the team trunk and ended up with an '
+          + 'empty plan (the trunk came back as “' + out.newcomerSaw.rel + '”). Two ways to arrive here and '
+          + 'both are real: a lineage stamp is minted by SAVING rather than by any work, so an empty page '
+          + 'reads as a different engagement; and filing a version to protect local work mints one too, so '
+          + 'the guard that protects work has to ask whether there is any before it fires');
+      trunkHandle = h2;
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════

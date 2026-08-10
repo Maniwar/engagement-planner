@@ -1,0 +1,88 @@
+{
+ "shots": [
+  {
+   "file": "01-alice-records-progress.png",
+   "name": "alice-records-progress",
+   "caption": "Alice records progress on two activities. Nothing has been shared yet."
+  },
+  {
+   "file": "02-alice-push-question.png",
+   "name": "alice-push-question",
+   "caption": "Push asks first, and names what the team receives — who changed what, and the totals."
+  },
+  {
+   "file": "03-alice-push-running.png",
+   "name": "alice-push-running",
+   "caption": "The dialog becomes the work: each step reports what it did."
+  },
+  {
+   "file": "04-alice-push-done.png",
+   "name": "alice-push-done",
+   "caption": "The closing frame, rather than a toast that vanishes."
+  },
+  {
+   "file": "05-bob-before-joining.png",
+   "name": "bob-before-joining",
+   "caption": "Bob opens the app on a different machine. Empty — he has never seen this engagement."
+  },
+  {
+   "file": "06-bob-join-question.png",
+   "name": "bob-join-question",
+   "caption": "Joining: what is arriving, and from whom."
+  },
+  {
+   "file": "07-bob-after-join.png",
+   "name": "bob-after-join",
+   "caption": "Bob now holds the whole engagement, including Alice’s progress. Same plan, two machines."
+  },
+  {
+   "file": "08-bob-records-progress.png",
+   "name": "bob-records-progress",
+   "caption": "Bob records his own progress on a different activity: Solution Design at 80%."
+  },
+  {
+   "file": "09-bob-push-question.png",
+   "name": "bob-push-question",
+   "caption": "Bob shares. The trunk already holds Alice’s work, and a push only adds."
+  },
+  {
+   "file": "10-alice-after-autosync.png",
+   "name": "alice-after-autosync",
+   "caption": "Alice pressed nothing. The automatic tick brought Bob’s work across."
+  },
+  {
+   "file": "11-both-move-alice.png",
+   "name": "both-move-alice",
+   "caption": "Round two: Alice moves one activity…"
+  },
+  {
+   "file": "12-both-move-bob.png",
+   "name": "both-move-bob",
+   "caption": "…and at the same time, Bob moves another."
+  },
+  {
+   "file": "13-alice-merge-question.png",
+   "name": "alice-merge-question",
+   "caption": "Alice pulls with both of them moved. Nothing conflicts — different activities — so it merges."
+  },
+  {
+   "file": "14-alice-after-merge.png",
+   "name": "alice-after-merge",
+   "caption": "Alice keeps her own figure and gains Bob’s. This is the case the merge used to drop."
+  }
+ ],
+ "notes": [
+  "Alice set Kick-off & Discovery to 60% and Requirements Workshop to 35%",
+  "the shared file now holds 1 version(s)",
+  "Bob's joining dialog said: ⬇ The trunk is 1 version ahead of you, and you have changed nothing since you last shared.",
+  "after pulling, Bob shows Kick-off & Discovery at 60%",
+  "after the automatic tick, Alice shows Solution Design at 80%",
+  "both then moved at once: Alice Data Mapping → 25%, Bob Integration Testing → 45%",
+  "after the merge Alice holds her own 25% and Bob's 45%",
+  "Alice ends holding {\"a\":{\"name\":\"Kick-off & Discovery\",\"pct\":60,\"effort\":4},\"b\":{\"name\":\"Solution Design\",\"pct\":80,\"effort\":6}}; Bob ends holding {\"a\":{\"name\":\"Kick-off & Discovery\",\"pct\":60,\"effort\":4},\"b\":{\"name\":\"Solution Design\",\"pct\":80,\"effort\":6}}"
+ ],
+ "contradictions": [],
+ "pageErrors": [],
+ "trunkFile": "/tmp/demo-trunk-1dpSvR/team-trunk.json",
+ "out": "/workspace/engagement-planner/demo"
+}

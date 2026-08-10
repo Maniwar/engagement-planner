@@ -230,6 +230,27 @@ else
 fi
 rm -f /tmp/ptr-r.$$
 
+# TWO PEOPLE, ONE FILE, DRIVEN RATHER THAN DESCRIBED. Every check above runs one
+# page and swaps the plan state underneath it to stand in for a second person.
+# That is a good enough model of a colleague for almost everything, and it has
+# one blind spot it can never see: it files a version before each hand-over,
+# because filing one is the tidy way to write a setup. A person does not. They
+# record progress and press the button.
+#
+# In that gap lived a pull that fast-forwarded over unshared work and put a
+# corrected 100% straight back, silently, with the whole suite green. So this
+# runs two real browser CONTEXTS against one real file on disk and compares the
+# numbers on each screen. 36s. Screenshots go to a temp directory; the set
+# committed under demo/ is regenerated deliberately, not by every commit.
+DEMO_TMP=$(mktemp -d)
+if DEMO_OUT="$DEMO_TMP" node tests/demo-two-people.js > /tmp/ptr-d.$$ 2>&1; then
+  echo "  ✓ two people           each ends up holding the other's status"
+else
+  echo "  ✗ TWO PEOPLE — one person's work did not survive the other's"
+  sed -n '/"contradictions"/,$p' /tmp/ptr-d.$$ | sed -n '1,20p' | sed 's/^/      /'; fail=1
+fi
+rm -rf "$DEMO_TMP"; rm -f /tmp/ptr-d.$$
+
 # The other half of "can this check still fail". The mutants ask whether a
 # defect would be NOTICED; this asks whether the check is reading its input at
 # all. Every sweep is run twice — real plan, then an empty one — and its output
