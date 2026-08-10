@@ -635,6 +635,38 @@ function serveApp() {
       out.pushAsk = ask.slice(0, 70);
       if (ask.indexOf('trunk-sweep.json') < 0)
         sayP('the question does not name the file it is about to write');
+      /* ═══ AND IT SAYS WHAT IS CHANGING, AND WHO CHANGED IT ═══════════════
+         Reported by use: "it doesn't show the updates or whatever the details
+         of what is changing in a user friendly way and who changes what last".
+         A version COUNT is a fact about the file; what a person is deciding is
+         whether to share somebody's edits, and that is answered by naming the
+         edits and the person. Both were stored the whole time.
+
+         Asserted against the plan, not against the wording: the activity this
+         run renamed must be named in the dialog, the person who filed the
+         version must be named, and the change must be classified. A check on
+         the word "changes" alone would pass on a build that printed a heading
+         over an empty box. */
+      const who = (trunkIdentity && trunkIdentity().label) || '';
+      out.pushLogNames = { activity: ask.indexOf('A LOUD PUSH') >= 0, who: !!who && ask.indexOf(who) >= 0 };
+      if (!document.querySelector('#joinBody .jn-log'))
+        sayP('the question carries no changelog at all, so it asks somebody to share work it will not name');
+      else {
+        if (ask.indexOf('A LOUD PUSH') < 0)
+          sayP('the changelog does not name the activity this push actually renamed, so it is describing '
+            + 'something other than the versions being sent');
+        if (who && ask.indexOf(who) < 0)
+          sayP('the changelog does not say who filed the version — on a plan three people share, whose edit '
+            + 'this is is the first thing a reader wants');
+        const kinds = [...document.querySelectorAll('#joinBody .jn-log .jn-k')].map(x => x.textContent.trim());
+        out.pushLogKinds = [...new Set(kinds)];
+        if (!kinds.length)
+          sayP('the changelog lists no classified change — a heading over an empty box reads as "nothing '
+            + 'changed", which is the one thing it must never say by accident');
+        if (kinds.indexOf('Renamed') < 0)
+          sayP('this run renamed an activity and the changelog does not carry a Renamed row: '
+            + JSON.stringify([...new Set(kinds)]));
+      }
       if (!/\badd/i.test(ask))
         sayP('the question never says a push only ADDS — which is the single fact that makes it safe to say yes');
       document.getElementById('joinGo').click();

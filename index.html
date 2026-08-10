@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f172a" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+  <!-- ═══ THE TAB ICON ════════════════════════════════════════════════════
+       There was none, so this application was a blank page glyph in a row of
+       twenty tabs — indistinguishable from every other unbranded thing open.
+
+       Designed AT 16px and chosen there, not admired at 64 and then shrunk.
+       Four candidates were rendered at 16/20/32/64 against light and dark tab
+       strips: a bar cascade with a milestone diamond (the diamond is a speck),
+       a dark tile with blue bars (it disappears into a dark tab strip), and a
+       cascade with dependency ticks (the ticks turn to mud). What survives at
+       16px is three strokes and one strong colour block, which is this: two
+       white bars and one amber, the amber being the critical path. It reads as
+       a schedule at a glance and holds on either chrome.
+
+       Inline as a data URI because this product is ONE FILE and has to work
+       opened from disk, where a sibling favicon.svg does not exist. -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7.5' fill='%232563eb'/%3E%3Crect x='5.5' y='7' width='16' height='5' rx='2.5' fill='white'/%3E%3Crect x='5.5' y='14.5' width='10.5' height='5' rx='2.5' fill='white' opacity='.62'/%3E%3Crect x='5.5' y='22' width='19' height='5' rx='2.5' fill='%23fbbf24'/%3E%3C/svg%3E" />
   <title>Engagement PERT &amp; Gantt Tracker</title>
   <style>
     .sync-chip { display:inline-flex; align-items:center; font-size:0.75rem; color:#cbd5e1;
@@ -2893,6 +2909,46 @@
     /* the flow diagram: a chain, and the versions about to join it */
     .jn-fl { transform: translate(var(--x0), var(--y0)); transition: transform .6s var(--easeo), opacity .4s var(--easeo); }
     [data-jphase="after"] .jn-fl { transform: translate(var(--x1), var(--y1)); }
+    /* ═══ THE CHANGELOG ══════════════════════════════════════════════════════
+       Signed blocks, newest last, each headed by the person who filed it. The
+       initials disc is doing real work: on a plan three people share, WHOSE
+       edit this is is the first thing a reader wants and a name in body text
+       does not carry it. */
+    .jn-log { border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+      padding: .55rem .7rem .6rem; margin-bottom: .9rem; box-shadow: var(--sh-1); }
+    .jn-logh { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+      padding-bottom: .4rem; border-bottom: 1px solid var(--border); margin-bottom: .5rem; }
+    .jn-logh b { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .jn-tot { font-size: var(--t-xs); color: var(--header); font-weight: 600;
+      font-variant-numeric: tabular-nums; margin-left: auto; }
+    .jn-lvb { animation: jnRise .4s var(--easeo) backwards; }
+    .jn-lvb + .jn-lvb { margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed var(--border); }
+    .jn-lv { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+    .jn-av { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: var(--primary);
+      color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center;
+      justify-content: center; letter-spacing: .02em; }
+    .jn-lv b { font-size: var(--t-sm); color: var(--header); }
+    .jn-when { font-size: var(--t-xs); color: var(--muted); }
+    .jn-vlbl { font-size: var(--t-xs); color: var(--muted); font-style: italic;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 16rem; }
+    .jn-vsum { font-size: var(--t-xs); color: var(--muted); margin-left: auto;
+      font-variant-numeric: tabular-nums; }
+    .jn-dl { list-style: none; margin: .35rem 0 0 1.65rem; padding: 0; }
+    .jn-dl li { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap;
+      font-size: var(--t-sm); padding: .12rem 0; }
+    /* The KIND is a chip and the activity is the sentence, because "Re-estimated"
+       repeated down a column is scannable and "Re-estimated Build & Configure"
+       eight times is a wall. */
+    .jn-k { flex: 0 0 auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+      border-radius: 5px; padding: 1px 5px; }
+    .jn-nmx { color: var(--header); font-weight: 600; overflow-wrap: anywhere; }
+    .jn-ft { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .jn-dv { color: #1d4ed8; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .jn-mv { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .jn-mv.up { color: #b45309; }
+    .jn-mv.dn { color: #047857; }
+    .jn-more { color: var(--muted); font-style: italic; }
     @media (max-width: 760px) {
       .jn-cards { grid-template-columns: 1fr; }
       .jn-out { grid-template-columns: 1fr; }
@@ -5187,7 +5243,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0111</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0148</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -7270,6 +7326,131 @@ Or say what you want, in your own words:
         + '" text-anchor="middle">' + escapeHtml(opts.done || 'One chain, everybody on it') + '</text>'
         + svg + '</svg>';
     }
+    /* ═══════════════════════════════════════════════════════════════════════
+       WHO CHANGED WHAT, AND WHEN.
+
+       Reported by use: "it doesn't show the updates or whatever the details of
+       what is changing in a user friendly way and who changes what last".
+
+       The dialog counted versions. A version count is a fact about the FILE and
+       nobody has ever wanted to know it — what a person is deciding is whether
+       to accept somebody's edits, and that question is answered by naming the
+       edits and the person. Both were already stored and neither was rendered:
+       every version carries a full snapshot and a signature, and planDiff has
+       compared two snapshots field by field since the change-order work.
+
+       So the snapshots that already travel with every version are diffed
+       pairwise, and the result is a changelog: one block per version, headed by
+       who filed it and when, listing the activities it moved and what it did to
+       the money and the dates.
+       ═══════════════════════════════════════════════════════════════════════ */
+    function trunkSnapIndex(doc) {
+      const m = new Map();
+      (((doc && doc.planVersions) || [])).forEach(v => { if (v.vid && v.snap) m.set(v.vid, v.snap); });
+      return m;
+    }
+    /* A version whose snapshot was trimmed away cannot be diffed, and saying so
+       is the honest answer — inventing "no changes" for a payload nobody kept
+       would read as a quiet version rather than an unknown one. */
+    function trunkDeltas(list, snapOf, liveVid) {
+      return (list || []).map(e => {
+        const to = (liveVid && liveVid === e.vid) ? snapshotPlan() : snapOf(e.vid);
+        const from = snapOf(e.pvid);
+        return { vid: e.vid, who: String(e.byName || e.by || '').trim() || 'Somebody',
+                 at: e.at || '', label: String(e.label || ''),
+                 rows: (from && to) ? planDiff(from, to) : null,
+                 unknown: !(from && to) };
+      });
+    }
+    function trunkWhen(iso) {
+      if (!iso) return '';
+      const t = new Date(iso).getTime();
+      if (!Number.isFinite(t)) return '';
+      const s = Math.max(0, (Date.now() - t) / 1000);
+      if (s < 90) return 'just now';
+      if (s < 5400) return Math.round(s / 60) + ' min ago';
+      if (s < 172800) return Math.round(s / 3600) + ' h ago';
+      return String(iso).slice(0, 10);
+    }
+    function trunkInitials(name) {
+      const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+    }
+    const TRUNK_LOG_CAP = 4;      // per version, before the tail is counted rather than listed
+    function trunkLogHtml(deltas, opts) {
+      opts = opts || {};
+      const all = deltas.filter(d => d.rows && d.rows.length);
+      const totalRows = all.reduce((a, d) => a + d.rows.length, 0);
+      if (!deltas.length) return '';
+      const money = deltas.reduce((a, d) => a + (d.rows || []).reduce((b, r) => b + (r.priceDelta || 0), 0), 0);
+      const days = deltas.reduce((a, d) => a + (d.rows || []).reduce((b, r) => b + (r.days || 0), 0), 0);
+      const touched = new Set();
+      deltas.forEach(d => (d.rows || []).forEach(r => touched.add(r.kind + ':' + r.id)));
+      /* A NUMBER WITHOUT ITS UNIT IS NOT A CHANGE ANYBODY CAN READ. The first
+         build printed the raw fields — "0 → 4200" for a fixed cost, "100 → 40"
+         for an allocation, "5.17 → 7.33" for a span — which is the data and not
+         the sentence. Each kind knows what its own values mean, so each kind
+         formats them; a rename prints what it WAS rather than repeating the new
+         name that is already the subject of the line. */
+      const dv = (r) => {
+        const k = DIFF_KINDS[r.kind] || { lbl: r.kind };
+        const n2 = v => Math.round((Number(v) || 0) * 100) / 100;
+        const fmtSide = v => {
+          if (v == null) return '';
+          switch (r.kind) {
+            // fmtDurCell, not fmtDur: fmtDur can return a <span title=…> and this
+            // side is escaped, so the wrapper would be printed as text.
+            case 're-estimated': return fmtDurCell(n2(v));
+            case 'repriced':     return fmtMoney(Number(v) || 0);
+            case 'reallocated':  return (Number(v) || 0) + '%';
+            default:             return typeof v === 'number' ? String(n2(v)) : String(v);
+          }
+        };
+        const pair = r.kind === 'renamed'
+          ? '<span class="jn-ft">was “' + escapeHtml(String(r.from || '')) + '”</span>'
+          : (r.from != null && r.to != null && r.kind !== 'added' && r.kind !== 'removed')
+          ? '<span class="jn-ft">' + escapeHtml(fmtSide(r.from)) + ' → '
+            + escapeHtml(fmtSide(r.to)) + '</span>' : '';
+        const m = Math.abs(r.priceDelta || 0) >= 1
+          ? '<span class="jn-mv ' + ((r.priceDelta || 0) > 0 ? 'up' : 'dn') + '">'
+            + ((r.priceDelta || 0) > 0 ? '+' : '−') + escapeHtml(fmtMoney(Math.abs(r.priceDelta))) + '</span>' : '';
+        const d = Math.abs(r.days || 0) >= 0.05
+          ? '<span class="jn-dv">' + ((r.days || 0) > 0 ? '+' : '−')
+            + escapeHtml(String(Math.round(Math.abs(r.days) * 10) / 10)) + 'd</span>' : '';
+        return '<li><span class="jn-k">' + escapeHtml(k.lbl) + '</span>'
+          + '<span class="jn-nmx">' + escapeHtml(String(r.name || r.id)) + '</span>'
+          + pair + d + m + '</li>';
+      };
+      const blocks = deltas.map((dl, i) => {
+        const n = (dl.rows || []).length;
+        const head = '<div class="jn-lv"><span class="jn-av">' + escapeHtml(trunkInitials(dl.who)) + '</span>'
+          + '<b>' + escapeHtml(dl.who) + '</b>'
+          + (dl.at ? '<span class="jn-when">' + escapeHtml(trunkWhen(dl.at)) + '</span>' : '')
+          + (dl.label ? '<span class="jn-vlbl">' + escapeHtml(dl.label) + '</span>' : '')
+          + '<span class="jn-vsum">' + (dl.unknown ? 'payload trimmed'
+              : n ? n + ' change' + (n === 1 ? '' : 's') : 'nothing this diff can see') + '</span></div>';
+        const list = dl.unknown
+          ? '<ul class="jn-dl"><li class="jn-more">the snapshot was trimmed to keep the file small, so its '
+            + 'id is kept and its contents cannot be shown</li></ul>'
+          : n ? '<ul class="jn-dl">' + dl.rows.slice(0, TRUNK_LOG_CAP).map(dv).join('')
+            + (n > TRUNK_LOG_CAP ? '<li class="jn-more">and ' + (n - TRUNK_LOG_CAP) + ' more</li>' : '') + '</ul>'
+          : '';
+        return '<div class="jn-lvb" style="animation-delay:' + (i * 60) + 'ms">' + head + list + '</div>';
+      }).join('');
+      return '<div class="jn-log">'
+        + '<div class="jn-logh"><b>' + escapeHtml(opts.head || 'What is changing') + '</b>'
+        + '<span class="jn-tot">' + touched.size + ' change' + (touched.size === 1 ? '' : 's')
+          + ' across ' + deltas.length + ' version' + (deltas.length === 1 ? '' : 's')
+          + (Math.abs(days) >= 0.05 ? ' · ' + (days > 0 ? '+' : '−')
+              + (Math.round(Math.abs(days) * 10) / 10) + 'd' : '')
+          + (Math.abs(money) >= 1 ? ' · ' + (money > 0 ? '+' : '−') + fmtMoney(Math.abs(money)) : '')
+        + '</span></div>' + blocks
+        + (totalRows === 0 && !deltas.some(d => d.unknown)
+            ? '<p class="jn-alt" style="border:0;padding:0;margin:.3rem 0 0">Nothing this comparison looks at '
+              + 'moved. A version can record a note, a sign-off or a baseline without changing an activity.</p>' : '')
+        + '</div>';
+    }
     let joinResolve = null;
     function joinPhase(p) {
       const st = document.getElementById('joinStage');
@@ -7358,6 +7539,7 @@ Or say what you want, in your own words:
             + '<button type="button" data-jp="after" aria-pressed="false" onclick="joinPhase(\'after\')">After</button>'
             + '</div><span class="jn-cap" id="joinCap" aria-live="polite">' + (spec.capBefore || '') + '</span></div>'
             + spec.diagram + '</div>' : '')
+        + (spec.log || '')
         + cards
         + '<div class="jn-out">'
         + '<div class="jn-keep"><h5>✓ Kept</h5><ul>' + (spec.kept || []).map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul></div>'
@@ -7601,7 +7783,16 @@ Or say what you want, in your own words:
              does not exist. Applied straight through. */
           const mineN = (planVersions || []).length;
           if (!quiet) {
+            /* The snapshots come out of the trunk tip's OWN version chain,
+               which travels inside every payload — so an incoming version can
+               be diffed against its parent without either side being here. */
+            const theirSnaps = trunkSnapIndex(tip.doc);
+            const mineVids = new Set((planVersions || []).map(v => v.vid));
+            const incoming = (t.log || []).filter(e => e.vid && !mineVids.has(e.vid));
+            const ffLog = trunkLogHtml(trunkDeltas(incoming, vid => theirSnaps.get(vid)),
+              { head: 'What is arriving' });
             const okFf = await trunkAsk({
+              log: ffLog,
               title: 'Take the team\'s latest', ico: '⬇',
               verdict: 'The trunk is ' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
                 + ' ahead of you, and you have changed nothing since you last shared.',
@@ -7691,7 +7882,13 @@ Or say what you want, in your own words:
           const keep = (r.myAdds || []).length;
           const incoming = (r.auto || []).length + (r.theirAdds || []).length;
           if (!quiet) {
+            const theirSnaps2 = trunkSnapIndex(tip.doc);
+            const mineVids2 = new Set((planVersions || []).map(v => v.vid));
+            const incoming2 = (t.log || []).filter(e => e.vid && !mineVids2.has(e.vid));
+            const clLog = trunkLogHtml(trunkDeltas(incoming2, vid => theirSnaps2.get(vid)),
+              { head: 'What is arriving' });
             const okCl = await trunkAsk({
+              log: clLog,
               title: 'Take their changes — nothing conflicts', ico: '🤝',
               verdict: 'You have both moved, but not on the same fields, so there is nothing to choose between.',
               why: who.sentence + ' ' + bits.join(' and ') + ' come across'
@@ -7881,7 +8078,16 @@ Or say what you want, in your own words:
         if (!mine.length) { if (!quiet) flashSaved('✓ The trunk already has everything of yours'); return; }
         const fname = (trunkHandle && trunkHandle.name) || 'the trunk file';
         if (!quiet) {
+          /* Diffed against the LIVE plan for the newest, because that is what
+             the write actually carries — a version's own snapshot was taken
+             when it was filed and the plan may have moved since. Showing the
+             snapshot would describe a file nobody is about to write. */
+          const mySnaps = new Map((planVersions || []).map(v => [v.vid, v.snap]).filter(x => x[0] && x[1]));
+          const pushLog = trunkLogHtml(
+            trunkDeltas(mine, vid => mySnaps.get(vid), mine[mine.length - 1].vid),
+            { head: 'What the team receives' });
           const okGo = await trunkAsk({
+            log: pushLog,
             title: 'Share your work with the team', ico: '⬆',
             verdict: 'You are about to add ' + mine.length + ' version' + (mine.length === 1 ? '' : 's')
               + ' to ' + fname + '.',

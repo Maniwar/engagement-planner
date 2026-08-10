@@ -1138,6 +1138,54 @@ const { chromium } = requirePlaywright();
   H.contradictions.forEach(x => bad.push(x));
   note.sowPanel = H.counts;
 
+  /* ═══ THE TAB ICON ══════════════════════════════════════════════════════
+     Asked for by use: "ensure we have a great favicon and so we can see whats
+     in the tab". There was none, so this was a blank page glyph in a row of
+     twenty tabs.
+
+     Asserted as REACHABILITY, not as a tag. A <link rel=icon> pointing at a
+     sibling file is a working favicon on the demo host and a broken one for
+     anybody who opened this file from disk — which is a supported way to run
+     this product — so the check is that the browser resolved an image, and
+     that it carries more than one colour. A single flat square is what a
+     placeholder looks like. */
+  const FAV = await page.evaluate(async () => {
+    const l = document.querySelector('link[rel~="icon"]');
+    if (!l) return { none: true };
+    const out = { href: (l.getAttribute('href') || '').slice(0, 40), type: l.type || '',
+                  inline: /^data:/.test(l.getAttribute('href') || '') };
+    try {
+      const img = new Image();
+      const done = new Promise(res => { img.onload = () => res(true); img.onerror = () => res(false); });
+      img.src = l.href;
+      out.loads = await done;
+      if (out.loads) {
+        const c = document.createElement('canvas'); c.width = c.height = 16;
+        c.getContext('2d').drawImage(img, 0, 0, 16, 16);
+        const d = c.getContext('2d').getImageData(0, 0, 16, 16).data;
+        const seen = new Set();
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 24)
+          seen.add((d[i] >> 4) + ',' + (d[i + 1] >> 4) + ',' + (d[i + 2] >> 4));
+        out.colours = seen.size;
+        out.opaque = [...Array(d.length / 4).keys()].filter(i => d[i * 4 + 3] > 24).length;
+      }
+    } catch (e) { out.threw = String(e.message || e).slice(0, 60); }
+    return out;
+  });
+  note.favicon = FAV;
+  if (FAV.none) bad.push('Tab icon :: the page declares no icon, so it is a blank page glyph in a row of tabs');
+  else {
+    if (!FAV.inline) bad.push('Tab icon :: the icon is a linked file rather than inline, so a copy of this '
+      + 'single-file product opened from disk has no icon — which is a supported way to run it');
+    if (!FAV.loads) bad.push('Tab icon :: the declared icon does not decode to an image');
+    else {
+      if ((FAV.colours || 0) < 2) bad.push('Tab icon :: the icon renders as ' + FAV.colours + ' colour(s) at '
+        + '16px — a flat square is what a placeholder looks like, not a mark somebody can find their tab by');
+      if ((FAV.opaque || 0) < 60) bad.push('Tab icon :: only ' + FAV.opaque + ' of 256 pixels are opaque at '
+        + '16px, so the mark is too sparse to pick out at tab size');
+    }
+  }
+
   /* ═══ ONE STRIP, ONE BEHAVIOUR, EVERYWHERE ═══════════════════════════════
      The travelling underline shipped bolted to #reqTabBar, so the Stories tab
      became the only place in the application where the active mark moved.
