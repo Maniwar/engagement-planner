@@ -742,6 +742,130 @@ function serveApp() {
       }
     })();
 
+    /* ═══ THE CHANGELOG'S THREE SILENCES, AND ITS ONE OVERWHELMING CASE ════
+       Reported live, from a real trunk: three of five arriving versions read
+       "payload trimmed" and the fourth listed four deletions and "and 16 more".
+       Both were the changelog being wrong rather than the plan.
+
+       "Payload trimmed" was printed whenever EITHER end of the comparison was
+       missing, so a version with perfectly good contents whose PARENT had been
+       trimmed out of the chain reported itself as gone. Those are different
+       facts and now have different words. And a version that replaces the plan
+       rather than editing it — which is what joining two copies of one
+       engagement produces — is summarised rather than itemised, because four
+       activity names and "and 16 more" reads as somebody deleting the project. */
+    (() => {
+      const sayC = x => bad.push('Changelog :: ' + x);
+      const A = JSON.parse(JSON.stringify(snapshotPlan()));
+      const B = JSON.parse(JSON.stringify(A));
+      B.tasks = B.tasks.slice(0, 2).concat([{ id: 90001, name: 'Brand new thing', te: 3, o: 2, m: 3, p: 4 }]);
+      const has = new Map([['v-a', A], ['v-b', B]]);
+      const one = (list, look) => trunkDeltas(list, look);
+      const V = (vid, pvid) => ({ vid: vid, pvid: pvid, byName: 'Someone', at: '2026-08-09T10:00:00', label: 'x' });
+
+      // 1. contents present, parent missing → "oldest in view", NOT "trimmed"
+      const noBase = one([V('v-b', 'v-gone')], vid => has.get(vid))[0];
+      out.clNoBase = { unknown: noBase.unknown, noBase: noBase.noBase };
+      if (noBase.unknown)
+        sayC('a version whose own contents are intact reports them as trimmed because its PARENT is missing '
+          + '— that tells somebody their history is being eaten when it is not');
+      if (!noBase.noBase) sayC('a version with no parent in the file is not marked as such, so it renders as '
+        + 'a version that changed nothing');
+
+      // 2. contents genuinely absent → "trimmed"
+      const gone = one([V('v-missing', 'v-a')], vid => has.get(vid))[0];
+      out.clTrimmed = { unknown: gone.unknown, noBase: gone.noBase };
+      if (!gone.unknown) sayC('a version whose snapshot really is gone does not say so, so the reader is '
+        + 'shown nothing and told nothing');
+
+      // 3. a replacement is summarised, not itemised
+      const repl = one([V('v-b', 'v-a')], vid => has.get(vid))[0];
+      out.clWholesale = { wholesale: repl.wholesale, was: repl.wasN, is: repl.isN, gone: repl.gone };
+      if (!repl.wholesale)
+        sayC('a version that removes ' + repl.gone + ' of ' + repl.wasN + ' activities is itemised four at a '
+          + 'time with "and N more" — which reads as somebody deleting the project rather than as two copies '
+          + 'being joined');
+      const html = trunkLogHtml([repl], { head: 'x' });
+      if (html.indexOf('replaces') < 0)
+        sayC('the rendered block for a wholesale replacement never uses the word, so the summary exists in '
+          + 'the data and not on the screen');
+
+      // 4. an ordinary edit is still itemised
+      const C = JSON.parse(JSON.stringify(A));
+      if (C.tasks[0]) C.tasks[0].name = 'A RENAMED ONE';
+      has.set('v-c', C);
+      const small = one([V('v-c', 'v-a')], vid => has.get(vid))[0];
+      out.clSmall = { wholesale: small.wholesale, n: (small.rows || []).length };
+      if (small.wholesale)
+        sayC('a single rename is being called a replacement, so the summary has swallowed the itemised list '
+          + 'it exists to spare people from');
+    })();
+
+    /* ═══ NO REFUSAL MAY STOP AN UNATTENDED RUN ════════════════════════════
+       Every native alert() in this flow became a modal. An alert blocked the
+       thread and was answered by whoever was sitting there; a modal awaits a
+       click that never comes, so converting one on a path the 15-second tick
+       can reach hangs the application permanently. That exact bug shipped once
+       already and was caught only because this sweep stopped responding.
+
+       So the property is asserted directly, on the two entry points and on the
+       identity check between them: a quiet call ALWAYS settles, and it never
+       leaves a dialog on screen. Driven against a trunk deliberately made
+       unusable, so the refusals are the paths being taken. */
+    await (async () => {
+      const sayQ = x => bad.push('Unattended sync :: ' + x);
+      const el = document.getElementById('joinModal');
+      const keepH = trunkHandle;
+      const settles = async (label, fn) => {
+        // each case starts from a clean screen, so one hang does not report
+        // itself six times over as five later cases "leaving a dialog open"
+        if (el && el.classList.contains('open')) { joinClose(false); await new Promise(r => setTimeout(r, 250)); }
+        const r = await Promise.race([
+          Promise.resolve().then(fn).then(() => 'settled', e => 'threw: ' + (e && e.message)),
+          new Promise(res => setTimeout(() => res('HUNG'), 2500))]);
+        if (r === 'HUNG') sayQ(label + ' never returned. An unattended run that stops on a dialog waits '
+          + 'forever, and the auto tick reaches this every 15 seconds');
+        else if (el && el.classList.contains('open')) {
+          sayQ(label + ' left a dialog on screen, so the next tick finds the app modal and the person finds '
+            + 'a question nobody asked them');
+          joinClose(false);
+        }
+        return r;
+      };
+      // no trunk at all
+      trunkHandle = null;
+      out.quietNoTrunk = [await settles('a quiet pull with no trunk', () => trunkPull(true)),
+                          await settles('a quiet push with no trunk', () => trunkPush(true))];
+      // a handle whose read always throws — the permission and read refusals
+      trunkHandle = { name: 'gone.json', getFile: () => { throw new Error('NotFoundError'); } };
+      out.quietUnreadable = [await settles('a quiet pull on an unreadable trunk', () => trunkPull(true)),
+                             await settles('a quiet push on an unreadable trunk', () => trunkPush(true))];
+      // and permission refused outright
+      trunkHandle = { name: 'locked.json', getFile: () => { throw new Error('NotAllowedError'); },
+                      queryPermission: async () => 'denied', requestPermission: async () => 'denied' };
+      out.quietDenied = [await settles('a quiet pull with permission denied', () => trunkPull(true)),
+                         await settles('a quiet push with permission denied', () => trunkPush(true))];
+      /* AND THE LOUD ONES DO OPEN. The guard above is satisfied by a build that
+         refuses silently in both modes, which would be the whole feature
+         deleted rather than made safe. */
+      const loud = trunkPull(false);
+      await new Promise(r => setTimeout(r, 500));
+      out.loudDenialOpens = !!(el && el.classList.contains('open'));
+      if (!out.loudDenialOpens)
+        sayQ('a pull a PERSON pressed, onto a trunk it cannot reach, says nothing on screen — the quiet guard '
+          + 'has been applied to both modes and the refusal is now invisible');
+      else {
+        const txt = (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ');
+        out.loudDenialText = txt.slice(0, 60);
+        if (!/press|point|join|allow/i.test(txt))
+          sayQ('the refusal names no next step, which is the dead end the alerts it replaced were');
+        joinClose(false);
+      }
+      await loud;
+      trunkHandle = keepH;
+      await new Promise(r => setTimeout(r, 200));
+    })();
+
     try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     /* ═══ AUTOMATIC SYNC MUST NEVER DECIDE A DISAGREEMENT ══════════════════

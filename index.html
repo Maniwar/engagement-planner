@@ -2815,6 +2815,11 @@
     .jn-n.mine rect { fill: var(--primary-50); stroke: var(--primary); }
     .jn-n.mine text { fill: var(--primary); }
     .jn-n.shared rect { fill: #ecfdf5; stroke: #10b981; }
+    /* Arriving is NOT the same as shared. Green means "already in both" in the
+       join diagram, and colouring incoming versions green there said the exact
+       opposite of what the pull was about to do. */
+    .jn-n.theirs rect { fill: #f5f3ff; stroke: #7c3aed; }
+    .jn-n.theirs text { fill: #6d28d9; }
     .jn-n.shared text { fill: #047857; }
     .jn-n.more rect { fill: transparent; stroke-dasharray: 3 3; }
     .jn-n.more text { fill: var(--muted); font-weight: 400; }
@@ -5243,7 +5248,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0159</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.0226</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6910,7 +6915,13 @@ Or say what you want, in your own words:
        The trunk simply never called it: two routes to one browser API, one of
        them written months after the other, and the second did not inherit what
        the first had learned. */
-    async function trunkPermit(handle) {
+    /* QUIET IS A PARAMETER HERE TOO. This is called from both Pull and Push and
+       so from the 15-second automatic tick, and it was the one refusal in the
+       sync flow that could not be given a guard because it could not see
+       whether anybody was watching. An unattended run that stops on a dialog
+       waits forever; one that stops on a toast tries again in fifteen seconds,
+       which is the behaviour a dropped file permission actually wants. */
+    async function trunkPermit(handle, quiet) {
       if (!handle) return false;
       /* NOTHING TO ASK IS NOT A REFUSAL. fsPerm answers false when a handle has
          no queryPermission at all, which is right for its own caller — it is
@@ -6924,12 +6935,15 @@ Or say what you want, in your own words:
       const ok = await fsPerm(handle, 'readwrite');
       if (ok && trunkPaused === 'permission') { trunkPaused = ''; trunkAutoStart(); updateTrunkBtn(); }
       if (!ok) {
-        alert('This browser will not let the page reach "' + (handle.name || 'the trunk file') + '" any more.'
-          + '\n\nPermission to a file is dropped when the tab closes, so it has to be given again — and it '
-          + 'can only be asked for when you press something, which is why it is asked now rather than when '
-          + 'the page loaded.\n\nPress Pull or Push again and allow it, or use Join a team trunk to point at '
-          + 'the file once more. Nothing has been lost: your work is saved in this browser and the trunk file '
-          + 'is untouched.');
+        const nm = handle.name || 'the trunk file';
+        if (quiet) { flashSaved('⚠ Auto sync stopped — “' + nm + '” needs permission again; press Pull or Push'); return false; }
+        await trunkTell({ title: 'Permission has lapsed', ico: '🔒', bad: true,
+          verdict: 'This browser will not let the page reach “' + nm + '” any more, so nothing was read or written.',
+          why: 'Permission to a file is dropped when the tab closes, so it has to be given again — and a '
+             + 'browser only allows the ask inside a click, which is why it comes now rather than when the '
+             + 'page loaded. Your work is saved in this browser and the trunk file is untouched.',
+          next: ['Press Pull or Push again and allow the browser\'s prompt',
+                 'If no prompt appears, point at the file once more with Join a team trunk'] });
       }
       return ok;
     }
@@ -6976,7 +6990,25 @@ Or say what you want, in your own words:
        it, because a mis-click must not be able to erase a team's history. */
     async function trunkConnect(mode) {
       const creating = mode === 'new';
-      if (!window.showOpenFilePicker || !window.showSaveFilePicker) { alert('The shared team file needs Chrome or Edge (the File System Access API). Everyone else can still use Export ▸ Download backup (.json) and Merge a copy.'); return; }
+      if (!window.showOpenFilePicker || !window.showSaveFilePicker) {
+        /* Note what this does NOT say. An earlier draft offered "serve it over
+           localhost, the API is refused on file://" — but this branch only
+           runs when the API objects are ABSENT, and a file:// page in Chrome
+           has them and refuses later. Advice for a cause that cannot be the
+           cause here sends somebody to fix a thing that is not broken. */
+        await trunkTell({ title: 'Needs Chrome or Edge', ico: '🌐',
+          verdict: 'One shared file is not available in this browser, so nothing was connected.',
+          why: 'It is built on the File System Access API — a page holding on to a file you picked — and '
+             + 'this browser does not offer that. The by-hand route does the same merge with the same '
+             + 'conflict review; only the transport changes.',
+          rowsHead: 'What this browser offers',
+          rows: [['Open an existing file', typeof window.showOpenFilePicker === 'function' ? 'yes' : 'no'],
+                 ['Create a new file', typeof window.showSaveFilePicker === 'function' ? 'yes' : 'no']],
+          next: ['Open this plan in Chrome or Edge if you want the shared file',
+                 'Otherwise send yours with Export ▸ Download backup (.json), and take theirs with '
+                   + 'Team ▸ Merge a copy they sent you…'] });
+        return;
+      }
       if (!trunkIdentity().label) { editIdentity(); if (!trunkIdentity().label) return; }
       try {
         const kind = [{ description: 'Team trunk', accept: { 'application/json': ['.json'] } }];
@@ -6984,17 +7016,54 @@ Or say what you want, in your own words:
           ? await showSaveFilePicker({ suggestedName: safeName() + '-team-trunk.json', types: kind })
           : (await showOpenFilePicker({ types: kind }))[0];
         if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted'
-            && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Without write permission this can only be read.'); return; }
+            && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') {
+          /* "the file you picked was not touched" is deliberately NOT said. On
+             the Start branch showSaveFilePicker has already created the file on
+             disk before this line runs, so that reassurance would be false in
+             half the cases that reach it. */
+          await trunkTell({ title: 'Write access was not granted', ico: '✋', bad: true,
+            verdict: '“' + (h.name || 'that file') + '” was not connected: this page was not given permission to write to it.',
+            why: 'A trunk is rewritten every time anybody pushes, so a read-only grant cannot carry one — and '
+               + 'rather than connect halfway, this stopped. You are still on whatever trunk you were on before.',
+            next: ['Press Join a team trunk… again, pick the same file, and allow the browser\'s prompt',
+                   'If no prompt appears, the site\'s file permission is blocked — clear it from the padlock '
+                     + 'in the address bar and try again'] });
+          return;
+        }
         let t = null;
-        try { t = await trunkRead(h); } catch (e) { alert(e.message || String(e)); return; }
+        try { t = await trunkRead(h); }
+        catch (e) {
+          await trunkTell({ title: 'Could not read that file', ico: '📄', bad: true,
+            verdict: 'That file could not be read as a team trunk, so nothing was connected.',
+            why: 'The read failed before anything was compared, and nothing is written to a trunk until a '
+               + 'read succeeds. This plan, and any trunk you were already on, are exactly as they were.',
+            rowsHead: 'What the browser said',
+            rows: [['File', h.name || '(unnamed)'], ['Error', String(e && e.name || 'Error')],
+                   ['Message', String((e && e.message) || e).slice(0, 140)]],
+            next: ['If it was caught mid-write by somebody else\'s sync client, wait a moment and pick it again',
+                   'A project backup is not a trunk — open one of those with Project ▸ Import a file…, and a '
+                     + 'teammate\'s copy of THIS plan with Team ▸ Merge a copy they sent you…'] });
+          return;
+        }
         if (t) {
           const chk = trunkVerifyChain(t);
           if (!chk.ok) {
-            alert('⚠ That trunk has ' + chk.gaps.length + ' gap' + (chk.gaps.length === 1 ? '' : 's') + ' in its history.\n\n'
-              + 'An entry names a parent that is not in the file — somebody\'s work was written and then lost, '
-              + 'probably by two people syncing the file at the same moment.\n\nFirst missing link: '
-              + chk.gaps[0].missingParent + ', expected before ' + chk.gaps[0].vid + ' (' + (chk.gaps[0].byName || chk.gaps[0].by) + ').\n\n'
-              + 'Ask whoever wrote it to push again — their copy still has it. Nothing here is corrupted; a piece is simply missing.');
+            /* Not `bad`. This one does not stop anything — the connection goes
+               ahead below — and colouring a warning like a refusal teaches
+               people to read every red box as "it did not work". */
+            const g0 = chk.gaps[0] || {};
+            await trunkTell({ title: 'A gap in that trunk\'s history', ico: '🧩',
+              verdict: chk.gaps.length + ' entr' + (chk.gaps.length === 1 ? 'y names a parent' : 'ies name parents')
+                + ' the file does not contain. Connecting anyway.',
+              why: 'That is what two people writing the shared file at the same moment leaves behind. Nothing '
+                 + 'here is damaged: whoever wrote the missing version still holds it, and one push from them '
+                 + 'puts it back.',
+              rowsHead: 'The first missing link',
+              rows: [['Missing version', String(g0.missingParent || '(unknown)')],
+                     ['Expected before', String(g0.vid || '(unknown)')],
+                     ['Written by', String(g0.byName || g0.by || '(unsigned)')]],
+              next: ['Ask the person named above to press Push mine — their copy still holds it',
+                     'Take a copy first with Export ▸ Download backup (.json) if you would rather be careful'] });
           }
           const rel = trunkRelation(t);
           if (rel.relation === 'fork') {
@@ -7004,12 +7073,21 @@ Or say what you want, in your own words:
           } else if (rel.relation === 'kin') {
             if (!(await trunkAdoptLineage(t, rel.kin))) return;
           } else if (rel.relation === 'unrelated') {
-            alert('That trunk belongs to a different engagement.\n\n'
-              + trunkKinshipEvidence(rel.kin || trunkKinship(t))
-              + '\n\nNothing in its history appears anywhere in this plan\'s, so merging it would make every '
-              + 'activity look like an addition. Open it as its own project instead.\n\n(If this plan is a COPY '
-              + 'of that engagement, duplicate it again from the original — a copy remembers what it was copied '
-              + 'from and can adopt the trunk.)');
+            const kk = rel.kin || trunkKinship(t);
+            await trunkTell({ title: 'A different engagement', ico: '⛔', bad: true,
+              verdict: 'That trunk belongs to a different engagement, so nothing was connected.',
+              why: 'Not one version in its history appears anywhere in this plan\'s. Connecting them would '
+                 + 'give both files a past that never happened and make every activity here read as an '
+                 + 'addition to theirs.',
+              rowsHead: 'What was compared',
+              rows: [['This plan', kk.mine + ' version' + (kk.mine === 1 ? '' : 's') + ', lineage ' + kk.myLineage],
+                     ['That file', kk.theirs + ' version' + (kk.theirs === 1 ? '' : 's') + ', lineage '
+                       + kk.theirLineage + ', named “' + kk.theirName + '”'],
+                     ['Versions in common', kk.shared]],
+              next: ['If it was a mis-click, press Join a team trunk… again — nothing was connected',
+                     'If this plan is a copy of that engagement, it is not recorded as one: duplicate it again '
+                       + 'from the original with Project ▸ Duplicate current, and a copy made that way can '
+                       + 'adopt the trunk'] });
             return;
           }
         }
@@ -7344,9 +7422,26 @@ Or say what you want, in your own words:
        who filed it and when, listing the activities it moved and what it did to
        the money and the dates.
        ═══════════════════════════════════════════════════════════════════════ */
-    function trunkSnapIndex(doc) {
+    /* EVERY ENTRY CARRIES ITS OWN CHAIN, so read them all. This looked only at
+       the TIP's planVersions, and a chain is trimmed — the tip holds snapshots
+       for the most recent versions and not for their parents. So a pull of five
+       versions showed three as "payload trimmed" and diffed the rest against
+       whatever happened to survive, which produced a changelog claiming twenty
+       activities were about to be REMOVED. Reported live, and it was the
+       changelog that was wrong rather than the plan.
+
+       Each log entry's doc is a full save file with its OWN planVersions in it,
+       so the union across every entry covers far more of the chain than the tip
+       alone. Oldest first, so a later entry never overwrites a snapshot an
+       earlier one recorded for the same id. */
+    function trunkSnapIndex(t) {
       const m = new Map();
-      (((doc && doc.planVersions) || [])).forEach(v => { if (v.vid && v.snap) m.set(v.vid, v.snap); });
+      const add = doc => (((doc && doc.planVersions) || [])).forEach(v => {
+        if (v.vid && v.snap && !m.has(v.vid)) m.set(v.vid, v.snap); });
+      if (t && t.base && t.base.doc) add(t.base.doc);
+      ((t && t.log) || []).forEach(e => add(e.doc));
+      // and whatever this plan already holds, which covers the shared prefix
+      add({ planVersions: planVersions });
       return m;
     }
     /* A version whose snapshot was trimmed away cannot be diffed, and saying so
@@ -7356,10 +7451,31 @@ Or say what you want, in your own words:
       return (list || []).map(e => {
         const to = (liveVid && liveVid === e.vid) ? snapshotPlan() : snapOf(e.vid);
         const from = snapOf(e.pvid);
+        /* Three different silences, and they are not the same answer. No
+           snapshot for THIS version means its contents were trimmed away. No
+           snapshot for its PARENT means there is nothing to compare it against
+           — which is normal for the oldest version in view and is not a defect
+           in the file. Calling both "payload trimmed" told people their history
+           was being eaten when it was not. */
+        const rows = (from && to) ? planDiff(from, to) : null;
+        /* A REPLACEMENT IS NOT A LIST OF EDITS. Two copies of one engagement
+           that were joined by lineage can hold genuinely different plans, and
+           diffing across that seam produces every activity on one side as
+           "removed" and every activity on the other as "added". Itemising that
+           four rows at a time and appending "and 16 more" reads as somebody
+           deleting the project — reported live, from a real trunk. Measured
+           against the size of the plan rather than a fixed count, because
+           "twenty removals" means something different on a plan of twenty than
+           on a plan of two hundred. */
+        const gone = (rows || []).filter(r => r.kind === 'removed').length;
+        const came = (rows || []).filter(r => r.kind === 'added').length;
+        const wasN = ((from && from.tasks) || []).length;
+        const isN = ((to && to.tasks) || []).length;
+        const wholesale = wasN > 0 && (gone + came) >= Math.max(4, wasN * 0.6);
         return { vid: e.vid, who: String(e.byName || e.by || '').trim() || 'Somebody',
                  at: e.at || '', label: String(e.label || ''),
-                 rows: (from && to) ? planDiff(from, to) : null,
-                 unknown: !(from && to) };
+                 rows: rows, unknown: !to, noBase: !!to && !from,
+                 wholesale: wholesale, gone: gone, came: came, wasN: wasN, isN: isN };
       });
     }
     function trunkWhen(iso) {
@@ -7428,11 +7544,22 @@ Or say what you want, in your own words:
           + '<b>' + escapeHtml(dl.who) + '</b>'
           + (dl.at ? '<span class="jn-when">' + escapeHtml(trunkWhen(dl.at)) + '</span>' : '')
           + (dl.label ? '<span class="jn-vlbl">' + escapeHtml(dl.label) + '</span>' : '')
-          + '<span class="jn-vsum">' + (dl.unknown ? 'payload trimmed'
+          + '<span class="jn-vsum">' + (dl.unknown ? 'contents trimmed'
+              : dl.noBase ? 'oldest in view'
+              : dl.wholesale ? 'replaces the plan'
               : n ? n + ' change' + (n === 1 ? '' : 's') : 'nothing this diff can see') + '</span></div>';
         const list = dl.unknown
-          ? '<ul class="jn-dl"><li class="jn-more">the snapshot was trimmed to keep the file small, so its '
-            + 'id is kept and its contents cannot be shown</li></ul>'
+          ? '<ul class="jn-dl"><li class="jn-more">this version\'s snapshot was trimmed to keep the file '
+            + 'small, so its id is kept and its contents cannot be shown</li></ul>'
+          : dl.noBase
+          ? '<ul class="jn-dl"><li class="jn-more">the version before this one is no longer in the file, so '
+            + 'there is nothing to compare it against — its own contents are intact</li></ul>'
+          : dl.wholesale
+          ? '<ul class="jn-dl"><li class="jn-more">this version does not edit the plan before it, it '
+            + '<b>replaces</b> it: ' + dl.wasN + ' activit' + (dl.wasN === 1 ? 'y' : 'ies') + ' before, '
+            + dl.isN + ' after, with ' + dl.gone + ' gone and ' + dl.came + ' new. That is what two copies '
+            + 'of one engagement look like when their histories are joined — read the two plans rather than '
+            + 'this list.</li></ul>'
           : n ? '<ul class="jn-dl">' + dl.rows.slice(0, TRUNK_LOG_CAP).map(dv).join('')
             + (n > TRUNK_LOG_CAP ? '<li class="jn-more">and ' + (n - TRUNK_LOG_CAP) + ' more</li>' : '') + '</ul>'
           : '';
@@ -7713,8 +7840,13 @@ Or say what you want, in your own words:
       if (!(await trunkJoinAsk('twin', t, k))) return false;
       const took = adoptVersions((t.log || []));
       if (!took) {
-        alert('The trunk had no version to adopt, so there is still nothing shared to push onto. Push to a '
-          + 'trunk one of these two copies started.');
+        await trunkTell({ title: 'Nothing in that log to adopt', ico: '📭', bad: true,
+          verdict: 'The join stopped: that trunk\'s log holds no version this plan can take as history.',
+          why: 'A join copies the trunk\'s log entries into this plan\'s past, and there are none to copy — '
+             + 'so the two files would still have no point of contact and the push after it would be refused '
+             + 'for the same reason. Nothing was adopted and the trunk was not written.',
+          next: ['Ask whoever wrote that trunk to press Push mine — that puts entries back in its log',
+                 'Or point this plan at the other copy\'s file with Join a team trunk…'] });
         return false;
       }
       saveLocal();
@@ -7742,12 +7874,64 @@ Or say what you want, in your own words:
         + ' — Pull and Push work from here');
       return true;
     }
+    /* ONE ANSWER FOR TWO BUTTONS, because it is one situation: no trunk has
+       been chosen. The two differ only in what was being attempted, and saying
+       which makes the refusal legible — "nowhere to push to" is a different
+       sentence from "nothing to pull from" even though the fix is the same. */
+    async function trunkNoTrunk(which, quiet) {
+      const pushing = which === 'push';
+      /* Quiet here too. The auto tick returns before this on !trunkHandle
+         today, so nothing reaches it unattended RIGHT NOW — which is a fact
+         about this week's call graph and not a property of the function. Every
+         other refusal in this flow carries the guard; the one that does not is
+         the one somebody adds a caller to. Caught by the sweep, which calls
+         trunkPull(true) directly and hung on it. */
+      if (quiet) { flashSaved(pushing ? 'Push paused — no shared file is connected'
+                                      : 'Pull paused — no shared file is connected'); return; }
+      const n = (planVersions || []).length;
+      await trunkTell({ title: pushing ? 'Nowhere to push to' : 'Nothing to pull from', ico: '🔗',
+        verdict: 'No shared file is connected, so there is '
+          + (pushing ? 'nowhere for Push to put your versions.' : 'nothing for Pull to read.'),
+        why: pushing
+          ? 'A push appends to a trunk this plan has already been pointed at. Nothing was lost — your '
+            + 'versions are still here, and the same Push works the moment a trunk exists.'
+          : 'A pull reads a trunk this plan has already been pointed at, and none has been chosen. Nothing '
+            + 'of yours is waiting on it.',
+        rowsHead: 'Where this plan stands',
+        rows: [['Connected trunk', 'none'], ['Versions in this browser', n]],
+        next: ['Start a team trunk… in the Team ▾ menu creates the shared file and is the one to press if '
+                 + 'nobody has made it yet',
+               'Join a team trunk… in the same menu points at a file a teammate already started'] });
+    }
     async function trunkPull(quiet) {
-      if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
-      if (!(await trunkPermit(trunkHandle))) return;
+      if (!trunkHandle) { await trunkNoTrunk('pull', quiet); return; }
+      if (!(await trunkPermit(trunkHandle, quiet))) return;
       if (trunkBusy) return; trunkBusy = true;
       try {
-        const t = await trunkRead(trunkHandle);
+        /* THE READ IS ITS OWN TRY. This function's single catch said "Could not
+           read the trunk" and covered the WHOLE pull — hydrate, recompute,
+           refreshAll, mergeCompute, mergeApply, adoptVersions, saveLocal and
+           every dialog — so a failure applying a merge was reported as a file
+           the reader should go and look at. A message that names the wrong
+           thing is worse than none: it sends somebody to check a file that is
+           fine while the plan on their screen is the part that broke. */
+        let t;
+        try { t = await trunkRead(trunkHandle); }
+        catch (e) {
+          if (quiet) { flashSaved('Pull paused — could not read ' + ((trunkHandle && trunkHandle.name) || 'the trunk file')); return; }
+          await trunkTell({ title: 'Could not read the trunk', ico: '⛔', bad: true,
+            verdict: 'The shared file could not be read, so nothing was taken and nothing here changed.',
+            why: 'A pull reads before it applies anything, and that read is what failed. The commonest cause '
+               + 'is the file being written by somebody else at the moment it was opened, which clears on the '
+               + 'next attempt.',
+            rowsHead: 'What the browser said',
+            rows: [['File', (trunkHandle && trunkHandle.name) || 'the trunk file'],
+                   ['Error', String(e && e.name || 'Error')],
+                   ['Message', String((e && e.message) || e).slice(0, 140)]],
+            next: ['Press Pull again — a file caught mid-write reads clean the next time',
+                   'If the file was moved or replaced, point at it again with Join a team trunk'] });
+          return;
+        }
         if (!t) { flashSaved('The trunk is empty — push yours to start it.'); return; }
         const chk = trunkVerifyChain(t);
         const rel = trunkRelation(t);
@@ -7766,15 +7950,37 @@ Or say what you want, in your own words:
           return trunkPull(quiet);
         }
         if (rel.relation === 'unrelated') {
-          alert('That trunk is a different engagement — nothing in its history is anywhere in this plan\'s, '
-            + 'so merging it would read every activity as an addition.\n\n'
-            + trunkKinshipEvidence(rel.kin || trunkKinship(t)));
+          if (quiet) { flashSaved('Pull paused — that trunk is a different engagement'); return; }
+          const kk = rel.kin || trunkKinship(t);
+          await trunkTell({ title: 'A different engagement', ico: '⛔', bad: true,
+            verdict: 'That trunk is a different engagement — refusing to merge it into this plan.',
+            why: 'Not one version in its history appears anywhere in this plan\'s, so a merge would read every '
+               + 'activity in it as an addition and leave you with two engagements in one file.',
+            rowsHead: 'What was compared',
+            rows: [['This plan', kk.mine + ' version' + (kk.mine === 1 ? '' : 's') + ', lineage ' + kk.myLineage],
+                   ['The trunk', kk.theirs + ' version' + (kk.theirs === 1 ? '' : 's') + ', lineage '
+                     + kk.theirLineage + ', named “' + kk.theirName + '”'],
+                   ['Versions in common', kk.shared]],
+            next: ['If these really are the same engagement, they have never shared a version — bring their '
+                     + 'work across with Team ▸ Merge a copy they sent you… instead',
+                   'To work on that engagement on its own, open their backup with Project ▸ Import a file…'] });
           return;
         }
         const tip = trunkTip(t);
         if (!tip || !tip.doc) {
-          alert('The newest entry in the trunk has no plan attached — its payload was compacted away, which should '
-            + 'not happen to the tip. The file may have been edited by hand.'); return;
+          if (quiet) { flashSaved('Pull paused — the trunk has no plan at the end of its chain'); return; }
+          await trunkTell({ title: 'No plan at the end of the chain', ico: '📭', bad: true,
+            verdict: 'The trunk\'s newest entry carries no plan, so this pull has nothing to take.',
+            why: 'Payloads are only ever trimmed from the oldest end and the newest always keeps one, so a tip '
+               + 'without a plan was written by something other than this application, or edited by hand. '
+               + 'Stopping is right: the only thing to apply is nothing.',
+            rowsHead: 'The entry that should have carried it',
+            rows: [['Filed by', String((tip && (tip.byName || tip.by)) || '(unsigned)')],
+                   ['When', String((tip && tip.at) || '(no date)').slice(0, 16).replace('T', ' ')],
+                   ['Entries in the file', String((t.log || []).length)]],
+            next: ['Ask the person named above to press Push mine again — their copy still holds the plan',
+                   'Take a copy of yours first with Export ▸ Download backup (.json)'] });
+          return;
         }
         if (rel.relation === 'behind') {
           /* A FAST-FORWARD IS NOT A MERGE. Everything of mine is already in
@@ -7786,7 +7992,7 @@ Or say what you want, in your own words:
             /* The snapshots come out of the trunk tip's OWN version chain,
                which travels inside every payload — so an incoming version can
                be diffed against its parent without either side being here. */
-            const theirSnaps = trunkSnapIndex(tip.doc);
+            const theirSnaps = trunkSnapIndex(t);
             const mineVids = new Set((planVersions || []).map(v => v.vid));
             const incoming = (t.log || []).filter(e => e.vid && !mineVids.has(e.vid));
             const ffLog = trunkLogHtml(trunkDeltas(incoming, vid => theirSnaps.get(vid)),
@@ -7799,7 +8005,7 @@ Or say what you want, in your own words:
               why: 'There is nothing to weigh: everything of yours is already in their history, so this is a '
                  + 'straight catch-up rather than a merge.',
               diagram: jnFlow(mineN, rel.behind, { lane: 'Your history', baseTag: 'V', addTag: 'T',
-                addCls: 'shared', pending: 'theirs, not here yet', done: 'Level with the trunk',
+                addCls: 'theirs', pending: 'theirs, not here yet', done: 'Level with the trunk',
                 alt: rel.behind + ' newer versions from the trunk joining your ' + mineN }),
               capBefore: 'The team has moved <b>' + rel.behind + ' version' + (rel.behind === 1 ? '' : 's')
                 + ' ahead</b> of the copy on this machine.',
@@ -7882,7 +8088,7 @@ Or say what you want, in your own words:
           const keep = (r.myAdds || []).length;
           const incoming = (r.auto || []).length + (r.theirAdds || []).length;
           if (!quiet) {
-            const theirSnaps2 = trunkSnapIndex(tip.doc);
+            const theirSnaps2 = trunkSnapIndex(t);
             const mineVids2 = new Set((planVersions || []).map(v => v.vid));
             const incoming2 = (t.log || []).filter(e => e.vid && !mineVids2.has(e.vid));
             const clLog = trunkLogHtml(trunkDeltas(incoming2, vid => theirSnaps2.get(vid)),
@@ -7895,7 +8101,7 @@ Or say what you want, in your own words:
                 + (keep ? ', and your ' + keep + ' new activit' + (keep === 1 ? 'y stays' : 'ies stay')
                         : ', and nothing of yours changes') + '.',
               diagram: jnFlow((planVersions || []).length, (t.log || []).length, { lane: 'Your history',
-                baseTag: 'V', addTag: 'T', addCls: 'shared', pending: 'theirs, not here yet',
+                baseTag: 'V', addTag: 'T', addCls: 'theirs', pending: 'theirs, not here yet',
                 done: 'One history, then your merge on top',
                 alt: 'their versions joining yours, with nothing contested' }),
               capBefore: 'Two histories that moved apart — and <b>no field either of you both touched</b>.',
@@ -7949,7 +8155,21 @@ Or say what you want, in your own words:
         trunkAdoptPending = (t.log || []).slice();
         flashSaved('You and the trunk have both changed the same things — opening the review');
         mergeReview(tip.doc, 'the team trunk');
-      } catch (e) { alert('Could not read the trunk: ' + (e.message || e)); }
+      } catch (e) {
+        /* Whatever is left is a failure APPLYING the pull, not reading it, and
+           now says so. Undo is named because by this point some of it may have
+           landed — which is exactly the thing the old message never admitted. */
+        if (quiet) { flashSaved('Pull stopped partway — ' + ((e && e.message) || e)); return; }
+        await trunkTell({ title: 'The pull did not finish', ico: '⚠️', bad: true,
+          verdict: 'The trunk was read, and applying it stopped partway through.',
+          why: 'This is a failure in this plan rather than in the shared file: the trunk on disk is untouched '
+             + 'and still holds everything it held. Some of the pull may already have been applied here.',
+          rowsHead: 'What the browser said',
+          rows: [['Error', String(e && e.name || 'Error')],
+                 ['Message', String((e && e.message) || e).slice(0, 140)]],
+          next: ['Press ↶ Undo if the plan on screen looks wrong — it reverses whatever landed',
+                 'Then press Pull again'] });
+      }
       finally { trunkBusy = false; }
     }
     /* ═══ SAYING WHAT A PUSH IS ABOUT TO DO ══════════════════════════════════
@@ -8016,8 +8236,8 @@ Or say what you want, in your own words:
         + 'their work would have been refused before this point.\n\nShare it?';
     }
     async function trunkPush(quiet) {
-      if (!trunkHandle) { alert('Connect to the shared file first.'); return; }
-      if (!(await trunkPermit(trunkHandle))) return;
+      if (!trunkHandle) { await trunkNoTrunk('push', quiet); return; }
+      if (!(await trunkPermit(trunkHandle, quiet))) return;
       if (trunkBusy) return; trunkBusy = true;
       try {
         trunkEnsureTip();
@@ -8025,7 +8245,22 @@ Or say what you want, in your own words:
         // looked, and appending onto a stale copy is how a whole-file sync
         // eats somebody's entries.
         let t = null;
-        try { t = await trunkRead(trunkHandle); } catch (e) { alert(e.message || String(e)); return; }
+        try { t = await trunkRead(trunkHandle); }
+        catch (e) {
+          if (quiet) { flashSaved('Push paused — could not read ' + ((trunkHandle && trunkHandle.name) || 'the trunk file')); return; }
+          await trunkTell({ title: 'Could not read the trunk', ico: '⛔', bad: true,
+            verdict: 'The trunk could not be read, so nothing was sent and nothing was written to it.',
+            why: 'A push reads the trunk before it writes, so your versions land on what is on disk now rather '
+               + 'than on a stale copy. That read is what failed, so the write never ran — the file on disk '
+               + 'holds exactly what it held a moment ago.',
+            rowsHead: 'What the browser said',
+            rows: [['File', (trunkHandle && trunkHandle.name) || 'the trunk file'],
+                   ['Error', String(e && e.name || 'Error')],
+                   ['Message', String((e && e.message) || e).slice(0, 140)]],
+            next: ['Press Push again — the trunk was not written, so there is nothing to undo first',
+                   'If the file was moved or replaced, point at it again with Join a team trunk'] });
+          return;
+        }
         if (!t) t = { _format: TRUNK_FORMAT, lineage: planLineageId(),
                       name: document.getElementById('projectName').value || 'Untitled', base: null, log: [] };
         const rel = trunkRelation(t);
@@ -8153,7 +8388,22 @@ Or say what you want, in your own words:
                 + 'again once the file is reachable.' });
           } else throw e;
         }
-      } catch (e) { alert('Could not write the trunk: ' + (e.message || e)); }
+      } catch (e) {
+        /* The run panel handles a failed WRITE on its own step, so anything
+           reaching here failed before the run started — the relation check, the
+           snapshot, the compaction. Saying "could not write the trunk" about
+           those sent people to look at a file that was never opened. */
+        if (quiet) { flashSaved('Push stopped — ' + ((e && e.message) || e)); return; }
+        await trunkTell({ title: 'The push did not start', ico: '⚠️', bad: true,
+          verdict: 'Preparing the push failed, so nothing was sent.',
+          why: 'This stopped before the trunk was written: the shared file is untouched and holds exactly '
+             + 'what it held. Your plan and your versions are unchanged.',
+          rowsHead: 'What the browser said',
+          rows: [['Error', String(e && e.name || 'Error')],
+                 ['Message', String((e && e.message) || e).slice(0, 140)]],
+          next: ['Press Push again', 'If it keeps failing, take a copy with Export ▸ Download backup (.json) '
+                   + 'and send that while the trunk is unreachable'] });
+      }
       finally { trunkBusy = false; }
     }
     function updateTrunkBtn() {
