@@ -203,6 +203,33 @@ else
 fi
 rm -f /tmp/ptr-c.$$
 
+# ═══ WHAT DOES SAVING AND LOADING THROW AWAY? ════════════════════════════════
+# Added after the worst defect of the session shipped green: hydrate() rebuilds
+# each plan version field by field and did not name vid or pvid, so loading a
+# plan erased the identity of its whole history and no pull could ever
+# converge. It was reported by a person after the suite had been green for
+# weeks.
+#
+# Nothing here could have caught it. persistence-sweep asks "is my plan still
+# here", which is a different and also-correct question. Every other check reads
+# these objects in the session that built them, where they have never been
+# through the loader. And nobody writes a mutant for a field a mapper forgot to
+# name — forgetting it is the defect.
+#
+# So: serialize -> hydrate -> serialize must be LOSSLESS, at every depth, over a
+# fixture deliberately made to carry the fields that only exist once somebody
+# has used the product. On a green run it also prints which top-level keys
+# neither fixture populates, because "lossless" over an empty document is the
+# same sentence as "checked nothing". ~9s.
+if node tests/probes/roundtrip-sweep.js > /tmp/ptr-r.$$ 2>&1; then
+  echo "  ✓ round trip           saving and loading loses nothing"
+  sed -n '/Not exercised by either fixture/p' /tmp/ptr-r.$$ | sed 's/^/      /'
+else
+  echo "  ✗ ROUND TRIP — saving and loading silently drops a field"
+  sed -n '/saving and loading loses\|values were compared/,$p' /tmp/ptr-r.$$ | sed 's/^/      /'; fail=1
+fi
+rm -f /tmp/ptr-r.$$
+
 # The other half of "can this check still fail". The mutants ask whether a
 # defect would be NOTICED; this asks whether the check is reading its input at
 # all. Every sweep is run twice — real plan, then an empty one — and its output
