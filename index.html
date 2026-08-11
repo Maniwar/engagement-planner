@@ -5344,7 +5344,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.10.2332</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.11.1759</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -13825,8 +13825,17 @@ Or say what you want, in your own words:
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
       };
     }
+    /* The iteration count lives in a header <select> that is not guaranteed to
+       exist when a simulation is asked for — runMonteCarlo is called from paths
+       that run while analytics is mid-re-render, and reading .value off a null
+       element took the whole forecast down. One reader, one fallback (the
+       select's own default), used by both the seed and the loop. */
+    function mcIterationCount() {
+      const el = document.getElementById('mcIterations');
+      return el ? (parseInt(el.value, 10) || 5000) : 5000;
+    }
     function planSeed() {
-      const str = JSON.stringify(tasks.map(t => [t.id, t.o, t.m, t.p, t.units, t.predecessors, t.levelDelay])) + document.getElementById('mcIterations').value;
+      const str = JSON.stringify(tasks.map(t => [t.id, t.o, t.m, t.p, t.units, t.predecessors, t.levelDelay])) + mcIterationCount();
       let h = 2166136261;
       for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
       return h >>> 0;
@@ -13867,7 +13876,7 @@ Or say what you want, in your own words:
     }
     function runMonteCarlo() {
       if (!calculated) return;
-      const iters = parseInt(document.getElementById('mcIterations').value, 10) || 5000;
+      const iters = mcIterationCount();
       // precompute topo once (dependencies fixed)
       const base = computeSchedule(t => t.te);
       if (!base.ok) return;
@@ -17625,21 +17634,6 @@ Or say what you want, in your own words:
           bud.note += ' Here it is above the curve but <b>not</b> above the value of the work done, so you are '
             + 'spending ahead of the plan because you are working ahead of it'
             + (schTxt && sch.pct < 0 ? ' — the forecast is ' + schTxt + '. ' : '. ') + 'Timing, not overspend.';
-          /* And say what "spending" means HERE, next to the claim, rather than
-             in the smallest text at the bottom of the page. Working ahead only
-             puts money out of the door early if the money follows the work. */
-          const cb0 = costBasisSplit(leaves);
-          if (cb0.anyDerived)
-            bud.note += ' <b>Read that as work done early, not cash gone early:</b> '
-              + (cb0.typedN
-                  ? money(Math.round(cb0.derived)) + ' of the ' + money(Math.round(cb0.total))
-                    + ' booked is <em>accrued</em> — derived from logged effort × day rates as the work was '
-                    + 'recorded — and ' + money(Math.round(cb0.typed)) + ' was typed in by hand'
-                  : 'the whole booked total is <em>accrued</em> — derived from logged effort × day rates as '
-                    + 'the work was recorded')
-              + '. Nothing here knows when an invoice was raised or a supplier paid, so an activity that '
-              + 'finished early books its cost early. Where a figure genuinely left on a different day, the '
-              + '<b>✎ override</b> in the activity editor records the amount you mean instead.';
           /* "It closes on its own" is only credible with a DATE on it. The plan is
              a closed curve of frozen per-activity costs and dates, so the day it
              reaches the amount already booked is not a forecast — it is a lookup,
@@ -17668,6 +17662,30 @@ Or say what you want, in your own words:
           bud.note += ' Read it with the schedule bar: the forecast is ' + schTxt + ', so part of this '
             + 'under-spend is money not yet spent because the work has not yet started. Deferred, not saved.';
         }
+        /* ═══ WHAT "BOOKED" MEANS, ON EVERY BRANCH ═════════════════════════
+           This sentence used to hang off ONE arm of the chain above — the
+           over-the-curve-but-not-over-value case — as if accrual were a fact
+           about that reading. It is a fact about the MONEY: whichever way the
+           bar comes out, a booked figure derived from logged effort is work
+           recorded, not cash gone. Under-spending needs the disclosure just as
+           much, because "you are under budget" is exactly as misleading when
+           nothing here knows whether an invoice was ever raised.
+
+           It only surfaced when the calendar moved and the sample plan stopped
+           landing on that one arm — the note went quiet about its own basis on
+           a plan where nothing else had changed. */
+        const cb0 = costBasisSplit(leaves);
+        if (cb0.anyDerived)
+          bud.note += ' <b>Read the booked figure as work recorded, not cash gone:</b> '
+            + (cb0.typedN
+                ? money(Math.round(cb0.derived)) + ' of the ' + money(Math.round(cb0.total))
+                  + ' booked is <em>accrued</em> — derived from logged effort × day rates as the work was '
+                  + 'recorded — and ' + money(Math.round(cb0.typed)) + ' was typed in by hand'
+                : 'the whole booked total is <em>accrued</em> — derived from logged effort × day rates as '
+                  + 'the work was recorded')
+            + '. Nothing here knows when an invoice was raised or a supplier paid, so an activity that '
+            + 'finished early books its cost early. Where a figure genuinely left on a different day, the '
+            + '<b>✎ override</b> in the activity editor records the amount you mean instead.';
         // A baseline taken before rates were entered froze $0 into every
         // baseCost. Saying "vs the baseline of <date>" there would be a lie with
         // a date attached, so the reference falls back to the live plan and says so.
