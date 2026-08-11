@@ -5344,7 +5344,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.11.1759</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.11.1834</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -21042,9 +21042,25 @@ Or say what you want, in your own words:
         } else if (t.milestone) {
           const done = t.percentComplete >= 100;
           const cx = msAnchorX(t), cy = y + ROWH / 2; // boundary or end-of-day — see msAnchorX
-          const msLabelRight = (cx + 84) < (W - PAD);
+          /* The label names the GATE, not only its date — "◆ 10/09" sends the
+             reader back to the row titles to learn which checkpoint this is,
+             on the one chart that gets screenshotted without its left column.
+             Title first, semibold, in the diamond's own family of purple; the
+             date rides after it in a lighter weight so the two read as one
+             annotation with a hierarchy instead of two competing labels. A
+             white halo (paint-order stroke) keeps both legible where they
+             cross gridlines, slack hatch or a neighbouring bar. Names past 34
+             chars ellipsize — the full name stays in the hover tip. The side
+             flip uses the MEASURED label width, not the old fixed 84px, so a
+             long title near the right edge swings left instead of walking off
+             the chart. */
+          const msName = String(t.name || '').replace(/^◆\s*/, '');
+          const msShort = msName.length > 34 ? msName.slice(0, 32).replace(/\s+\S*$/, '') + '…' : msName;
+          const msDate = fmtNice(t.finishDate);
+          const msW = (msShort.length + msDate.length + 3) * 5.7 + 18;
+          const msLabelRight = (cx + msW) < (W - PAD);
           svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer"><rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" rx="2" transform="rotate(45 ${cx} ${cy})" fill="${done ? '#16a34a' : '#7c3aed'}"/>` +
-            `<text x="${msLabelRight ? cx + 14 : cx - 14}" y="${cy + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${done ? '#16a34a' : '#6d28d9'}" ${msLabelRight ? '' : 'text-anchor="end"'}>${done ? '✓ ' : ''}${escapeXml(fmtNice(t.finishDate))}</text>` +
+            `<text x="${msLabelRight ? cx + 14 : cx - 14}" y="${cy + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${done ? '#16a34a' : '#5b21b6'}" stroke="#fff" stroke-width="3" stroke-linejoin="round" paint-order="stroke" ${msLabelRight ? '' : 'text-anchor="end"'}>${done ? '✓ ' : ''}${escapeXml(msShort)}<tspan font-weight="400" fill="${done ? '#16a34a' : '#7c3aed'}" opacity="0.85"> · ${escapeXml(msDate)}</tspan></text>` +
             `<title>${escapeXml(tip)}</title></g>`;
         } else {
           const done = t.percentComplete >= 100;
