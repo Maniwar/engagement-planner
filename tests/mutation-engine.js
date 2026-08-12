@@ -1951,6 +1951,233 @@ const MUTANTS = [
     find: "      if (trunkBusyEditing()) { trunkHeld = 'editing'; updateTrunkBtn(); return; }",
     with: "      if (trunkBusyEditing()) return;" },
 
+  /* ═══ AIMED AT THE SENTENCES THAT HAD NEVER FIRED ══════════════════════════
+     The coverage probe (tests/probes/assertion-coverage.js) read the full-run
+     journal and answered: 432 of 1284 matchable assertions had ever been the
+     one that went red. Not because the other 852 are wrong — because judging
+     stops at the first check that goes red, so a sentence can only earn its
+     evidence by being the FIRST to catch something, and whole sweeps
+     (portfolio, cross-surface, three-people: 0%) had never once been that.
+
+     Every mutant below was aimed at a specific never-fired sentence and
+     dry-run-verified before landing here: pristine sweep green, mutated copy
+     red, the target sentence in the red run's output. Three targets could not
+     be fired and are recorded where they belong instead: the RAID-type
+     whitelist is masked by the <select> element re-validating behind it (a
+     browser will not hold a value its list does not offer), one
+     contradiction-sweep line proved to be algebra over the check's own locals,
+     and three-people-sweep read the repo's product by path so APP_FILE never
+     reached it — fixed in the sweep, which is what made its five sentences
+     below reachable at all. */
+
+  /* ── the portfolio and the plan-vs-actual cards ── */
+  { what: "portfolio: person rows merge by upper-cased name, so the roster names no longer match",
+    find: "return { name: e.name, cap: cap, capDisagree: capDisagree, caps: e.caps,",
+    with: "return { name: String(e.name).toUpperCase(), cap: cap, capDisagree: capDisagree, caps: e.caps," },
+
+  { what: "portfolio: a day’s combined load takes the largest single claim instead of the sum",
+    find: "d.total += n; d.from[pname] = (d.from[pname] || 0) + n;",
+    with: "d.total = Math.max(d.total, n); d.from[pname] = (d.from[pname] || 0) + n;" },
+
+  { what: "portfolio: anyone past 80% of capacity is reported as over across the book",
+    find: "if (d.total > cap + 1e-6) over.push({ iso: iso, total: d.total, from: d.from });",
+    with: "if (d.total > cap * 0.8) over.push({ iso: iso, total: d.total, from: d.from });" },
+
+  { what: "portfolio: conflicting capacities resolve to the largest recorded value",
+    find: "const cap = capVals.length ? Math.min.apply(null, capVals) : 100;",
+    with: "const cap = capVals.length ? Math.max.apply(null, capVals) : 100;" },
+
+  { what: "portfolio: committed cost tile reports the largest project instead of the book’s total",
+    find: "cost: projects.reduce((n, p) => n + ((p.metrics && p.metrics.cost) || 0), 0),",
+    with: "cost: projects.reduce((n, p) => Math.max(n, (p.metrics && p.metrics.cost) || 0), 0)," },
+
+  { what: "io map: plan-to-date is accrued a week behind today, skewing the budget bar and spend-line gap",
+    find: "const pvNow = accrualAt(sp.segs, today.getTime());   // === the planned-value card",
+    with: "const pvNow = accrualAt(sp.segs, today.getTime() - 7 * 86400000);   // === the planned-value card" },
+
+  { what: "io map: the budget bar prints earned value where the booked figure belongs",
+    find: "bud.actTxt = money(actCost);",
+    with: "bud.actTxt = money(evNow);" },
+
+  { what: "io map: the drill-in’s per-activity overrun carries the cost-variance sign convention",
+    find: "const timing = ev - pv, over = ac - ev;",
+    with: "const timing = ev - pv, over = ev - ac;" },
+
+  { what: "io map: the over-allocation health finding is filed under Cost and fires on the roster object, not the count",
+    find: "const over = resourceLoad ? resourceLoad.overResourceDays : 0;\n      if (over) findings.push({ severity: 'high', area: 'Resourcing', finding: ",
+    with: "const over = resourceLoad ? resourceLoad.overResourceDays : 0;\n      if (resourceLoad) findings.push({ severity: 'high', area: 'Cost', finding: " },
+
+
+  /* ── pricing and the readout contradictions ── */
+  { what: "pricing rate: fixed-fee cap decoupled from the quoted price",
+    find: "const cap = isTM ? (contract || ceiling) : price;",
+    with: "const cap = isTM ? (contract || ceiling) : recPrice;" },
+
+  { what: "pricing rate: cost-unknown guard tests participation instead of rated participation",
+    find: "const costBlind = anyInternalPart && !anyRatedPart;",
+    with: "const costBlind = anyInternalPart && !anyPart;" },
+
+  { what: "pricing rate: panel headline prints markup over cost instead of the ratio over price",
+    find: ", leaving ${pbPct(f.margin)} margin over a ${fmtMoney(f.cost)} delivery cost",
+    with: ", leaving ${pbPct((f.price - f.cost) / f.cost * 100)} margin over a ${fmtMoney(f.cost)} delivery cost" },
+
+  { what: "pricing rate: calculated guard inverted so the panel always shows the blocked notice",
+    find: "if (!calculated || !tasks.length) {\n        cont.innerHTML = blocked('Calculate the plan first",
+    with: "if (!calculated || tasks.length) {\n        cont.innerHTML = blocked('Calculate the plan first" },
+
+  { what: "pricing rate: SOW price block omitted unless a contract price was typed",
+    find: "if (!(f.price > 0)) return null;",
+    with: "if (!(f.contract > 0)) return null;" },
+
+  { what: "pricing rate: client-kind detection broken by a case-sensitive compare",
+    find: "function isClientResource(name) { return getKind(name) === 'client'; }",
+    with: "function isClientResource(name) { return getKind(name) === 'Client'; }" },
+
+  { what: "pricing rate: rate-card currency never read, every figure renders in dollars",
+    find: "return (!c || /^usd$/i.test(c)) ? '$' : c;",
+    with: "return '$';" },
+
+  { what: "pricing rate: simulation drift threshold mistyped from 2% to 200%",
+    find: "const staleSim = haveSim && (drift(simCostMean, cost) > 0.02 || drift(simRevMean, detRev) > 0.02);",
+    with: "const staleSim = haveSim && (drift(simCostMean, cost) > 2 || drift(simRevMean, detRev) > 2);" },
+
+  { what: "readout: budget driver returns its timing and overrun halves swapped",
+    find: "return { timing: timing, over: over,",
+    with: "return { timing: over, over: timing," },
+
+  { what: "readout: budget driver filter keeps both signs so the remainder sentence goes stale",
+    find: ".filter(x => Number.isFinite(x.v) && x.v * dir > 0.0001)",
+    with: ".filter(x => Number.isFinite(x.v) && Math.abs(x.v) > 0.0001)" },
+
+  { what: "readout: driver list pinned to the over side and its fault line reworded",
+    find: ["v => (v > 0 ? '+' : '−') + money(Math.abs(Math.round(v))), overspent ? 1 : -1, budDetail);",
+           "(over > 0 ? 'over its own budget' : 'under its own budget')"],
+    with: ["v => (v > 0 ? '+' : '−') + money(Math.abs(Math.round(v))), 1, budDetail);",
+           "(over > 0 ? 'above its own budget' : 'under its own budget')"] },
+
+  { what: "readout: cause chip painted as a fault for any explaining entry",
+    find: "const fault = raidIsFault(top);",
+    with: "const fault = raidExplains(top);" },
+
+  { what: "readout: decisions counted as faults and the log-offer gate flipped with them",
+    find: ["if (r.type === 'Decision') return false;",
+           "+ (raidHasFaultCause(taskId) || !mkOffer ? '' : mkOffer())"],
+    with: ["if (r.type === 'Decision') return true;",
+           "+ (raidHasFaultCause(taskId) && mkOffer ? mkOffer() : '')"] },
+
+  { what: "readout: spend verdict flags transposed between the curve test and the value test",
+    find: ["const overValue = (actCost - evNow) > tol;",
+           "if (bv.overCurve && !bv.overValue) {"],
+    with: ["const overValue = (evNow - actCost) > tol;",
+           "if (!bv.overCurve && bv.overValue) {"] },
+
+  { what: "readout: remainder tolerance comparison inverted, the note claims the tidy case",
+    find: "+ (Math.abs(budRest) > Math.max(1, Math.abs(budShownSum) * 0.02)",
+    with: "+ (Math.abs(budRest) < Math.max(1, Math.abs(budShownSum) * 0.02)" },
+
+
+  /* ── the AI input boundary ── */
+  { what: "criteria: reading validator no longer checks that an open/raid act ref resolves to a real task",
+    find: "if (!tasks.some(t => t.id === n)) a = null; else a = { v, id: n, label: String(a.label || '').slice(0, 22) };",
+    with: "a = { v, id: n, label: String(a.label || '').slice(0, 22) };" },
+
+  { what: "criteria: reading text interpolated into panel markup without escapeHtml",
+    find: "let h = escapeHtml(i.text);",
+    with: "let h = i.text;" },
+
+  { what: "criteria: RAID capture stops clamping model probability/impact to the 1-5 scale",
+    find: "const clamp = v => Math.min(5, Math.max(1, Math.round(+v) || 3));",
+    with: "const clamp = v => Math.round(+v) || 3;" },
+
+  { what: "criteria: add-criteria path upserts by the model-supplied id, rewriting existing criteria and admitting blank text",
+    find: "      const existing = new Set((s.ac || []).map(a => String(a.id)));\n      let n = next;\n      const added = res.ac.map(a => {\n        let id;\n        do { id = base + '.' + (n++); } while (existing.has(id));\n        existing.add(id);\n        return { id: id,\n          type: /^(happy|error|edge|perf)$/i.test(String(a.type)) ? String(a.type).toLowerCase() : 'happy',\n          text: String(a.text || '').trim() };\n      }).filter(a => a.text);",
+    with: "      const existing = new Set((s.ac || []).map(a => String(a.id)));\n      let n = next;\n      const added = [];\n      res.ac.forEach(a => {\n        const type = /^(happy|error|edge|perf)$/i.test(String(a.type)) ? String(a.type).toLowerCase() : 'happy';\n        const text = String(a.text || '').trim();\n        const hit = (s.ac || []).find(x => String(x.id) === String(a.id));\n        if (hit) { hit.type = type; hit.text = text; return; }\n        let id;\n        do { id = base + '.' + (n++); } while (existing.has(id));\n        existing.add(id);\n        added.push({ id: id, type: type, text: text });\n      });" },
+
+  { what: "criteria: saving a draft writes its title over the deliverable even when one was already typed",
+    find: "if (t.aiDoc && !String(t.deliverable || '').trim() && t.aiDoc.title) {",
+    with: "if (t.aiDoc && t.aiDoc.title) {" },
+
+  { what: "criteria: transcript cap simplified to a plain tail slice, losing the opening brief turn",
+    find: "return rows.length <= CHAT_MSG_CAP ? rows\n        : [rows[0]].concat(rows.slice(rows.length - (CHAT_MSG_CAP - 1)));",
+    with: "return rows.slice(-CHAT_MSG_CAP);" },
+
+
+  /* ── the network, the simulation and save/load ── */
+  { what: "network: milestones are given a half-day default duration instead of zero",
+    find: "if (t.milestone || t.isSummary) { t.te = 0; t.variance = 0; }",
+    with: "if (t.milestone || t.isSummary) { t.te = t.milestone ? 0.5 : 0; t.variance = 0; }" },
+
+  { what: "network: successor graph is built for FS edges only, so plans with SS/FF/SF links cannot schedule",
+    find: "nodes.forEach(t => preds[t.id].forEach(p => { if (successors[p.id]) successors[p.id].push({ id: t.id, type: p.type, lag: p.lag }); }));",
+    with: "nodes.forEach(t => preds[t.id].forEach(p => { if (successors[p.id] && (p.type || 'FS') === 'FS') successors[p.id].push({ id: t.id, type: p.type, lag: p.lag }); }));" },
+
+  { what: "network: critical flag tolerance widened so near-critical activities are marked critical",
+    find: "t.isCritical = Math.abs(t.slack) < 0.01;",
+    with: "t.isCritical = t.slack < 1.5;" },
+
+  { what: "network: Monte Carlo duration distribution sorted descending, inverting every percentile",
+    find: "durations.sort((a, b) => a - b);",
+    with: "durations.sort((a, b) => b - a);" },
+
+  { what: "network: dateConfidencePct guard reads mcResult.duration (typo), so it always bails to null",
+    find: "if (!mcResult || !Array.isArray(mcResult.durations) || !mcResult.durations.length) return null;",
+    with: "if (!mcResult || !Array.isArray(mcResult.duration) || !mcResult.duration.length) return null;" },
+
+  { what: "save/load serialize renames the roster and RAID keys, so hydrate never finds them again",
+    find: "resources, reserves, baselineDate, baselineLog, levelMode, projectBudget,\n        raid, nextRaidId,",
+    with: "roster: resources, reserves, baselineDate, baselineLog, levelMode, projectBudget,\n        raidLog: raid, nextRaidId," },
+
+  { what: "save/load org adoption mints a fresh local id and never checks the registry for an existing record",
+    find: "const known = orgFind(key);\n      if (known) return known;\n      const sameName = nm ? orgByName(nm) : null;\n      if (sameName) return sameName;\n      const lib = loadOrgLib().slice();\n      const rec = { id: key, name: nm || key, at: fmtISO(new Date()), adopted: true };",
+    with: "const lib = loadOrgLib().slice();\n      const rec = { id: 'org-' + Math.random().toString(36).slice(2, 10), name: nm || key, at: fmtISO(new Date()), adopted: true };" },
+
+
+  /* ── the trunk and the three-person exchange ── */
+  { what: "trunk: trunkVerifyChain forgets to admit earlier log entries as parents, so it only accepts the base",
+    find: "if (e.pvid && !seen.has(e.pvid)) gaps.push({ vid: e.vid, missingParent: e.pvid, by: e.byName || e.by || 'somebody', at: e.at });\n        seen.add(e.vid);",
+    with: "if (e.pvid && !seen.has(e.pvid)) gaps.push({ vid: e.vid, missingParent: e.pvid, by: e.byName || e.by || 'somebody', at: e.at });" },
+
+  { what: "trunk: trunkWhoMoved builds the \"already mine\" set from the trunk log itself, so every arriving entry reads as already seen",
+    find: "const mine = new Set((planVersions || []).map(v => v.vid).filter(Boolean));",
+    with: "const mine = new Set(((t && t.log) || []).map(v => v.vid).filter(Boolean));" },
+
+  { what: "trunk: mergeCompute inverts the three-way rule, reporting fields only the other side changed as conflicts",
+    find: "if (String(va) === String(vb)) { auto.push({ id: id, name: a.name, field: f, label: lbl, mine: va, theirs: vc }); return; }",
+    with: "if (String(va) !== String(vb)) { auto.push({ id: id, name: a.name, field: f, label: lbl, mine: va, theirs: vc }); return; }" },
+
+  { what: "trunk: the unattended path treats a diverged copy as a plain catch-up, taking the trunk tip instead of merging",
+    find: ["      if (rel.relation === 'behind') { await trunkPull(true); trunkAutoStart(); return; }",
+           "        if (rel.relation === 'behind') {\n"],
+    with: ["      if (rel.relation === 'behind' || rel.relation === 'diverged') { await trunkPull(true); trunkAutoStart(); return; }",
+           "        if (rel.relation === 'behind' || (quiet && rel.relation === 'diverged')) {\n"] },
+
+  { what: "trunk: the push preview sentence is simplified to a generic line that states neither the size of the push nor who will see it",
+    find: "      return 'You are about to share ' + s2.versions + ' version' + (s2.versions === 1 ? '' : 's')\n        + ' with the team' + (who ? ' — ' + who + ' will see this next time they sync' : '') + '.\\n\\n'\n        + (bits.length ? bits.join(', ') + '.\\n\\n' : 'Nothing about the activities changed; this files where '\n            + 'you are so the histories stay joined.\\n\\n')",
+    with: "      return 'You are about to share your latest work with the team.\\n\\n'" },
+
+  { what: "trunk: the kin and twin verdicts are swapped in trunkRelation",
+    find: ["return k.shared > 0 ? { relation: 'kin', kin: k } : { relation: 'unrelated', kin: k };",
+           "        if (planLineage && t.lineage && planLineage === t.lineage)\n          return { relation: 'twin', kin: k };"],
+    with: ["return k.shared > 0 ? { relation: 'twin', kin: k } : { relation: 'unrelated', kin: k };",
+           "        if (planLineage && t.lineage && planLineage === t.lineage)\n          return { relation: 'kin', kin: k };"] },
+
+  { what: "trunk: the sync chip inverts its outbound-half test, offering the autosave fix exactly when it is already set up",
+    find: "const publishing = !!diskFileHandle;",
+    with: "const publishing = !diskFileHandle;" },
+
+  { what: "trunk: the auto-sync control's held-while-editing label is trimmed and no longer says anybody is typing",
+    find: "'⏳ Auto sync: waiting until you stop typing'",
+    with: "'⏳ Auto sync: waiting'" },
+
+  { what: "three-person sync: mergeApply writes the local value back for fields only the other side changed",
+    find: "r.auto.forEach(x => { if (applyRow(x, x.theirs)) n++; });",
+    with: "r.auto.forEach(x => { if (applyRow(x, x.mine)) n++; });" },
+
+  { what: "three-person sync: trunkPull applies the fast-forward branch to diverged copies, replacing the plan instead of merging",
+    find: "        if (rel.relation === 'behind') {\n",
+    with: "        if (rel.relation === 'behind' || rel.relation === 'diverged') {\n" },
+
+
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -2118,6 +2345,10 @@ const LIKELY = {
   'card:': 'cross-surface-sweep.js', 'network:': 'schedule-sweep.js',
   'editor:': 'task-editor-sweep.js',
   'criteria:': 'ai-boundary-sweep.js', 'effort:': 'resourcing-sweep.js', 'bank:': 'bank-sweep.js', 'handoff:': 'bank-sweep.js', 'curve:': 'navigation-sweep.js',
+  /* the four families the never-fired batch introduced — each read off its
+     verified dry-run catch, like every other entry here */
+  'portfolio:': 'portfolio-sweep.js', 'trunk:': 'trunk-sweep.js',
+  'three-person sync:': 'three-people-sweep.js', 'pricing rate:': 'pricing-sweep.js',
   'drill-in:': 'chart-reconciliation-sweep.js', 'backup:': 'persistence-sweep.js', 'accrual:': 'chart-reconciliation-sweep.js', 'cash:': 'chart-reconciliation-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
@@ -2212,7 +2443,13 @@ async function judge(m, i) {
     const n = src.split(finds[k]).length - 1;
     if (n !== 1) return { m, skipped: true, why: 'anchor ' + (k + 1) + ' of ' + finds.length
       + ' matches ' + n + ' times in the source, so this mutant cannot be trusted to have applied' };
-    src = src.replace(finds[k], withs[k]);
+    /* split/join, NOT String.replace: a replacement is LITERAL text here, and
+       replace() interprets $-patterns in it — a mutant whose replacement was
+       `return '$';` had its $' expanded to the entire rest of the file, which
+       broke the build's script wholesale and took the run down as a harness
+       failure in whichever check happened to be walking it. The anchor count
+       above already speaks split's dialect; now the application does too. */
+    src = src.split(finds[k]).join(withs[k]);
   }
   const file = path.join(tmp, 'mutant-' + i + '.html');
   fs.writeFileSync(file, src);

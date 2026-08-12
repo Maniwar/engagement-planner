@@ -32,7 +32,13 @@ const PRODUCT = ['index.html', 'pert-gantt-tracker.html']
 const DATA = FIXTURE();
 
 (async () => {
-  const html = fs.readFileSync(path.join(ROOT, PRODUCT), 'utf8');
+  /* APP_FILE, like every other sweep. This read the repo's own copy by path —
+     the one build no mutant is ever applied to, because the engine delivers a
+     mutated build exclusively through APP_FILE (see _harness.js). So every
+     mutant "survived" this sweep by construction, and its assertions could
+     never be the one that went red. Found by pointing APP_FILE at a file that
+     does not exist: the sweep passed. */
+  const html = fs.readFileSync(process.env.APP_FILE || path.join(ROOT, PRODUCT), 'utf8');
   const srv = http.createServer((q, s) => {
     s.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); s.end(html);
   });
