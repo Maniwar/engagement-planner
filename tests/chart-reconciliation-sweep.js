@@ -627,9 +627,45 @@ const FIELD = JSON.parse(fs.readFileSync(
        would pass a rename and fail a redesign, which is the wrong sensitivity
        in both directions. The one class named is the WARNING one, because "the
        benign case must not wear the warning" is the actual requirement. */
+    /* THE CONSTRUCTED CASES MUST NOT DEPEND ON WHAT TODAY IS. 'early' books at
+       exactly the earned value and needs that to sit ABOVE the plan-to-date
+       accrual — which is only possible while today is inside the baseline
+       window. The fixture's window is fixed in July 2026, so the first
+       calendar day after it closed, PV reached its ceiling, EV could no longer
+       exceed it, and the case stopped building: a red run on a product nothing
+       changed in, discovered when the clock rolled past the window. So this
+       block rebases a COPY of the fixture — every anchored date shifted by the
+       same whole number of days so that today lands about 40% through the
+       baseline window, which is the shape all three tones need and the shape
+       the fixture had on the day it was committed. Only this block uses the
+       copy: everything else in the file reads plans whose properties do not
+       hang on where today falls. */
+    const TONE_CRM = (() => {
+      const d = JSON.parse(JSON.stringify(CRM));
+      const DAY = 86400000;
+      /* its own statement, not a second declarator — the dead-call scan reads
+         one name per const */
+      const ds = s2 => { const t = Date.parse(String(s2) + 'T00:00:00Z');
+        return Number.isFinite(t) ? t : null; };
+      const starts = [], ends = [];
+      (d.tasks || []).forEach(t => { const a = ds(t.baseStart), b = ds(t.baseFinish);
+        if (a != null) starts.push(a); if (b != null) ends.push(b); });
+      if (!starts.length || !ends.length) return d;   // nothing anchored, nothing to rebase
+      const s0 = Math.min.apply(null, starts), e0 = Math.max.apply(null, ends);
+      const today = ds(new Date().toISOString().slice(0, 10));
+      const delta = Math.round((today - (s0 + (e0 - s0) * 0.4)) / DAY);
+      const shift = s2 => { const t = ds(s2); return t == null ? s2
+        : new Date(t + delta * DAY).toISOString().slice(0, 10); };
+      d.projectStart = shift(d.projectStart);
+      if (d.baselineDate) d.baselineDate = shift(d.baselineDate);
+      d.holidays = (d.holidays || []).map ? (d.holidays || []).map(shift) : d.holidays;
+      (d.tasks || []).forEach(t => ['baseStart', 'baseFinish', 'actualStart', 'actualFinish']
+        .forEach(k => { if (t[k]) t[k] = shift(t[k]); }));
+      return d;
+    })();
     const tones = {};
     for (const mode of ['early', 'over', 'clear']) {
-      await page.evaluate(d => { hydrate(d); calculate(); }, CRM);
+      await page.evaluate(d => { hydrate(d); calculate(); }, TONE_CRM);
       await page.waitForTimeout(300);
       tones[mode] = await page.evaluate(m => {
         const hb = hasBaseline(), today = stripTime(new Date()).getTime();

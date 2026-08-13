@@ -2178,6 +2178,213 @@ const MUTANTS = [
     with: "        if (rel.relation === 'behind' || rel.relation === 'diverged') {\n" },
 
 
+  /* ═══ THE SECOND AIMED BATCH ═══════════════════════════════════════════════
+     Same instrument, next ring out: after the first aimed batch the union stood
+     at 521 of 1284, with the biggest remaining tails in the drawn surfaces,
+     navigation, the exports and the trunk. Every mutant below is dry-run
+     verified the same way (pristine green, mutated red, target sentence in the
+     output). Two more check defects fell out of the aiming: export-sweep's
+     whole round-trip block sat behind `if (rep)` on importers that rendered
+     their report and returned undefined — repaired in the importers, and the
+     block ran green on the pristine product the first time it ever ran — and
+     the RAID-type whitelist needed a compound mutant (free-text type field AND
+     the whitelist dropped) because a <select> re-validates behind any single
+     validator defect. */
+
+  /* ── the network, the simulation and the reserves ── */
+  { what: "network: management reserve added onto the raw CPM finish instead of the committed date",
+    find: "const totalUnits = committedUnits + managementUnits;",
+    with: "const totalUnits = cpmUnits + managementUnits;" },
+
+  { what: "network: date stepping counts every calendar day as a day worked",
+    find: "        d.setDate(d.getDate() + 1);\n        if (isWorkingDay(d, holidays)) added++;",
+    with: "        d.setDate(d.getDate() + 1);\n        added++;" },
+
+  { what: "network: the per-task critical count is kept raw instead of divided by the iterations",
+    find: "tasks.forEach(t => t.criticality = critCount[t.id] / iters);",
+    with: "tasks.forEach(t => t.criticality = critCount[t.id]);" },
+
+  { what: "network: a milestone reports the work behind its gate as its own planned work",
+    find: "    function plannedEffortUnit(t, useBaseline) {\n      if (!t || t.milestone) return 0;",
+    with: "    function plannedEffortUnit(t, useBaseline) {\n      if (!t) return 0;\n      if (t.milestone) { const r = milestoneReach(t); return r ? r.effort : 0; }" },
+
+  { what: "network: computing a milestone reach accrues the upstream cost onto the milestone",
+    find: "      const end = isRealDate(t.startDate) ? stripTime(t.startDate) : null;\n      return { n: leaves.length, effort: effort, cost: cost,",
+    with: "      const end = isRealDate(t.startDate) ? stripTime(t.startDate) : null;\n      t.fixedCost = (Number(t.fixedCost) || 0) + cost;\n      return { n: leaves.length, effort: effort, cost: cost," },
+
+
+  /* ── the AI input boundary, second pass ── */
+  { what: "criteria: the RAID catalogue's roster line offers 'Unassigned' as a valid owner nobody on the plan has",
+    find: "const roster = Object.keys(resources);",
+    with: "const roster = Object.keys(resources).concat(['Unassigned']);" },
+
+  { what: "criteria: sentence capture files the entry straight into the log instead of only staging the draft",
+    find: "raidDraftLinks = links;",
+    with: "raidDraftLinks = links;\n      raid.push({ id: nextRaidId++, type: type, title: (title || sentence).slice(0, 90),\n        description: String((res && res.description) || sentence).slice(0, 600),\n        probability: type === 'Issue' ? 5 : clamp(res && res.probability), impact: clamp(res && res.impact),\n        owner: owner, status: 'Open', mitigation: String((res && res.mitigation) || '').slice(0, 400),\n        createdAt: fmtISO(new Date()) });" },
+
+  { what: "criteria: draft-fit classifier loses its structural guards, so milestones and phases are offered as things to compose",
+    find: "      if (!t || t.isSummary) return { fit: 'unlikely', why: 'a phase is a container, not a deliverable' };\n      if (t.milestone) return { fit: 'unlikely', why: 'a milestone is a date, not an artefact' };",
+    with: "      if (!t) return { fit: 'unlikely', why: 'nothing selected' };" },
+
+  { what: "criteria: the drafting context digest sweeps the owner's bill rate into the text sent with every draft turn",
+    find: "      if (t.owner) L.push('  Owner: ' + t.owner + ((resources[t.owner] || {}).role ? ' — ' + resources[t.owner].role : ''));",
+    with: "      if (t.owner) L.push('  Owner: ' + t.owner + ((resources[t.owner] || {}).role ? ' — ' + resources[t.owner].role : '')\n        + ' ($' + rawBillRate(t.owner) + '/' + resRateUnit(t.owner) + ' bill rate)');" },
+
+  { what: "criteria: the drafting contract softens its rule against quoting prices into a mere consistency note",
+    find: "      '- Never state a price, rate, cost or margin. Commercials live in the Statement of Work.',",
+    with: "      '- Keep any commercial terms consistent with the Statement of Work.'," },
+
+  { what: "criteria: the drafting contract drops its hard ban on invented facts, keeping only the placeholder advice",
+    find: "      '- Invent NOTHING. Where a real figure, name or date is needed and the brief does not have it, write a [SQUARE-BRACKET PLACEHOLDER] naming exactly what is missing.',",
+    with: "      '- Where a real figure, name or date is needed and the brief does not have it, write a [SQUARE-BRACKET PLACEHOLDER] naming exactly what is missing.'," },
+
+  { what: "criteria: drafting transcript bubbles are filled with innerHTML, so model output lands in the page as live markup",
+    find: "body.textContent = m.text + (m.trimmed",
+    with: "body.innerHTML = m.text + (m.trimmed" },
+
+  { what: "criteria: the type field becomes free text and capture trusts the model's type verbatim, admitting kinds the log does not have",
+    find: ["<select id=\"rType\" onchange=\"raidOutcomeFormSync()\">\n                <option>Risk</option><option>Assumption</option><option>Issue</option><option>Decision</option><option>Exclusion</option></select>",
+           "      const type = TYPES.indexOf(String(res && res.type)) >= 0 ? res.type : 'Risk';\n      if (res && res.type && TYPES.indexOf(String(res.type)) < 0) drops.push('an unknown type, defaulted to Risk');"],
+    with: ["<input id=\"rType\" type=\"text\" value=\"Risk\" onchange=\"raidOutcomeFormSync()\" />",
+           "      const type = String((res && res.type) || 'Risk').trim();"] },
+
+
+  /* ── navigation, the worklist and the analytics layout ── */
+  { what: "worklist: the copy names who owns the blocker and drops the blocking activity itself",
+    find: "return (b.wbs ? b.wbs + ' ' : '') + b.name + ' (' + who + ')'",
+    with: "return who" },
+
+  { what: "worklist: the group subtotal row is dropped from every table",
+    find: "+ shown.map(r => wlTableRow(r, showBlock)).join('') + '</tbody>' + foot + '</table></div>'",
+    with: "+ shown.map(r => wlTableRow(r, showBlock)).join('') + '</tbody>' + '</table></div>'" },
+
+  { what: "worklist: the waiting-on-whom chain reverts to roster order",
+    find: "        .sort((a, b) => b.holdingUp.length - a.holdingUp.length\n          || b.now - a.now || b.blocked - a.blocked || String(a.name).localeCompare(String(b.name)));",
+    with: "        .sort((a, b) => String(a.name).localeCompare(String(b.name)));" },
+
+  { what: "worklist: the chain shows only people entangled in a dependency",
+    find: "        total: p.now.length + p.blocked.length + p.soon.length + p.doneRows.length }))\n        .sort((a, b) => b.holdingUp.length - a.holdingUp.length",
+    with: "        total: p.now.length + p.blocked.length + p.soon.length + p.doneRows.length }))\n        .filter(r => r.holdingUp.length || r.waitingOn.length)\n        .sort((a, b) => b.holdingUp.length - a.holdingUp.length" },
+
+  { what: "navigation: the Money section is looked up and never written",
+    find: "      const moneyHost = document.getElementById('moneyContent');\n      if (moneyHost) moneyHost.innerHTML = costBlock;",
+    with: "      const moneyHost = document.getElementById('moneyContent');" },
+
+  { what: "navigation: the money block is left behind in the Monte Carlo card as well",
+    find: "        ${reservesBlock}\n        ${histBlock}",
+    with: "        ${reservesBlock}\n        ${costBlock}\n        ${histBlock}" },
+
+  { what: "navigation: the contract badge counts every log entry, open or not",
+    find: "          const open = (raid || []).filter(r => (r.type === 'Risk' || r.type === 'Issue')\n            && String(r.status || '') !== 'Closed');",
+    with: "          const open = (raid || []).slice();" },
+
+  { what: "navigation: leaving the chart clears a reading the click was meant to keep",
+    find: "      if (ptrScPinned) return;                       // a pinned reading stays put\n",
+    with: "" },
+
+
+  /* ── what leaves as a file ── */
+  { what: "billing CSV summary line relabeled 'Grand total' in a copy polish",
+    find: "rows.push(['TOTAL', '', '', '', '', d.totDays.toFixed(2)",
+    with: "rows.push(['Grand total', '', '', '', '', d.totDays.toFixed(2)" },
+
+  { what: "billing CSV per-person Billed $ cell copy-pasted from the Cost $ cell",
+    find: "r.rec.days.toFixed(2), r.rec.tasks, r.rec.tcs, r.cost.toFixed(0), r.billed.toFixed(0)",
+    with: "r.rec.days.toFixed(2), r.rec.tasks, r.rec.tcs, r.cost.toFixed(0), r.cost.toFixed(0)" },
+
+  { what: "export: variance sheet Est-effort header renamed 'Planned effort'",
+    find: "'Allocation %', 'Est effort (' + u + ')',",
+    with: "'Allocation %', 'Planned effort (' + u + ')'," },
+
+  { what: "export: traceability Story ID column switched to the Jira key",
+    find: "const base = [s.epicId || '', s.id, storySentence(s), s.persona || '', s.jira || ''];",
+    with: "const base = [s.epicId || '', s.jira || '', storySentence(s), s.persona || '', s.jira || ''];" },
+
+  { what: "export: project JSON save strips percentComplete as a derived field",
+    find: "download(safeName() + '.json', JSON.stringify(data, null, 2), 'application/json');",
+    with: "download(safeName() + '.json', JSON.stringify(data, (k, v) => k === 'percentComplete' ? undefined : v, 2), 'application/json');" },
+
+  { what: "export: project JSON withholds internal cost rates as confidential",
+    find: "download(safeName() + '.json', JSON.stringify(data, null, 2), 'application/json');",
+    with: "download(safeName() + '.json', JSON.stringify(data, (k, v) => k === 'rate' ? undefined : v, 2), 'application/json');" },
+
+  { what: "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+    find: "'Duration — span (' + u + ')','Work effort (' + u + ')'",
+    with: "'Duration — span (' + u + ')','Effort (' + u + ')'" },
+
+
+  /* ── the drawn surfaces ── */
+  { what: "chart: an always-on hide-completed filter leaks into the Gantt row list, so finished activities lose their bars",
+    find: "if (!hasCollapsedAncestor(task)) { shown.add(task.id); return true; }",
+    with: "if (!hasCollapsedAncestor(task)) { if ((task.percentComplete || 0) >= 100 && !task.isSummary && !task.milestone) return false; shown.add(task.id); return true; }" },
+
+  { what: "chart: fencepost lost in the leaf bar span, so a one-day and a five-day bar are drawn at two different px-per-day scales",
+    find: "const spanDays = t.finishDate ? (calDaysBetween(t.startDate, t.finishDate) + 1) : 1;",
+    with: "const spanDays = t.finishDate ? Math.max(1, calDaysBetween(t.startDate, t.finishDate)) : 1;" },
+
+  { what: "chart: the unstarted critical track drifts to an orange outside the red family during a palette touch-up",
+    find: "fill=\"${crit ? '#fca5a5' : '#93c5fd'}\"",
+    with: "fill=\"${crit ? '#fdba74' : '#93c5fd'}\"" },
+
+  { what: "chart: the collapsed-phase critical strip drops the /100 on percent, so its start lands past the bar end and no red is drawn",
+    find: "doneX: pbx + Math.max(dayW, pspan * dayW) * (t.percentComplete || 0) / 100,",
+    with: "doneX: pbx + Math.max(dayW, pspan * dayW) * (t.percentComplete || 0)," },
+
+  { what: "chart: the Gantt milestone row swaps its done/total count for the effort percentage, so the two surfaces stop agreeing about the same gate",
+    find: "text-anchor=\"end\">${msR.done}/${msR.n}<title>",
+    with: "text-anchor=\"end\">${msR.pct}%<title>" },
+
+  { what: "chart: the gate reach sums raw open-duration instead of allocation-weighted work, so the band quotes the wrong work figure",
+    find: "effort += workingDaysToUnit(plannedEffortDays(x));",
+    with: "effort += (Number(x.te) || 0);" },
+
+  { what: "chart: the work-cell explanation loses its participant roster in a copy trim, so nothing names who is on the activity",
+    find: "+ ' of work' + (who ? ' \\u2014 ' + who : '')",
+    with: "+ ' of work'" },
+
+  { what: "chart: the row-late styling inlines the date test and forgets the completed guard, so finished past work is painted late",
+    find: "${isLate(t) ? 'late' : ''}",
+    with: "${calculated && t.finishDate && stripTime(t.finishDate) < stripTime(new Date()) ? 'late' : ''}" },
+
+  { what: "chart: the reconciliation drops rows that contribute nothing, so the source columns stop footing to their own totals",
+    find: "const body = R.rows.map(x =>",
+    with: "const body = R.rows.filter(x => Math.abs(x.total) >= 1).map(x =>" },
+
+  { what: "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum",
+    find: "? leafDescendants(t.id).reduce((sx, x) => sx + workingDaysToUnit(plannedEffortDays(x)), 0)",
+    with: "? leafDescendants(t.id).reduce((sx, x) => sx + (Number(x.te) || 0), 0)" },
+
+
+  /* ── the trunk, second pass ── */
+  { what: "trunk: trunkEntryFromVersion defaults a rootless entry's parent to the entry itself, so the very first push files a self-parented link",
+    find: "return { vid: v.vid, pvid: v.pvid || null, at: v.at || fmtISO(new Date()),",
+    with: "return { vid: v.vid, pvid: v.pvid || v.vid, at: v.at || fmtISO(new Date())," },
+
+  { what: "trunk: push deduplicates against the trunk by parent id instead of version id, so any version whose parent is already shared never leaves the machine",
+    find: "const mine = (planVersions || []).filter(v => v.vid && !have.has(v.vid));",
+    with: "const mine = (planVersions || []).filter(v => v.vid && !have.has(v.pvid || v.vid));" },
+
+  { what: "trunk: trunkWhoMoved reads the arriving entries off the local history instead of the trunk log, attributing the move to the person asking",
+    find: "const mine = new Set((planVersions || []).map(v => v.vid).filter(Boolean));\n      const entries = (t.log || []).filter(e => e.vid && !mine.has(e.vid));",
+    with: "const mine = new Set(((t && t.log) || []).map(e => e.vid).filter(Boolean));\n      const entries = (planVersions || []).filter(e => e.vid && !mine.has(e.vid));" },
+
+  { what: "trunk: trunkRelation decides 'ahead' from the trunk's ROOT rather than its tip, so a diverged copy reads as merely ahead",
+    find: "if (mySet.has(theirTipV)) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };",
+    with: "if (mySet.has(theirVids[0])) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };" },
+
+  { what: "trunk: the kinship gate slips to shared >= 0, so a trunk with not one version in common is greeted as kin instead of refused",
+    find: "return k.shared > 0 ? { relation: 'kin', kin: k } : { relation: 'unrelated', kin: k };",
+    with: "return k.shared >= 0 ? { relation: 'kin', kin: k } : { relation: 'unrelated', kin: k };" },
+
+  { what: "trunk: the syncChip span was renamed in the markup and the renderer's lookup was not, so the loop's state has no element to land in",
+    find: "<span id=\"syncChip\" style=\"display:none\"></span>",
+    with: "<span id=\"syncStateChip\" style=\"display:none\"></span>" },
+
+  { what: "trunk: the tick's hidden-tab guard records the hold but forgets to return, so a background tab keeps reading and writing the shared file",
+    find: "if (document.hidden) { trunkHeld = 'tab'; return; }",
+    with: "if (document.hidden) { trunkHeld = 'tab'; }" },
+
+
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -2349,6 +2556,7 @@ const LIKELY = {
      verified dry-run catch, like every other entry here */
   'portfolio:': 'portfolio-sweep.js', 'trunk:': 'trunk-sweep.js',
   'three-person sync:': 'three-people-sweep.js', 'pricing rate:': 'pricing-sweep.js',
+  'export:': 'export-sweep.js',
   'drill-in:': 'chart-reconciliation-sweep.js', 'backup:': 'persistence-sweep.js', 'accrual:': 'chart-reconciliation-sweep.js', 'cash:': 'chart-reconciliation-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════

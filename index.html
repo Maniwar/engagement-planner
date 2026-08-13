@@ -5344,7 +5344,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.12.2121</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.0341</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -27965,6 +27965,11 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       renderTaskTable(); renderWBS(); renderRaid();
       if (tasks.length && recompute()) { renderTaskTable(); renderAnalytics(); renderGantt(); renderResources(); renderBaseline(); renderPERT(); }
       importReport('Activities CSV merged — ' + rep.updated + ' updated, ' + rep.added + ' added', rep);
+      /* The report is the function's ANSWER, not only its side effect on the
+         panel. importCsvText hands this straight to its caller, and the export
+         check's whole round-trip block sat behind `if (rep)` reading the
+         undefined this used to return — dead on every run since it was written. */
+      return rep;
     }
     async function importStoriesRows(head, body) {
       const col = f => csvColIdx(head, f);
@@ -28060,6 +28065,11 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       saveLocal();
       if (document.getElementById('view-req').classList.contains('active')) renderReqs();
       importReport('Stories CSV merged — ' + rep.updated + ' updated, ' + rep.added + ' added', rep);
+      /* The report is the function's ANSWER, not only its side effect on the
+         panel. importCsvText hands this straight to its caller, and the export
+         check's whole round-trip block sat behind `if (rep)` reading the
+         undefined this used to return — dead on every run since it was written. */
+      return rep;
       // batched staleness chain: ONE decision for orphans, ONE for regeneration
       if (orphansAll.length && confirm(orphansAll.length + ' scheduled test case(s) verify criteria that no longer exist after this import:\n' + orphansAll.slice(0, 12).map(t => '\u2022 ' + t.name).join('\n') + (orphansAll.length > 12 ? '\n\u2026' : '') + '\n\nDelete them? (Cancel keeps them — they will show as unlinked.) \u21b6 Undo restores.')) {
         removeTestCaseTasks(orphansAll, '\ud83d\uddd1 ' + orphansAll.length + ' orphaned test case(s) removed after import. \u21b6 Undo restores');
@@ -28131,6 +28141,11 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       renderTaskTable(); renderWBS(); renderRaid();
       if (tasks.length && recompute()) { renderTaskTable(); renderAnalytics(); renderGantt(); renderResources(); renderBaseline(); renderPERT(); }
       importReport('Test-case CSV merged — ' + rep.updated + ' updated, ' + rep.added + ' added' + (defects ? ', ' + defects + ' defect(s) \u2192 RAID' : ''), rep);
+      /* The report is the function's ANSWER, not only its side effect on the
+         panel. importCsvText hands this straight to its caller, and the export
+         check's whole round-trip block sat behind `if (rep)` reading the
+         undefined this used to return — dead on every run since it was written. */
+      return rep;
     }
     function importRaidRows(head, body) {
       const col = f => csvColIdx(head, f);
@@ -28171,6 +28186,11 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       });
       saveLocal(); renderRaid();
       importReport('RAID CSV merged — ' + rep.updated + ' updated, ' + rep.added + ' added', rep);
+      /* The report is the function's ANSWER, not only its side effect on the
+         panel. importCsvText hands this straight to its caller, and the export
+         check's whole round-trip block sat behind `if (rep)` reading the
+         undefined this used to return — dead on every run since it was written. */
+      return rep;
     }
     function csvCell(v) {
       const s = String(v == null ? '' : v);
