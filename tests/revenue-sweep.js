@@ -354,9 +354,20 @@ const { chromium } = requirePlaywright();
       if (rplan.total > 0 && Math.abs(rplan.retainerGap) > 1) {
         const rd = sowSkeletonData(); rd.storiesAppendix = '';
         const rh = String(sowAssembleHtml(rd, null)).replace(/<[^>]+>/g, ' ');
-        if (!/(shortfall of|margin of)/.test(rh))
+        /* THE GAP IS THE DRAFTER'S BUSINESS, NOT THE CLIENT'S. This used to
+           require the reconciliation IN THE DOCUMENT, and the document is the
+           thing the client reads: "a margin of $56,196 over the priced work"
+           tells them what the work was priced at against what they are paying,
+           and "resolve it before issuing" hands them the drafter's to-do list.
+           The requirement was right about the fact and wrong about the surface,
+           so it now asserts both halves — the client copy stays clean, and the
+           person generating it is still told. */
+        if (/margin of|over the priced work|before issuing/.test(rh))
+          say('the client-facing SOW states the firm\'s own reconciliation with the priced work — '
+            + 'that comparison belongs to the drafter, not to the client');
+        if (!sowPayRecon || !/retainer schedule totals/.test(String(sowPayRecon)))
           say('the retainer and the priced work disagree by ' + Math.round(rplan.retainerGap)
-            + ' and the SOW says nothing about it');
+            + ' and nothing tells the person generating the document');
         if (!/whether or not the period is fully utilised/.test(rh))
           say('the SOW describes a retainer without saying it is owed whether or not the period is used');
       }

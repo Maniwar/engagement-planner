@@ -1201,20 +1201,31 @@
     .mi-b i { display: block; height: 9px; border-radius: 0 4px 4px 0; background: var(--primary); }
     .mi-b-v { flex: 0 0 auto; min-width: 4.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
     .mi-b-n { flex: 1 1 auto; min-width: 0; }
-    .mi-svg { display: block; width: 100%; height: auto; max-height: 150px; margin: 0.2rem 0 0.5rem; }
+    .rd-aud { font-size: 0.72rem; font-weight: 600; }
+    .rd-aud-client { background: #eff6ff; color: #1d4ed8; }
+    .rd-aud-internal { background: #f8fafc; color: #475569; }
+    .mi-svg { display: block; width: 100%; height: auto; max-height: 190px; margin: 0.2rem 0 0.5rem; }
     .mi-area { stroke: none; }
-    .mi-area-up { fill: var(--success); opacity: 0.13; }
-    .mi-area-dn { fill: var(--critical); opacity: 0.13; }
+    .mi-area-up { fill: url(#miUpGrad); }
+    .mi-area-dn { fill: url(#miDnGrad); }
     .mi-zero { stroke: var(--slack); stroke-width: 1; }
-    .mi-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-    .mi-dot { stroke: var(--primary-50); stroke-width: 2; }
+    .mi-grid { stroke: var(--slack); stroke-width: 1; opacity: 0.45; stroke-dasharray: 2 4; }
+    .mi-line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+    .mi-dot { stroke: #fff; stroke-width: 2.5; }
     .mi-dot-low { fill: var(--critical); }
     .mi-dot-up { fill: var(--success); }
-    .mi-lbl { font-size: 13px; font-weight: 700; }
+    /* Labels ride in their own pill. Over a filled area a bare word competes
+       with the fill for the same pixels; a pill gives it a floor to sit on and
+       is what keeps two callouts legible when the curve crowds them together. */
+    .mi-pill { rx: 5; ry: 5; }
+    .mi-pill-low { fill: #fef2f2; stroke: #fecaca; }
+    .mi-pill-up { fill: #f0fdf4; stroke: #bbf7d0; }
+    .mi-lbl { font-size: 12.5px; font-weight: 700; dominant-baseline: middle; }
     .mi-ax { font-size: 11px; fill: var(--muted); }
     .mi-today { stroke: var(--slack); stroke-width: 1; stroke-dasharray: 3 3; }
-    .mi-lbl-low { fill: var(--critical); }
-    .mi-lbl-up { fill: var(--success); }
+    .mi-today-tag { font-size: 10.5px; font-weight: 600; fill: var(--muted); }
+    .mi-lbl-low { fill: #b91c1c; }
+    .mi-lbl-up { fill: #15803d; }
     .ptr-mi-more { color: var(--muted); list-style: none; margin-left: -0.6rem; }
     .ptr-mi-foot { margin: 0.35rem 0 0; font-size: var(--t-xs); color: var(--muted); }
 
@@ -5077,6 +5088,10 @@ Or say what you want, in your own words:
                 <div id="rScore" class="raid-score">—</div></div>
               <div><label for="rOwner">Owner</label><input id="rOwner" type="text" list="ownerList" placeholder="start typing a name…" autocomplete="off" /></div>
               <div><label for="rStatus">Status</label><select id="rStatus"></select></div>
+              <div><label for="rAudience">Who sees it</label><select id="rAudience">
+                <option value="internal">🔒 Internal only</option>
+                <option value="client">👁 Client-facing</option>
+              </select></div>
             </div>
             <p class="help-text" id="rScaleHint" style="margin:0 0 0.75rem">Probability and impact are a 1–5
               judgement, and their product is the score the log sorts by — <b>1</b> remote / negligible,
@@ -5344,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.1803</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.1845</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5665,6 +5680,11 @@ Or say what you want, in your own words:
     const BASELINE_LOG_CAP = 40;
     let collapsedIds = new Set(); // WBS summaries currently collapsed in Gantt/tables
     let levelMode = 'none';       // 'none' | 'slack' | 'extend' — how levelDelay is treated
+    /* Frozen by the levelers for the length of one run: the un-leveled
+       baseline recompute() rebuilds is invariant while only levelDelay moves,
+       and rebuilding it per shift was half the cost of a loop that once held
+       the page for twenty-five seconds. */
+    let levelBaseFreeze = false, levelBaseCache = null;
     let unleveledDuration = null; // CPM duration with all leveling removed (for banners)
     let ganttDayW = null;         // null = auto zoom; otherwise px per day
     let ganttLabelW = (() => { try { return Number(localStorage.getItem('pertGantt.ganttLabelW')) || null; } catch (e) { return null; } })(); // drag-resizable title column
@@ -5682,6 +5702,9 @@ Or say what you want, in your own words:
        precisely because no number on this screen moved. So the story set is
        frozen at the same moment, and by the same button. */
     let reqsBaseline = null;      // { at, stories: [{id, ac: [ids], audience}] }
+    /* What the payment-schedule builder wants the DRAFTER to know but the
+       client must not read — set while assembling, flashed by generateSOW. */
+    let sowPayRecon = null;
     let sowDraft = '';            // last generated SOW HTML
     let statusNarrative = null;   // {date, text} AI exec summary for the status report
     let pricing = { model: 'fixed', basis: 'p80', contractPrice: 0 }; // bill-side settings
@@ -13600,13 +13623,23 @@ Or say what you want, in your own words:
       // the finish date — no clamp, and the extension is reported in the UI.
       unleveledDuration = null;
       const anyDelay = tasks.some(t => t.levelDelay > 0);
-      if (anyDelay) {
+      if (anyDelay && levelBaseCache) {
+        // the levelers froze this — zeroed delays make it invariant in their loop
+        unleveledDuration = levelBaseCache.duration;
+        if (levelMode !== 'extend') {
+          tasks.forEach(t => {
+            const bls = levelBaseCache.ls[t.id];
+            if (Number.isFinite(bls)) t.levelDelay = Math.min(t.levelDelay, Math.max(0, bls));
+          });
+        }
+      } else if (anyDelay) {
         const saved = tasks.map(t => t.levelDelay);
         tasks.forEach(t => t.levelDelay = 0);
         const base = computeSchedule(t => t.te);
         tasks.forEach((t, i) => t.levelDelay = saved[i]);
         if (base.ok) {
           unleveledDuration = base.projectDuration;
+          if (levelBaseFreeze) levelBaseCache = { duration: base.projectDuration, ls: base.ls };
           if (levelMode !== 'extend') {
             tasks.forEach(t => {
               const bls = base.ls[t.id];
@@ -14179,40 +14212,100 @@ Or say what you want, in your own words:
     // repeatedly delay the most-movable (highest-slack, non-critical, incomplete)
     // conflicting task within its available slack until conflicts clear or no task
     // can move further. Sets task.levelDelay (a start-no-earlier-than constraint).
+    /* ── the leveling machinery ────────────────────────────────────────────
+       Shared by both levelers, all arithmetic in WORKING-DAY INDEX space —
+       the same space computeResourceLoad keys its day map by (index 0 = the
+       first working day of the project).
+
+       WHY THIS SHAPE. The first version moved a conflicting task to "when the
+       first other task ends" and recomputed: one nudge at a time, one full
+       recompute per nudge, six hundred nudges on a real eighty-task plan —
+       twenty-five seconds with the page held. And on a POOLED resource (three
+       parallel 200% claims against a 300% cap) that target is simply wrong:
+       the work re-piles on the next collision, the peak goes UP, the
+       iteration cap runs out, and the receipt blamed tasks that were
+       perfectly placeable. Every move now goes to the FIRST DAY WINDOW WHERE
+       THE WHOLE SPAN FITS under capacity, read off the live load profile — a
+       final placement, not a nudge — so the number of moves is the number of
+       conflicting tasks, not the number of days they were shuffled through. */
+    function levelDayWalk(extraDays) {
+      const holidays = getHolidaySet();
+      let maxIdx = 0;
+      tasks.forEach(t => { if (!t.milestone) maxIdx = Math.max(maxIdx, Math.ceil(unitToWorkingDays(t.ef)) + 1); });
+      maxIdx += Math.max(0, extraDays || 0);
+      const out = [];
+      const dd = new Date(projectStartDate());
+      while (!isWorkingDay(dd, holidays)) dd.setDate(dd.getDate() + 1);
+      for (let k = 0; k <= maxIdx; k++) { out.push(fmtISO(dd)); do { dd.setDate(dd.getDate() + 1); } while (!isWorkingDay(dd, holidays)); }
+      return out;
+    }
+    function levelUnitsOn(t, resName) {
+      const pr = taskParticipants(t).find(x => x.name === resName);
+      return pr ? (Number(pr.units) || 0) : 0;
+    }
+    /* First index k ≥ fromK where cand's whole span fits under R's capacity,
+       with cand's own contribution excluded from the profile it reads. On a
+       collision k jumps straight past the colliding day — linear in the
+       horizon. Returns null when nothing fits inside the walked horizon. */
+    function levelFirstFit(R, cand, units, spanK, fromK, dayDates) {
+      for (let k = Math.max(0, fromK); k < dayDates.length; ) {
+        let ok = true;
+        for (let j = 0; j < spanK; j++) {
+          const idx = k + j;
+          if (idx >= dayDates.length) return null;
+          const iso = dayDates[idx];
+          const offToday = !resWorksOn(R.name, new Date(iso + 'T00:00:00').getDay());
+          const cap = (R.ptoSet.has(iso) || offToday) ? 0 : R.capacity;
+          const day = R.days[iso];
+          const load = day ? Math.max(0, day.load - (day.tasks.indexOf(cand.id) >= 0 ? units : 0)) : 0;
+          if (load + units > cap + 1e-6) { ok = false; k = idx + 1; break; }
+        }
+        if (ok) return k;
+      }
+      return null;
+    }
     function autoLevel() {
       if (!calculated) { alert('Calculate first.'); return; }
       levelMode = 'slack';
+      levelBaseCache = null; levelBaseFreeze = true;
       recompute();
       const before = resourceLoad ? resourceLoad.overResourceDays : 0;
-      let moved = 0, iter = 0;
-      const MAX_ITER = 400;
-      while (iter++ < MAX_ITER) {
+      let moved = 0, iter = 0, capped = false;
+      const MOVES_MAX = 400, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 8000;
+      const stuck = new Set();
+      while (true) {
         const rl = resourceLoad;
         if (!rl || rl.overResourceDays === 0) break;
-        // earliest over-allocated resource-day (deterministic, front-to-back)
+        if (moved >= MOVES_MAX || iter++ >= ITER_MAX || performance.now() - T0 > BUDGET_MS) { capped = true; break; }
         let best = null;
-        Object.values(rl.perResource).forEach(R => {
-          R.overDays.forEach(iso => { if (!best || iso < best.iso) best = { R, iso }; });
-        });
+        Object.values(rl.perResource).forEach(R => R.overDays.forEach(iso => {
+          const key = R.name + '|' + iso;
+          if (!stuck.has(key) && (!best || iso < best.iso)) best = { R, iso, key };
+        }));
         if (!best) break;
         const conflictTasks = best.R.days[best.iso].tasks.map(id => tasks.find(t => t.id === id)).filter(Boolean);
-        // movable = non-critical, incomplete, with positive slack; move the one with most float
+        // movable = non-critical, incomplete, with positive slack; most float first
         const movable = conflictTasks
           .filter(t => !t.isCritical && t.slack > 1e-6 && t.percentComplete < 100)
           .sort((a, b) => b.slack - a.slack);
-        if (!movable.length) break; // this day cannot be resolved within slack
+        if (!movable.length) { stuck.add(best.key); continue; }
         const cand = movable[0];
-        const others = conflictTasks.filter(t => t.id !== cand.id);
-        const earliestFreeEf = others.length ? Math.min(...others.map(t => t.ef)) : cand.es;
-        // push candidate's start to when the resource frees up, but never past its late
-        // start (that would extend the project). Must strictly increase levelDelay or we stop.
-        const target = Math.min(earliestFreeEf, cand.ls);
-        const newDelay = Math.max(cand.levelDelay, target);
-        if (newDelay <= cand.levelDelay + 1e-6) break; // no forward progress possible → stop
-        cand.levelDelay = newDelay;
+        const units = levelUnitsOn(cand, best.R.name) || (Number(cand.units) || 100);
+        const dayDates = levelDayWalk(0);
+        const esK = Math.floor(unitToWorkingDays(cand.es) + 1e-9);
+        const spanK = Math.max(1, Math.ceil(unitToWorkingDays(cand.ef) - 1e-9) - esK);
+        const fit = levelFirstFit(best.R, cand, units, spanK, esK + 1, dayDates);
+        /* within slack means the WHOLE window must sit before the late start —
+           a clamped, half-fitting placement would trade this conflict for a
+           new one and the count could climb. Refuse instead; the receipt says
+           what slack could not do. */
+        const target = fit == null ? null : workingDaysToUnit(fit);
+        if (target == null || target > cand.ls + 1e-6 || target <= cand.levelDelay + 1e-6) { stuck.add(best.key); continue; }
+        cand.levelDelay = target;
         moved++;
         recompute();
       }
+      levelBaseFreeze = false; levelBaseCache = null;
       recompute();
       renderTaskTable(); renderGantt(); renderResources(); renderAnalytics();
       saveLocal();
@@ -14221,51 +14314,65 @@ Or say what you want, in your own words:
       const stillOver = (resourceLoad && resourceLoad.resourcesOver) ? resourceLoad.resourcesOver.length : 0;
       if (el) el.textContent = `Leveling: applied ${moved} shift(s), project end unchanged. `
         + `Over-allocated resource-days ${before} → ${after}`
-        + (after ? ` across ${stillOver} ${stillOver === 1 ? 'person' : 'people'}`
+        + (capped && after ? ' — ⏸ stopped at the safety limit before finishing; click Level again to continue.'
+          : after ? ` across ${stillOver} ${stillOver === 1 ? 'person' : 'people'}`
             + ' — remaining conflicts can\'t be resolved within slack; reduce Units %, raise capacity, reassign, or accept a later finish.'
           : ' ✓ resolved.');
     }
-    // Level allowing the finish date to move: resolve every conflict by delaying
-    // tasks until the resource frees up, even past their late start. Use when the
-    // team genuinely can't be added to and the timeline must give.
+    // Level allowing the finish date to move: place every conflicting task at
+    // the first window its resource can actually hold, even past its late
+    // start. Use when the team genuinely can't be added to and the timeline
+    // must give.
     function autoLevelExtend() {
       if (!calculated) { alert('Calculate first.'); return; }
       levelMode = 'extend';
+      levelBaseCache = null; levelBaseFreeze = true;
       recompute();
       const before = resourceLoad ? resourceLoad.overResourceDays : 0;
       const endBefore = Math.max(0, ...leafTasks().map(t => t.ef), 0);
-      let moved = 0, iter = 0;
-      const MAX_ITER = 600;
-      let stuck = new Set(); // resource|day keys that cannot be improved by delaying
-      while (iter++ < MAX_ITER) {
+      let moved = 0, iter = 0, capped = false;
+      const MOVES_MAX = 600, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 10000;
+      let stuck = new Set();
+      const unfixable = [];
+      while (true) {
         const rl = resourceLoad;
         if (!rl || rl.overResourceDays === 0) break;
+        if (moved >= MOVES_MAX || iter++ >= ITER_MAX || performance.now() - T0 > BUDGET_MS) { capped = true; break; }
         let best = null;
-        Object.values(rl.perResource).forEach(R => {
-          R.overDays.forEach(iso => {
-            const key = R.name + '|' + iso;
-            if (stuck.has(key)) return;
-            if (!best || iso < best.iso) best = { R, iso, key };
-          });
-        });
-        if (!best) break; // every remaining conflict is unresolvable by delay
-        const conflictTasks = best.R.days[best.iso].tasks.map(id => tasks.find(t => t.id === id)).filter(Boolean);
+        Object.values(rl.perResource).forEach(R => R.overDays.forEach(iso => {
+          const key = R.name + '|' + iso;
+          if (!stuck.has(key) && (!best || iso < best.iso)) best = { R, iso, key };
+        }));
+        if (!best) break;
+        const R = best.R;
+        const conflictTasks = R.days[best.iso].tasks.map(id => tasks.find(t => t.id === id)).filter(Boolean);
         const movable = conflictTasks.filter(t => t.percentComplete < 100)
           .sort((a, b) => b.ls - a.ls || b.id - a.id);
         if (!movable.length) { stuck.add(best.key); continue; }
-        const cand = movable[0];
-        const others = conflictTasks.filter(t => t.id !== cand.id);
-        if (!others.length) {
-          // the task ALONE exceeds capacity (units > capacity) — no delay can ever fix it
-          stuck.add(best.key); continue;
-        }
-        const target = Math.max(Math.min(...others.map(t => t.ef)), cand.es + 0.5, cand.levelDelay + 0.5);
+        /* a claim larger than the capacity can never be placed by any delay —
+           name it in the receipt instead of shuffling it to the horizon */
+        movable.forEach(t => {
+          const u = levelUnitsOn(t, R.name) || (Number(t.units) || 100);
+          if (u > R.capacity + 1e-6 && !unfixable.some(x => x.id === t.id && x.res === R.name))
+            unfixable.push({ id: t.id, name: t.name, res: R.name, units: u, cap: R.capacity });
+        });
+        const placeable = movable.filter(t => (levelUnitsOn(t, R.name) || (Number(t.units) || 100)) <= R.capacity + 1e-6);
+        if (!placeable.length) { stuck.add(best.key); continue; }
+        const cand = placeable[0];
+        const units = levelUnitsOn(cand, R.name) || (Number(cand.units) || 100);
+        const esK = Math.floor(unitToWorkingDays(cand.es) + 1e-9);
+        const spanK = Math.max(1, Math.ceil(unitToWorkingDays(cand.ef) - 1e-9) - esK);
+        const dayDates = levelDayWalk(spanK * 2 + 30);
+        const fit = levelFirstFit(R, cand, units, spanK, esK + 1, dayDates);
+        if (fit == null) { stuck.add(best.key); continue; }
+        const target = workingDaysToUnit(fit);
         if (target <= cand.levelDelay + 1e-6) { stuck.add(best.key); continue; }
         cand.levelDelay = target;
         moved++;
         recompute();
-        stuck = new Set(); // schedule changed — previously stuck days may now be fixable
+        stuck = new Set(); // the schedule moved — a day stuck in the old world may be free in this one
       }
+      levelBaseFreeze = false; levelBaseCache = null;
       recompute();
       renderTaskTable(); renderGantt(); renderResources(); renderAnalytics();
       saveLocal();
@@ -14273,9 +14380,14 @@ Or say what you want, in your own words:
       const endAfter = Math.max(0, ...leafTasks().map(t => t.ef), 0);
       const ext = endAfter - endBefore;
       const el = document.getElementById('levelStatus');
-      if (el) el.textContent = `Extend-leveling: applied ${moved} shift(s). Over-allocated resource-days ${before} → ${after}.` +
-        (ext > 0.01 ? ` Finish moved out by ${ext.toFixed(1)} ${unitLabel()} — review and re-baseline if you accept the new dates.` : ' Finish date unchanged.') +
-        (after ? ' Remaining conflicts cannot be fixed by delaying (a task alone exceeds its owner\'s capacity) — reduce Units %, raise capacity, or reassign.' : '');
+      const unfixTxt = unfixable.slice(0, 2).map(u => `"${u.name}" (${u.units}% vs ${u.res} at ${u.cap}%)`).join(', ')
+        + (unfixable.length > 2 ? ` and ${unfixable.length - 2} more` : '');
+      if (el) el.textContent = `Extend-leveling: applied ${moved} shift(s). Over-allocated resource-days ${before} → ${after}.`
+        + (ext > 0.01 ? ` Finish moved out by ${ext.toFixed(1)} ${unitLabel()} — review and re-baseline if you accept the new dates.` : ' Finish date unchanged.')
+        + (capped && after ? ' ⏸ Stopped at the safety limit before finishing — click Level & extend again to continue.' : '')
+        + (!capped && after ? (unfixable.length
+            ? ` ${unfixable.length} task(s) can never fit by delay — their own claim exceeds capacity: ${unfixTxt}. Reduce Units %, raise capacity, or reassign.`
+            : ' Remaining conflicts could not be placed inside the planning horizon — reduce Units %, raise capacity, or reassign.') : '');
     }
     // ---- Managed resource roster (explicit add / rename / remove) ----
     function addResourcePrompt() {
@@ -18854,7 +18966,13 @@ Or say what you want, in your own words:
          wrong the moment a chart carries a word. So the box is wide enough that
          uniform scaling gives a sensible height at panel width, and the labels
          stay the shape they were drawn. */
-      const W = 900, H = 104, PT = 14, PB = 24, PL = 6, PR = 6;
+      /* Taller than it was, and the padding is asymmetric on purpose: the
+         callouts live in a lane ABOVE the plot (PT) and the dates in a lane
+         BELOW it (PB), so a label can never land on the axis or on the curve —
+         which is exactly what happened when a plan's trough and its
+         break-even were the same point and three labels stacked in one
+         corner. */
+      const W = 900, H = 150, PT = 44, PB = 30, PL = 10, PR = 10;
       const xs = pts.map(p => p.ms), ys = pts.map(p => p.net);
       const x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
       const lo = Math.min(0, Math.min.apply(null, ys)), hi = Math.max(0, Math.max.apply(null, ys));
@@ -18870,24 +18988,80 @@ Or say what you want, in your own words:
       const trough = pos.troughAt != null ? { ms: pos.troughAt, v: pos.troughMoney } : null;
       const cross = pos.positiveFrom != null ? { ms: pos.positiveFrom, v: 0 } : null;
       const dot = (p, cls) => '<circle cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1)
-        + '" r="4" class="' + cls + '"/>';
-      // labels are placed away from the edge they would overflow
-      const lbl = (p, txt, cls, below) => {
-        const x = X(p.ms), anchor = x > W * 0.7 ? 'end' : (x < W * 0.18 ? 'start' : 'middle');
-        return '<text x="' + x.toFixed(1) + '" y="' + (Y(p.v) + (below ? 15 : -8)).toFixed(1)
-          + '" text-anchor="' + anchor + '" class="' + cls + '">' + escapeHtml(txt) + '</text>';
+        + '" r="4.5" class="' + cls + '"/>';
+      /* ── THE CALLOUT LANE ────────────────────────────────────────────────
+         Two facts want labelling — the deepest the position goes, and the day
+         it turns positive — and on a healthy plan they are THE SAME POINT
+         (never out of pocket, positive from day one). Anchoring each to its
+         own dot then printed both on top of each other, and on top of the
+         start-date tick under them: three strings in one corner.
+
+         So the callouts do not live on the curve at all. They sit in a
+         reserved lane across the top, each in a pill, laid out left to right
+         and nudged apart until no two overlap, with a leader line down to the
+         point it describes. Identical points collapse into ONE callout,
+         because they are one fact stated twice. */
+      const CH = 20;                                   // pill height
+      const lane = [];
+      const pill = (p, txt, kind) => lane.push({ x: X(p.ms), y: Y(p.v), txt: txt, kind: kind,
+        w: Math.max(54, txt.length * 6.9 + 16) });
+      const drawLane = () => {
+        if (!lane.length) return '';
+        lane.sort((a, b) => a.x - b.x);
+        // place each pill at its point, then push right off the previous one
+        let cursor = PL;
+        lane.forEach(c => {
+          c.px = Math.max(cursor, Math.min(W - PR - c.w, c.x - c.w / 2));
+          cursor = c.px + c.w + 8;
+        });
+        // if that ran past the right edge, walk back left so the last one fits
+        const over = (lane[lane.length - 1].px + lane[lane.length - 1].w) - (W - PR);
+        if (over > 0) for (let i = lane.length - 1, lim = W - PR; i >= 0; i--) {
+          lane[i].px = Math.min(lane[i].px, lim - lane[i].w);
+          lim = lane[i].px - 8;
+        }
+        const cy = PT - CH / 2 - 8;
+        return lane.map(c => {
+          const cxp = c.px + c.w / 2;
+          return '<path d="M' + cxp.toFixed(1) + ' ' + (cy + CH / 2).toFixed(1)
+              + ' L' + c.x.toFixed(1) + ' ' + (c.y - 6).toFixed(1) + '" class="mi-lead" '
+              + 'stroke="' + (c.kind === 'low' ? '#fca5a5' : '#86efac') + '" stroke-width="1" fill="none"/>'
+            + '<rect x="' + c.px.toFixed(1) + '" y="' + (cy - CH / 2).toFixed(1) + '" width="' + c.w.toFixed(1)
+              + '" height="' + CH + '" class="mi-pill mi-pill-' + c.kind + '"/>'
+            + '<text x="' + cxp.toFixed(1) + '" y="' + cy.toFixed(1) + '" text-anchor="middle" class="mi-lbl mi-lbl-'
+              + c.kind + '">' + escapeHtml(c.txt) + '</text>';
+        }).join('');
       };
       return '<svg class="mi-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" '
         + 'aria-label="Net cash position across the plan: lowest ' + escapeHtml(fmtMoney(pos.troughMoney))
         + (pos.positiveFrom ? ', positive from ' + escapeHtml(fmtNice(new Date(pos.positiveFrom))) : '') + '">'
         + '<defs><clipPath id="' + uid + 'a"><rect x="0" y="0" width="' + W + '" height="' + zeroY.toFixed(1) + '"/></clipPath>'
-        + '<clipPath id="' + uid + 'b"><rect x="0" y="' + zeroY.toFixed(1) + '" width="' + W + '" height="' + (H - zeroY).toFixed(1) + '"/></clipPath></defs>'
+        + '<clipPath id="' + uid + 'b"><rect x="0" y="' + zeroY.toFixed(1) + '" width="' + W + '" height="' + (H - zeroY).toFixed(1) + '"/></clipPath>'
+        + '<linearGradient id="miUpGrad" x1="0" y1="0" x2="0" y2="1">'
+        + '<stop offset="0%" stop-color="var(--success)" stop-opacity="0.30"/>'
+        + '<stop offset="100%" stop-color="var(--success)" stop-opacity="0.04"/></linearGradient>'
+        + '<linearGradient id="miDnGrad" x1="0" y1="1" x2="0" y2="0">'
+        + '<stop offset="0%" stop-color="var(--critical)" stop-opacity="0.30"/>'
+        + '<stop offset="100%" stop-color="var(--critical)" stop-opacity="0.04"/></linearGradient></defs>'
+        + '<line x1="' + PL + '" y1="' + PT + '" x2="' + (W - PR) + '" y2="' + PT + '" class="mi-grid"/>'
         + '<path d="' + areaTo() + '" class="mi-area mi-area-up" clip-path="url(#' + uid + 'a)"/>'
         + '<path d="' + areaTo() + '" class="mi-area mi-area-dn" clip-path="url(#' + uid + 'b)"/>'
         + '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" class="mi-zero"/>'
         + '<path d="' + line + '" class="mi-line"/>'
-        + (trough ? dot(trough, 'mi-dot mi-dot-low') + lbl(trough, fmtMoney(Math.abs(trough.v)) + ' out of pocket', 'mi-lbl mi-lbl-low', true) : '')
-        + (cross ? dot(cross, 'mi-dot mi-dot-up') + lbl(cross, 'even ' + fmtNice(new Date(cross.ms)), 'mi-lbl mi-lbl-up') : '')
+        + (function () {
+            /* ONE FACT, ONE CALLOUT. A trough of zero on the same day as the
+               crossing is not two events; saying "0 out of pocket" beside
+               "even <that day>" is the same sentence twice, in two colours,
+               in one place. */
+            const same = trough && cross && Math.abs(X(trough.ms) - X(cross.ms)) < 12;
+            const flat = trough && Math.abs(trough.v) < 1;
+            if (same && flat) { pill(cross, 'never out of pocket', 'up'); return dot(cross, 'mi-dot mi-dot-up'); }
+            let out = '';
+            if (trough && !flat) { out += dot(trough, 'mi-dot mi-dot-low'); pill(trough, fmtMoney(Math.abs(trough.v)) + ' out of pocket', 'low'); }
+            if (cross) { out += dot(cross, 'mi-dot mi-dot-up'); pill(cross, 'even ' + fmtNice(new Date(cross.ms)), 'up'); }
+            if (trough && flat && !cross) { out += dot(trough, 'mi-dot mi-dot-up'); pill(trough, 'never out of pocket', 'up'); }
+            return out;
+          })()
         /* the two ends of the span, and today. Without them the curve floats:
            the two direct labels say WHAT happens and nothing says WHEN the
            middle is. Ticks rather than a full axis — the shape is the point and
@@ -18899,9 +19073,12 @@ Or say what you want, in your own words:
             const t = stripTime(new Date()).getTime();
             if (t <= x0 || t >= x1) return '';
             const x = X(t).toFixed(1);
+            // the tag sits just INSIDE the plot, not above it — above is the
+            // callout lane, and that is how "today" used to collide with a pill
             return '<line x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + (H - PB) + '" class="mi-today"/>'
-              + '<text x="' + x + '" y="' + (PT - 4) + '" text-anchor="middle" class="mi-ax">today</text>';
+              + '<text x="' + (X(t) + 4).toFixed(1) + '" y="' + (PT + 11) + '" class="mi-today-tag">today</text>';
           })()
+        + drawLane()
         + '</svg>';
     }
     function ptrMoneyInHtml(d) {
@@ -32898,6 +33075,10 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
       st.innerHTML = (RAID_STATUSES.indexOf(cur) < 0 ? '<option>' + escapeHtml(cur) + '</option>' : '')
         + RAID_STATUSES.map(x => '<option' + (x === cur ? ' selected' : '') + '>' + x + '</option>').join('');
       st.value = cur;
+      const aud = document.getElementById('rAudience');
+      // an existing entry keeps whatever it carries; a new one starts at the
+      // default for its type, and switching type re-defaults it (raidOutcomeFormSync)
+      if (aud) aud.value = r ? raidAudience(r) : raidAudienceDefault(document.getElementById('rType').value);
       document.getElementById('rMitigation').value = r ? (r.mitigation || '') : '';
       // mitigation used to fall back to description because there was nowhere to
       // put a description; now there is, so the two stop sharing one box
@@ -33278,13 +33459,37 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
         // whatever the Status control now holds — the form used to write nothing,
         // so a new entry was Open forever until someone found the table dropdown
         status: (document.getElementById('rStatus') || {}).value || 'Open',
+        // who may read it — see raidAudience(); the SOW and every client-facing
+        // export filter on this, so it is stored explicitly rather than inferred
+        audience: (document.getElementById('rAudience') || {}).value
+          || raidAudienceDefault(document.getElementById('rType').value),
         v: 2
       };
       raidSyncTaskId(entry);   // keep the legacy single-task field a true mirror
       if (editingRaidId != null) {
         Object.assign(raid.find(x => x.id === editingRaidId) || {}, entry);
       } else {
-        raid.push(Object.assign({ id: nextRaidId++, status: 'Open', description: '', createdAt: fmtISO(new Date()) }, entry));
+        const ne = Object.assign({ id: nextRaidId++, status: 'Open', description: '', createdAt: fmtISO(new Date()) }, entry);
+        raid.push(ne);
+        /* A RAISED ISSUE MUST TEACH ITS SOURCE IT EXISTS. The raise flow put
+           the back-link on the DRAFT (issue → risk) and nothing ever wrote the
+           forward one, so the risk kept offering "Raise the issue" forever —
+           every click drafted another copy — and the analysis typed while
+           raising lived only on the copy. The pair is one story: the source
+           gets the forward link (which is exactly the condition that hides the
+           button), and it gets the root cause and whys when it has none of its
+           own — the cause of the risk that turned IS the risk's cause, and it
+           belongs on the record itself, not only on the escalation. */
+        (ne.links || []).filter(l => l.k === 'raid').forEach(l => {
+          const src = raid.find(x => x.id === l.id && x.id !== ne.id);
+          if (!src) return;
+          src.links = raidLinks(src).slice();
+          if (!src.links.some(x => x.k === 'raid' && x.id === ne.id))
+            src.links.push({ k: 'raid', id: ne.id, was: ne.type + ': ' + String(ne.title || '').slice(0, 40) });
+          if (!src.rootCause && ne.rootCause) src.rootCause = ne.rootCause;
+          if (!(src.whys || []).length && (ne.whys || []).length) src.whys = ne.whys.slice();
+          src.v = 2;
+        });
       }
       closeRaidForm(); raidTouched(); saveLocal(); renderRaid();
     }
@@ -33715,6 +33920,38 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
        configuration work" and "No data migration or cleansing" are one exclusion
        twice — and an exact-title check files both. Compared on their significant
        words, ignoring order and the words every exclusion contains. */
+    /* ═══ WHO IS THIS ENTRY FOR ══════════════════════════════════════════════
+       A RAID log serves two readers with opposite needs. "The client sandbox
+       is three weeks late" is a fact the client should see stated as an
+       assumption or a boundary; "the CEO may not accept our terms" is a note
+       to ourselves that would be a resignation letter if it arrived in the
+       document. Until now every entry flowed into the SOW by TYPE alone, so
+       the second kind reached the client's copy the moment somebody logged it.
+
+       The default follows what the type is FOR — an Exclusion and an
+       Assumption are contract language and start client-facing; a Risk, an
+       Issue and a Decision are how the team runs the work and start internal —
+       and either can be overridden per entry, because a risk the client must
+       carry (they own the data migration) belongs in the document, and an
+       assumption about our own staffing does not. */
+    const RAID_AUDIENCES = ['client', 'internal'];
+    function raidAudienceDefault(type) {
+      return (type === 'Exclusion' || type === 'Assumption') ? 'client' : 'internal';
+    }
+    function raidAudience(r) {
+      const a = r && String(r.audience || '').toLowerCase();
+      return RAID_AUDIENCES.indexOf(a) >= 0 ? a : raidAudienceDefault(r && r.type);
+    }
+    const raidIsClientFacing = r => raidAudience(r) === 'client';
+    function raidAudienceLabel(a) { return a === 'client' ? 'Client-facing' : 'Internal only'; }
+    function setRaidAudience(id, a) {
+      const r = raid.find(x => x.id === id); if (!r) return;
+      r.audience = RAID_AUDIENCES.indexOf(a) >= 0 ? a : raidAudienceDefault(r.type);
+      raidTouched(); saveLocal(); renderRaid();
+      flashSaved(raidAudience(r) === 'client'
+        ? '👁 Client-facing — this entry can appear in the statement of work.'
+        : '🔒 Internal only — kept out of the statement of work and every client-facing export.');
+    }
     const RAID_STOP = new Set(['no','not','the','a','an','of','or','and','to','for','in','on','is','are','any',
       'this','that','beyond','other','than','with','without','work','only','up','be','will','shall','including']);
     function raidWordSet(t) {
@@ -33736,6 +33973,11 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
         for (let j = i + 1; j < pool.length; j++) {
           const o2 = pool[j];
           if (seen.has(o2.id)) continue;
+          /* a raised issue deliberately carries its source's title — flagging
+             the pair the product itself created teaches people to ignore the
+             flag. Linked entry pairs are one story told twice on purpose. */
+          if (raidLinks(r).some(l => l.k === 'raid' && l.id === o2.id)
+            || raidLinks(o2).some(l => l.k === 'raid' && l.id === r.id)) continue;
           if (raidSimilarity(r.title, o2.title) >= 0.75) { g.push(o2); seen.add(o2.id); }
         }
         if (g.length > 1) { seen.add(r.id); groups.push(g); }
@@ -33809,7 +34051,15 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
                   + 'exists to hold. Click to have the AI draft one for THIS entry: what will be done, which lever it pulls, '
                   + 'and the signal to watch for. Nothing you wrote is ever replaced.')}">✨ no plan yet</button>`
               : '<span class="help-text">—</span>'}</td>
-          <td class="rd-stat">${r.type === 'Exclusion'
+          <td class="rd-stat">${(() => {
+            const a = raidAudience(r);
+            return `<select class="mini-inp rd-sel rd-aud rd-aud-${a}" style="width:auto;margin-bottom:0.25rem"
+              onchange="setRaidAudience(${r.id}, this.value)" title="${escapeHtml(a === 'client'
+                ? 'Client-facing: this entry may appear in the statement of work and in what the client is sent.'
+                : 'Internal only: kept out of the statement of work and every client-facing export. Your own notes about the engagement stay yours.')}">`
+              + `<option value="internal"${a === 'internal' ? ' selected' : ''}>🔒 Internal</option>`
+              + `<option value="client"${a === 'client' ? ' selected' : ''}>👁 Client</option></select>`;
+          })()}${r.type === 'Exclusion'
             ? `<span class="help-text" title="An exclusion is a boundary, not something anybody works down. It has no lifecycle: it either prints in the SOW\u2019s Out of Scope section or it is deleted.">in the SOW</span>`
             : `<select class="mini-inp rd-sel rd-st-${escapeHtml(String(r.status || 'x').toLowerCase())}" style="width:auto" onchange="setRaidStatus(${r.id}, this.value)"${raidStatusOf(r.status) ? '' : ` title="Stored status is “${escapeHtml(String(r.status || ''))}”, which this log does not recognise — pick one of the three to fix it."`}>
             ${(raidStatusOf(r.status) ? '' : `<option selected>${escapeHtml(String(r.status || '(blank)'))}</option>`)}${RAID_STATUSES.map(st => `<option ${st === r.status ? 'selected' : ''}>${st}</option>`).join('')}</select>`}</td>
@@ -35027,9 +35277,18 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
           return { role: (resources[n] && resources[n].role) ? n + ' — ' + resources[n].role : n,
                    duties: all.slice(0, 8), more: Math.max(0, all.length - 8) };
         }).filter(c => c.duties.length),
-        assumptions: raid.filter(r => r.type === 'Assumption' && r.status !== 'Closed').map(r => ({ text: r.title, impact: r.mitigation || '', ref: 'RAID' })),
-        exclusions: raid.filter(r => r.type === 'Exclusion').map(r => r.title),
-        risks: raid.filter(r => r.type === 'Risk' && r.status !== 'Closed').sort((a, b) => b.probability * b.impact - a.probability * a.impact).slice(0, 6).map(r => r.title),
+        /* CLIENT-FACING ONLY. Every one of these three lines lands in the
+           document the client reads, so each is filtered by audience as well
+           as by type — an internal risk is now invisible here rather than
+           being printed because nothing had ever asked the question. */
+        assumptions: raid.filter(r => r.type === 'Assumption' && r.status !== 'Closed' && raidIsClientFacing(r))
+          .map(r => ({ text: r.title, impact: r.mitigation || '', ref: 'RAID' })),
+        exclusions: raid.filter(r => r.type === 'Exclusion' && raidIsClientFacing(r)).map(r => r.title),
+        risks: raid.filter(r => r.type === 'Risk' && r.status !== 'Closed' && raidIsClientFacing(r))
+          .sort((a, b) => b.probability * b.impact - a.probability * a.impact).slice(0, 6).map(r => r.title),
+        internalHeld: raid.filter(r => !raidIsClientFacing(r)
+          && (r.type === 'Assumption' || r.type === 'Exclusion' || r.type === 'Risk')
+          && r.status !== 'Closed').length,
         // One pricing function for the whole app. This used to multiply revenue by
         // riskUplift() — a ratio of simulated DURATION — so the SOW quoted a
         // different number from the Pricing panel for the same engagement, and a
@@ -35509,21 +35768,31 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
             : 'The billing arrangement is recorded but no payment could be placed on a date — usually a plan with no priced work. Price the plan and regenerate.'}</p>`;
       }
       const gap = pay.kind === 'retainer' ? 0 : Math.abs(pay.total - pay.scheduled);
-      /* On a retainer the two totals are meant to be compared, not reconciled:
-         the schedule is what the client pays and the fee is what the work is
-         priced at, and the difference is the margin or the shortfall. Printing
-         it as "could not be placed" would describe it as a defect in the
-         document rather than a fact about the deal. */
-      const retNote = (pay.kind === 'retainer' && Math.abs(pay.retainerGap) > 1)
-        ? `<p style="font-size:12px;color:${pay.retainerGap < 0 ? '#b45309' : '#475569'};margin:4px 0 0">The retainer totals <b>${h(fmtMoney(pay.scheduled))}</b> across ${pay.rows.length} ${pay.rows.length === 1 ? 'period' : 'periods'} against a priced value of ${h(fmtMoney(pay.total))} for the work — ${pay.retainerGap < 0 ? 'a shortfall of <b>' + h(fmtMoney(-pay.retainerGap)) + '</b>. Either the retainer is too low for the scope or the scope is too large for the retainer; resolve it before issuing.' : 'a margin of ' + h(fmtMoney(pay.retainerGap)) + ' over the priced work.'}</p>`
-        : '';
+      /* NEITHER RECONCILIATION SENTENCE BELONGS IN THE DOCUMENT. "A margin of
+         $56,196 over the priced work" is the drafter's arithmetic; printed in
+         the client's copy it tells them exactly what the work was priced at
+         against what they are paying. "Resolve it before issuing" hands the
+         client the drafter's own to-do list. Both facts still matter to the
+         person GENERATING the document, so they travel to generateSOW's
+         warning flash through sowPayRecon instead, and the document states
+         the schedule without editorialising on it. */
+      sowPayRecon = null;
+      if (pay.kind === 'retainer' && Math.abs(pay.retainerGap) > 1)
+        sowPayRecon = 'the retainer schedule totals ' + fmtMoney(pay.scheduled) + ' across '
+          + pay.rows.length + ' period' + (pay.rows.length === 1 ? '' : 's') + ' against '
+          + fmtMoney(pay.total) + ' of priced work — ' + (pay.retainerGap < 0
+            ? 'a SHORTFALL of ' + fmtMoney(-pay.retainerGap) + '; raise the retainer or trim the scope before issuing'
+            : 'a surplus of ' + fmtMoney(pay.retainerGap) + '; that comparison stays out of the client document — reconcile it under Money');
+      else if (gap > 1)
+        sowPayRecon = fmtMoney(gap) + ' of the fee could not be placed on a payment date — the schedule totals '
+          + 'less than the contract price; resolve before issuing';
       return head + `<p style="font-size:12.5px;color:#475569;margin:0 0 4px">${pay.kind === 'retainer'
         ? 'This engagement is retained. The amounts below are payable for each period whether or not the period is fully utilised, and reserve the team\'s availability for it.'
         : 'The fee above becomes payable as set out below.'} Each invoice is issued on the stated event and is due ${pay.days} days from the date of invoice.</p>
         <table style="border-collapse:collapse;width:100%"><tr><th style="${th};width:34px">#</th><th style="${th}">Payment event</th><th style="${th};width:120px">Invoice due</th><th style="${th};width:110px;text-align:right">Amount</th></tr>
         ${pay.rows.map((r, i) => `<tr><td style="${td}">${i + 1}</td><td style="${td}">${h(r.event)}<div style="color:#64748b;font-size:11px">${h(r.note)}</div></td><td style="${td}">${h(r.when)}</td><td style="${td};text-align:right">${r.amount > 0.005 ? h(fmtMoney(r.amount)) : '—'}</td></tr>`).join('')}
         <tr style="font-weight:700;background:#f8fafc"><td style="${td}" colspan="3">Total</td><td style="${td};text-align:right">${h(fmtMoney(pay.scheduled))}</td></tr></table>
-        ${gap > 1 ? `<p style="font-size:12px;color:#b45309;margin:4px 0 0"><b>${h(fmtMoney(gap))} of the fee could not be placed on a payment date</b> — the schedule above totals less than the contract price. Resolve before issuing.</p>` : ''}${retNote}
+        
         ${pay.msUndated ? `<p style="font-size:12px;color:#b45309;margin:4px 0 0"><b>${pay.msUndated} milestone${pay.msUndated === 1 ? ' has' : 's have'} no date</b> and therefore carr${pay.msUndated === 1 ? 'ies' : 'y'} no payment above. Date ${pay.msUndated === 1 ? 'it' : 'them'} in the plan and regenerate.</p>` : ''}
         <p style="font-size:11px;color:#64748b;margin:4px 0 0">Dates are derived from the plan as it currently stands; invoice dates move with the schedule and are confirmed against the accepted milestone dates.</p>`;
     }
@@ -35777,6 +36046,10 @@ Do not write payment terms or exclusions — both are generated from the project
       if (d.refsDropped) warn.push(d.refsDropped + ' story reference' + (d.refsDropped === 1 ? '' : 's') +
         ' pointed at stories this SOW does not print (delivery-side, or the appendix is off) and were left blank rather than dangling');
       if (d.payment && d.payment.kind === 'none') warn.push('no billing arrangement is set, so the commercial terms carry no payment schedule — set one under Money');
+      if (sowPayRecon) warn.push(sowPayRecon);
+      if (d.internalHeld) warn.push(d.internalHeld + ' RAID entr' + (d.internalHeld === 1 ? 'y is' : 'ies are')
+        + ' marked internal and were kept OUT of this document — switch one to 👁 Client on the RAID tab if the '
+        + 'client is meant to carry it');
       flashSaved(warn.length
         ? '✓ SOW draft ready — ' + warn.join('; ')
         : '✓ SOW draft ready — review, then Copy or Download (baseline captured for change orders)');
