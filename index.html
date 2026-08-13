@@ -5344,7 +5344,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.0341</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.1803</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5753,18 +5753,26 @@ Or say what you want, in your own words:
       n = +n;
       if (!Number.isFinite(n)) return '';
       if (n === 0) return '0';
+      /* THE SIZE PICKS THE UNIT, in both directions. This used to scale DOWN
+         only — 0.5d read as 4h — so an hours-denominated project printed
+         "370h" and "114.67h" down every column, numbers a reader has to do
+         arithmetic on before they mean anything. The value is STORED in the
+         project unit either way; this is display, and the inline editors
+         re-parse through durExpr, which reads every suffix, so "4.17d" typed
+         back into an hours project lands as the same fraction it left as.
+         Boundaries: minutes under an hour, hours under a working day (8 h),
+         days under two working weeks, weeks beyond — far enough apart that a
+         column of near-boundary values does not flap between units. */
       const unit = document.getElementById('durationUnit').value;
-      if (unit === 'days') {
-        if (n < 1) {
-          const hrs = n * 8;
-          if (hrs < 1) return Math.round(n * 480) + 'm';
-          return (+hrs.toFixed(1)) + 'h';
-        }
-        return (+n.toFixed(2)) + 'd';
-      }
-      if (unit === 'hours') return n < 1 ? Math.round(n * 60) + 'm' : (+n.toFixed(2)) + 'h';
-      if (unit === 'weeks') return n < 1 ? (+(n * workingDaysPerWeek()).toFixed(2)) + 'd' : (+n.toFixed(2)) + 'w';
-      return String(+n.toFixed(2));
+      const wdw = workingDaysPerWeek();
+      const hrs = Math.abs(unit === 'hours' ? n : unit === 'weeks' ? n * wdw * 8 : n * 8);
+      const sign = n < 0 ? '-' : '';
+      const t = x => String(+x.toFixed(2));
+      if (hrs < 1) return sign + Math.round(hrs * 60) + 'm';
+      if (hrs < 8) return sign + t(hrs) + 'h';
+      const d = hrs / 8;
+      if (d < 2 * wdw) return sign + t(d) + 'd';
+      return sign + t(d / wdw) + 'w';
     }
     /* Open on an empty project, folded once there is a plan to look at — and
        the choice is remembered, because somebody who keeps it open is using it
@@ -5884,8 +5892,10 @@ Or say what you want, in your own words:
       const n = +v || 0;
       const sTxt = fmtDurCell(n);
       const u = document.getElementById('durationUnit').value;
-      const rescaled = (u === 'days' && /[mh]$/.test(sTxt)) || (u === 'hours' && /m$/.test(sTxt)) || (u === 'weeks' && /d$/.test(sTxt));
-      return rescaled ? '<span style="cursor:help" title="= ' + (+n.toFixed(2)) + ' ' + unitLabel() + ' \u2014 stored as a fraction so rollups and the schedule stay in one unit (1 day = 8 h)">' + sTxt + '</span>' : sTxt;
+      // any suffix other than the project's own unit gets the explainer
+      const native = u === 'weeks' ? 'w' : u === 'hours' ? 'h' : 'd';
+      const rescaled = /[mhdw]$/.test(sTxt) && !sTxt.endsWith(native);
+      return rescaled ? '<span style="cursor:help" title="= ' + (+n.toFixed(2)) + ' ' + unitLabel() + ' \u2014 shown at the size that reads best; stored in ' + unitLabel() + ' so rollups and the schedule stay in one unit (1 day = 8 h, 1 week = ' + workingDaysPerWeek() + ' working days)">' + sTxt + '</span>' : sTxt;
     }
     // plain-text variant for exports (CSV cells, markdown, SOW) — no HTML
     function fmtDurText(v) {
@@ -19962,14 +19972,16 @@ Or say what you want, in your own words:
       const finishDate = durationToDate(projectDuration);
 
       // summary cards
-      const p80str = mcResult ? mcResult.p80.toFixed(1) : '—';
+      /* fmtDurCell, not toFixed: "1275.7" over a label saying "(hrs)" was the
+         reader's arithmetic to do. The value carries its own unit now. */
+      const p80str = mcResult ? fmtDurCell(mcResult.p80) : '—';
       const rl = resourceLoad || computeResourceLoad();
       const overCard = `<div class="stat-card ${rl.overResourceDays ? 'critical' : ''}" style="cursor:pointer" onclick="resGoto('workload')" title="Open the workload heatmap">
         <div class="value">${rl.overResourceDays}</div><div class="label">Over-allocated ${rl.overResourceDays === 1 ? 'resource-day' : 'resource-days'}</div></div>`;
       document.getElementById('summaryGrid').innerHTML = `
-        <div class="stat-card" style="cursor:pointer" onclick="switchTab('gantt')" title="Critical-path length if every task takes exactly its expected (TE) duration. Click to open the Gantt."><div class="value">${projectDuration.toFixed(1)}</div><div class="label">Deterministic duration (${u})</div></div>
+        <div class="stat-card" style="cursor:pointer" onclick="switchTab('gantt')" title="Critical-path length if every task takes exactly its expected (TE) duration. Click to open the Gantt."><div class="value">${fmtDurCell(projectDuration)}</div><div class="label">Deterministic duration</div></div>
         <div class="stat-card" style="cursor:pointer" onclick="switchTab('gantt')" title="Finish date at expected durations — roughly a coin-flip. Commit to P80 instead. Click for the Gantt."><div class="value">${fmtNice(finishDate)}</div><div class="label">Expected finish (P≈50)</div></div>
-        <div class="stat-card" title="80% of Monte-Carlo simulations finish within this many ${u} — the safer number for commitments."><div class="value">${p80str}</div><div class="label">P80 duration (${u})</div></div>
+        <div class="stat-card" title="80% of Monte-Carlo simulations finish within this many ${u} — the safer number for commitments."><div class="value">${p80str}</div><div class="label">P80 duration</div></div>
         <div class="stat-card" style="cursor:pointer" onclick="switchTab('baseline')" title="TE-weighted progress across all work. Click for baseline & variance detail."><div class="value">${prog.toFixed(0)}%</div><div class="label">Overall complete</div></div>
         <div class="stat-card" style="cursor:pointer" onclick="switchTab('pert')" title="How many activities have zero slack — each one can delay the whole project. Click to see them on the network."><div class="value">${criticalTasks.length}/${leaves.filter(t=>!t.milestone).length}</div><div class="label">Critical / Total</div></div>
         ${overCard}
@@ -30833,6 +30845,20 @@ Rules:
           try { const out = JSON.parse(base + closer); parseAIJson.repaired = true; return out; } catch (e) {}
         }
       }
+      /* The loop above repairs PLAN-SHAPED responses — arrays of objects, with
+         '},'' seams to cut back to. A narrative response is one FLAT object of
+         string values and has no such seam, so a single stray character before
+         its closing brace threw away four complete sections that had already
+         streamed in ('..."change order.","}' — a real response). Strings have
+         seams too: cut back to the last COMPLETE "value" and close. Only a cut
+         that parses is ever returned, so this cannot turn garbage into data —
+         and the caller is told it was repaired, same as the loop above. */
+      for (let cut = s.lastIndexOf('",'); cut > 0; cut = s.lastIndexOf('",', cut - 1)) {
+        const base = s.slice(0, cut + 1);
+        for (const closer of ['}', ']}', '}}', ']}}', '}]}']) {
+          try { const out = JSON.parse(base + closer); parseAIJson.repaired = true; return out; } catch (e) {}
+        }
+      }
       throw new Error('The AI response was not valid JSON (it may have been cut off). Try again — the request now streams with a much larger limit.');
     }
 
@@ -35716,7 +35742,19 @@ ${d.price ? 'Commercials: ' + d.price.model + ' ' + d.price.amount + '.' : ''}
 Return ONLY JSON: {"overview":"2-3 sentence engagement overview & objectives","scopeNarrative":"2-3 sentences framing the scope table","acceptanceProcess":"2-3 sentence acceptance clause","changeControl":"2-3 sentence change-control clause"}
 Professional, client-ready, no hype, no invented facts.
 Do not write payment terms or exclusions — both are generated from the project's own settings, and a sentence proposing an arrangement the project is not billed under contradicts the schedule it sits above.`;
-          narrative = parseAIJsonNoted(await callAnthropic(prompt, { onDelta: sowDelta, cachePrefix: [histPromptBlock() + bankPromptBlock()] }), 'the SOW narrative');
+          const askNarrative = extra => callAnthropic(prompt + (extra || ''),
+            { onDelta: sowDelta, cachePrefix: [histPromptBlock() + bankPromptBlock()] });
+          try {
+            narrative = parseAIJsonNoted(await askNarrative(), 'the SOW narrative');
+          } catch (e1) {
+            /* One malformed response is weather, not a wall: a stray character
+               before the closing brace once threw away four complete sections
+               and dropped a long project straight to the skeleton. Ask once
+               more before giving up — the second answer to the same prompt is
+               almost never malformed the same way. */
+            flashSaved('⚠ The narrative arrived malformed — asking once more…');
+            narrative = parseAIJsonNoted(await askNarrative('\nThe previous attempt was rejected as malformed JSON. Return the JSON object ALONE — no code fences, nothing after the closing brace.'), 'the SOW narrative');
+          }
           Object.keys(narrative || {}).forEach(k => { narrative[k] = escapeHtml(String(narrative[k] || '')); });
         } catch (e) { alert('AI narrative failed (' + (e.message || e) + ') — generating the structured skeleton instead.'); }
       }

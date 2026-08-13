@@ -358,7 +358,13 @@ module.exports = [
         .find(x => /Effort spent/.test((x.querySelector('.label, .pa-tile-lbl') || {}).textContent || ''));
       if (!el) return { plannedSideIsWork: null, fixtureCanTellThemApart: null };
       const wasEl = el.querySelector('.pa-was, .value');
-      const shown = +String((wasEl || el).textContent).replace(/[^\\d.]/g, '');
+      /* The card's figure picks its unit by magnitude (m/h/d/w), so read the
+         suffix and convert to the project unit — stripping non-digits read
+         "6.67w" as 6.67 and called the product wrong for being right. */
+      const sm = String((wasEl || el).textContent).match(/(-?[\\d.]+)\\s*([mhdw])?/);
+      const shownDays = sm ? (+sm[1]) * (sm[2] === 'm' ? 1 / 480 : sm[2] === 'h' ? 1 / 8
+        : sm[2] === 'w' ? workingDaysPerWeek() : 1) : NaN;
+      const shown = sm ? (sm[2] ? workingDaysToUnit(shownDays) : +sm[1]) : NaN;
       if (!(shown > 0)) return { plannedSideIsWork: null, fixtureCanTellThemApart: null };
       const leaves = leafTasks().filter(t => !t.isSummary && !t.milestone);
       /* Restated here rather than called out of the product: a check that asks

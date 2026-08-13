@@ -1152,9 +1152,16 @@ const QA = JSON.parse(fs.readFileSync(
           if (prow) {
             const got = prow.cells[wi].textContent.trim();
             out.phaseWork = got; out.phaseWantWork = want.toFixed(2);
-            const num = parseFloat(String(got).replace(/[^0-9.]/g, ''));
+            /* The cell picks its unit by MAGNITUDE now (m/h/d/w), so read the
+               suffix and convert into the project unit instead of skipping
+               scaled cells — the old h/m escape hatch meant a phase whose work
+               happened to print in hours was never checked at all. */
+            const gm = String(got).match(/^(-?[\d.]+)\s*([mhdw])?$/);
+            const cellDays = gm ? (+gm[1]) * (gm[2] === 'm' ? 1 / 480 : gm[2] === 'h' ? 1 / 8
+              : gm[2] === 'w' ? workingDaysPerWeek() : 1) : NaN;
+            const num = gm ? (gm[2] ? workingDaysToUnit(cellDays) : +gm[1]) : NaN;
             if (!(want > 0)) say('Activity list', 'the phase has no work under it — this check is vacuous');
-            else if (!(Math.abs(num - want) < 0.05 || /h|m\b/.test(got)))
+            else if (!(Number.isFinite(num) && Math.abs(num - want) < Math.max(0.05, want * 0.01)))
               say('Activity list', 'a phase shows ' + got + ' of work against ' + want.toFixed(2)
                 + ' in its children — work is the one column that IS a sum');
           }
