@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.1845</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.13.1900</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6818,6 +6818,46 @@ Or say what you want, in your own words:
        That keeps the file bounded without ever making a gap unprovable. */
     const TRUNK_FORMAT = 'engagement-planner/trunk@1';
     const TRUNK_KEEP_DOCS = 40;      // entries that keep a full plan payload
+    /* ═══ THE TRUNK CARRIES THE PLAN, NOT THE DOCUMENT LIBRARY ═══════════════
+       Reported from the field at 177 MB. Measured on that engagement, ONE
+       snapshot was 11.9 MB and the plan inside it was 95 KB — the other 99.2%
+       was document history: nine SOW versions at 8 MB, the live draft at 2.4,
+       twenty-eight plan snapshots at 1.2. Forty of those in the log is how a
+       sync file reaches nine figures, and every poll reads and reparses the
+       whole thing.
+
+       The cause is a history nested inside a history: each trunk entry stored
+       the WHOLE document library, so nine SOW drafts were re-copied into all
+       forty entries. What sync actually needs from an old entry is the plan and
+       its identity; the SOW library is a local artefact that regenerates from
+       the plan, and the author keeps their own copy of it either way.
+
+       So an entry going into the log is SLIMMED — the newest keeps the live
+       draft and the two most recent document versions so a colleague pulling
+       gets something to read, older entries keep the plan and the version
+       METADATA (number, date, label, size) with the bodies dropped, and the
+       count cap is joined by a byte budget, because "forty entries" says
+       nothing about size when one entry can be twelve megabytes. */
+    const TRUNK_BYTE_BUDGET = 24 * 1024 * 1024;   // the file, not one entry
+    const TRUNK_KEEP_SOW_BODIES = 2;              // on the newest entry only
+    function trunkSlimDoc(doc, newest) {
+      if (!doc || typeof doc !== 'object') return doc;
+      const d = doc;
+      if (Array.isArray(d.sowVersions) && d.sowVersions.length) {
+        const keep = newest ? TRUNK_KEEP_SOW_BODIES : 0;
+        const cut = d.sowVersions.length - keep;
+        d.sowVersions = d.sowVersions.map((v, i) => {
+          if (i >= cut || !v || typeof v !== 'object' || !v.html) return v;
+          // the row still lists, and says why it cannot be opened from here
+          const w = Object.assign({}, v);
+          w.bytes = String(v.html).length; w.html = ''; w.trimmedInTrunk = true;
+          return w;
+        });
+      }
+      if (!newest && d.sowDraft) { d.sowDraftBytes = String(d.sowDraft).length; d.sowDraft = ''; }
+      return d;
+    }
+    function trunkBytes(t) { try { return JSON.stringify(t).length; } catch (e) { return 0; } }
     let trunkHandle = null, trunkBusy = false;
 
     function trunkEntryFromVersion(v, doc) {
@@ -7021,16 +7061,28 @@ Or say what you want, in your own words:
        provable a year later, so the vid/pvid pairs are never dropped. */
     function trunkCompact(t) {
       const l = t.log || [];
-      const withDoc = l.filter(e => e.doc);
-      if (withDoc.length <= TRUNK_KEEP_DOCS) return t;
-      const drop = withDoc.length - TRUNK_KEEP_DOCS;
-      let dropped = 0;
-      for (let i = 0; i < l.length && dropped < drop; i++) {
-        if (!l[i].doc) continue;
-        // the oldest surviving payload becomes the new floor before its own is dropped
-        t.base = { vid: l[i].vid, pvid: l[i].pvid || null, at: l[i].at, by: l[i].by, doc: l[i].doc };
-        l[i].doc = null; dropped++;
-      }
+      /* Slim first: an entry that is no longer the newest has no reason to
+         carry the document library, and slimming often makes dropping payloads
+         unnecessary at all. */
+      for (let i = 0; i < l.length; i++) if (l[i].doc) trunkSlimDoc(l[i].doc, i === l.length - 1);
+      const withDoc = () => l.filter(e => e.doc);
+      const dropOldest = () => {
+        for (let i = 0; i < l.length; i++) {
+          if (!l[i].doc) continue;
+          // the oldest surviving payload becomes the new floor before its own is dropped
+          t.base = { vid: l[i].vid, pvid: l[i].pvid || null, at: l[i].at, by: l[i].by, doc: l[i].doc };
+          l[i].doc = null; return true;
+        }
+        return false;
+      };
+      while (withDoc().length > TRUNK_KEEP_DOCS) if (!dropOldest()) break;
+      /* AND A BUDGET IN BYTES. The count cap alone let this file reach 177 MB,
+         because forty entries of a twelve-megabyte plan is forty entries. One
+         payload must always survive — that is the floor every pull rebuilds
+         from — so this stops at the last one whatever the size. */
+      let guard = 0;
+      while (trunkBytes(t) > TRUNK_BYTE_BUDGET && withDoc().length > 1 && guard++ < 500)
+        if (!dropOldest()) break;
       return t;
     }
     /* ═══ A STORED HANDLE IS NOT A GRANTED HANDLE ════════════════════════════
@@ -9046,7 +9098,8 @@ Or say what you want, in your own words:
           mine.forEach((v, i) => {
             // the newest carries the live plan; the rest carry their own snapshot
             const doc = (i === mine.length - 1) ? serialize() : Object.assign({}, serialize(), v.snap);
-            t.log.push(trunkEntryFromVersion(v, JSON.parse(JSON.stringify(doc))));
+            t.log.push(trunkEntryFromVersion(v,
+              trunkSlimDoc(JSON.parse(JSON.stringify(doc)), i === mine.length - 1)));
           });
           t.lineage = t.lineage || planLineageId();
           t.name = document.getElementById('projectName').value || t.name;
@@ -9054,8 +9107,10 @@ Or say what you want, in your own words:
           const before = (t.log || []).filter(e => e.doc).length;
           trunkCompact(t);
           const after = (t.log || []).filter(e => e.doc).length;
-          if (showing) { trunkStep(1, 'done', before === after ? 'nothing needed trimming'
-            : before - after + ' older payload' + (before - after === 1 ? '' : 's') + ' dropped, their ids kept');
+          const sizeMB = (trunkBytes(t) / 1048576).toFixed(1);
+          if (showing) { trunkStep(1, 'done', (before === after ? 'nothing needed trimming'
+            : before - after + ' older payload' + (before - after === 1 ? '' : 's') + ' dropped, their ids kept')
+            + ' \u00b7 file is ' + sizeMB + ' MB');
             trunkStep(2, 'run'); await trunkBeat(200); }
           await trunkWrite(trunkHandle, t);
           if (showing) {
