@@ -808,8 +808,12 @@ const MUTANTS = [
      the door is a different conclusion from the one the data supports. */
 
   { what: 'accrual: the bar draws the timing conclusion and drops the caveat that booked money is accrued',
-    find: '          const cb0 = costBasisSplit(leaves);\n          if (cb0.anyDerived)',
-    with: '          const cb0 = costBasisSplit(leaves);\n          if (false)' },
+    /* Re-anchored: the disclosure was hoisted out of the one arm it hung off
+       and now rides every branch, which cost it two spaces of indent. The
+       mutant still plants the same defect — the caveat goes silent — at the
+       sentence's new home. */
+    find: '        const cb0 = costBasisSplit(leaves);\n        if (cb0.anyDerived)',
+    with: '        const cb0 = costBasisSplit(leaves);\n        if (false)' },
 
   { what: 'accrual: typed-in cost is counted as derived, so the panel describes the wrong model',
     find: '        if (t.autoActualCost === false) { out.typedN++; out.typed += v; }',
@@ -1292,8 +1296,12 @@ const MUTANTS = [
     with: '            return { name: an, units: 100, _unitsAuto: true };' },
 
   { what: 'resource load: a day somebody never works is treated as an ordinary working day',
-    find: '          const offToday = !resWorksOn(R.name, new Date(iso + \'T00:00:00\').getDay());',
-    with: '          const offToday = false;' },
+    /* Re-anchored with its FOLLOWING line: the rewritten leveler reads the same
+       working-day test inside levelFirstFit, so the bare line now matches twice
+       and the engine rightly refused to trust it. capToday is computeResourceLoad's
+       alone, which is the reader this mutant is aimed at. */
+    find: '          const offToday = !resWorksOn(R.name, new Date(iso + \'T00:00:00\').getDay());\n          const capToday = (R.ptoSet.has(iso) || offToday) ? 0 : R.capacity;',
+    with: '          const offToday = false;\n          const capToday = (R.ptoSet.has(iso) || offToday) ? 0 : R.capacity;' },
 
   { what: 'resource load: an unset working week means the person works NO days',
     find: "      if (!Array.isArray(raw) || !raw.length) return null;      // follows the project",

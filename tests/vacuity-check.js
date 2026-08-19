@@ -125,6 +125,24 @@ function normalise(s) {
        Named rather than dropped: a check quietly outside the scope of this
        probe is precisely what the probe exists to prevent. */
     const src = fs.readFileSync(path.join(__dirname, s), 'utf8');
+    /* CONSTRUCTS ITS OWN INPUT, IN THE FILE. A third shape the first two rules
+       do not cover: portfolio-sweep calls FIXTURE() only so that A plan is
+       loaded, then writes its own three-project index — Alpha, Bravo, Charlie,
+       with capacities and day-loads chosen so every expected answer is known by
+       hand — and asserts against THAT. Its output is therefore identical on a
+       full plan and an empty one, and correctly so: the plan is not its input.
+
+       Named rather than silently tolerated, and named with the evidence that
+       replaces this probe's guarantee: five mutants in the engine aim at
+       portfolioData and all five are caught, which is the same assurance
+       reading the fixture would have bought. A false finding that stands for
+       months is how a probe like this one gets ignored. */
+    if (/portfolio-sweep\.js$/.test(s)) {
+      skipped.push(s + ' — builds its own project index inline (hand-chosen numbers so the expected answers '
+        + 'are derivable by hand) and asserts against that, so the shared fixture is not its input. Its '
+        + 'ability to fail is proven instead by the five portfolio mutants in the engine, all caught.');
+      continue;
+    }
     if (!/\bFIXTURE\b/.test(src)) {
       skipped.push(s + ' — loads its own fixture by path, so FIXTURE_FILE does not reach it. Its coverage is '
         + 'guaranteed by the fixture being committed in the shape it needs, and by that shape being asserted '

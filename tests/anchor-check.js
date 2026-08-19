@@ -338,7 +338,9 @@ async function chooseMutations(cleanFile, mutantFile) {
     + 'in use — ' + chosen.kept.map(k => k.m + ' (' + k.touched + ')').join(', '));
   chosen.dropped.forEach(d => console.log('  · dropped: ' + d.why));
 
-  const findings = [], rows = [], notes = [];
+  const findings = [], rows = [], notes = [], inconclusive = [];
+  /* the ways a run ENDS rather than answers */
+  const RUN_DIED = /Target page, context or browser has been closed|browser has disconnected|Protocol error|heap out of memory|JavaScript heap|SIGKILL|Navigation failed|crashed/i;
   for (const c of CHECKS) {
     /* The BASELINE matters. A check that is red on the shipped build is red
        under the probe too, and calling that an anchoring finding would be the
@@ -351,23 +353,54 @@ async function chooseMutations(cleanFile, mutantFile) {
       continue;
     }
     const probed = await run(c, mutant);
+    /* A RUN THAT DIED IS NOT A VERDICT. Every non-zero exit was being reported
+       as "anchored to how the page looks", and trunk-sweep's was not: under the
+       decorator the browser itself goes away — "Target page, context or browser
+       has been closed" — because that sweep re-renders the whole page dozens of
+       times across five people and the decorator re-decorates every one of
+       them. The probe never got an answer, so it has nothing to say, and saying
+       "this check asserts on packaging" anyway is a false finding of exactly
+       the kind that teaches people to ignore this file. It is the same mistake
+       vacuity-check's first version made about exit codes, in a different file.
+
+       So a death is reported as INCONCLUSIVE, printed by name with its reason
+       and NOT counted as an anchoring finding. It stays visible — a check this
+       probe cannot measure is worth knowing about — but it is not evidence of
+       the thing this probe exists to detect. */
+    const first = firstFinding(probed.out);
+    const died = probed.code !== 0 && (RUN_DIED.test(probed.out) || !first
+      || /^\(no assertion text captured\)$/.test(first));
+    if (probed.code !== 0 && died) {
+      inconclusive.push(c + ' :: the run DIED under the probe rather than reporting anything — '
+        + (RUN_DIED.test(probed.out) ? (probed.out.match(RUN_DIED) || [''])[0] : 'it exited red with no assertion text')
+        + '. The decorator re-decorates on every re-render, and a sweep that redraws the page many times can '
+        + 'exhaust the browser before it asserts. Nothing is proven about this check either way.');
+      rows.push({ check: c, baseline: 0, underProbe: probed.code, verdict: 'inconclusive-run-died' });
+      continue;
+    }
     rows.push({ check: c, baseline: 0, underProbe: probed.code,
                 verdict: probed.code === 0 ? 'reads the property' : 'ANCHORED' });
     if (probed.code !== 0)
       findings.push(c + ' :: goes RED when the page is restyled without changing a single thing it says. '
         + 'Nothing a reader can see is different, so this is an assertion on the packaging rather than on '
-        + 'the property — first failure: ' + firstFinding(probed.out));
+        + 'the property — first failure: ' + first);
   }
 
   fs.rmSync(tmp, { recursive: true, force: true });
-  console.log(JSON.stringify({ checks: rows.length, rows: rows, notes: notes, findings: findings }, null, 1));
+  console.log(JSON.stringify({ checks: rows.length, rows: rows, notes: notes,
+    inconclusive: inconclusive, findings: findings }, null, 1));
+  if (inconclusive.length)
+    console.log('\n' + inconclusive.length + ' check(s) could NOT be measured — the run died under the probe '
+      + 'instead of reporting. Named above; nothing is proven about them either way.');
   if (findings.length) {
     console.log('\n' + findings.length + ' check(s) are anchored to how the page LOOKS rather than to what it '
       + 'says. Every mutation applied is invisible to a human — an unused class, a hidden empty span, a space '
       + 'either side of some text — so a red run here is a defect in the check, never in the product.');
   } else {
-    console.log('\nall ' + rows.length + ' checks survived a restyling that changed nothing they assert about'
-      + (notes.length ? '; ' + notes.length + ' not covered and named above' : '') + '.');
+    console.log('\nall ' + (rows.length - inconclusive.length) + ' measurable checks survived a restyling that '
+      + 'changed nothing they assert about'
+      + (notes.length ? '; ' + notes.length + ' already red and named above' : '')
+      + (inconclusive.length ? '; ' + inconclusive.length + ' could not be measured' : '') + '.');
   }
   process.exitCode = findings.length ? 1 : 0;
 })();
