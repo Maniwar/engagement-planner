@@ -2672,6 +2672,18 @@ const MUTANTS = [
     find: "          if (drop) { reqs = null; }",
     with: "          if (false) { reqs = null; }" },
 
+
+  /* ═══ THE PULL/PUSH DEADLOCK ═══════════════════════════════════════════════
+     Diverged with nothing to take: the pull found no content of theirs missing,
+     said so, told the reader to push — and returned without adopting the trunk's
+     version id, so the push it asked for was refused with "Pull first" and the
+     pull that followed repeated the advice. Days of it, and no check had built
+     the state: two chains differing in IDS while agreeing on every FIELD. */
+
+  { what: "trunk: a pull with nothing to take leaves the histories divergent, so the push it asks for is refused",
+    find: "            const took = adoptVersions((t.log || []));\n            if (took) saveLocal();",
+    with: "            const took = 0;\n            if (took) saveLocal();" },
+
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and

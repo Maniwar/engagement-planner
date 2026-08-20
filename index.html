@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.1710</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.1937</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8892,11 +8892,38 @@ Or say what you want, in your own words:
           if ((r.theirAdds || []).length) bits.push(r.theirAdds.length + ' activit'
             + (r.theirAdds.length === 1 ? 'y' : 'ies') + ' they added');
           if (!bits.length) {
-            /* Divergent chains, identical content. Real: two people saved the
-               same edit, or somebody pushed a version that changed nothing this
-               merge looks at. There is nothing to take, and the honest next
-               move is to push so the histories rejoin. */
-            flashSaved('Nothing of theirs is missing from your plan — push to bring the histories back together');
+            /* ═══ THE PULL/PUSH DEADLOCK, AND IT WAS ALWAYS ON THIS LINE ═════
+               Divergent chains, identical content: two people saved the same
+               edit, or somebody pushed a version that changes nothing this merge
+               inspects. There is nothing to TAKE — and this returned there,
+               telling the reader to push.
+
+               But the histories had not rejoined. The trunk's version id was
+               never adopted, so the chain stayed divergent, and the push this
+               very message asks for was refused with "Pull first". Pulling again
+               reached this same line and gave the same advice. Two messages,
+               each correct alone, forming a closed loop with no exit from inside
+               the product: the pull says push, the push says pull, and the
+               counts never move.
+
+               Reported across days as "i did pull first --- but i still see this
+               error", and it outlived two repairs aimed at the fast-forward and
+               the version cap, neither of which is this path. It was identified
+               in the end by the reader quoting the message back — this exact
+               string, with no dialog — after three of my own theories had been
+               built and disproved. The state needs two chains differing in IDS
+               while agreeing on every FIELD the merge reads, which nothing in
+               the suite had ever constructed.
+
+               Nothing to take is not nothing to do. Adopting is precisely what
+               makes the two histories one again, and it is safe here for the
+               same reason the branch exists — there is no content in dispute. */
+            const took = adoptVersions((t.log || []));
+            if (took) saveLocal();
+            flashSaved(took
+              ? 'Nothing of theirs was missing from your plan — ' + took + ' version'
+                + (took === 1 ? '' : 's') + ' of theirs adopted, so the histories have rejoined. Push to share yours.'
+              : 'Nothing of theirs is missing from your plan — push to bring the histories back together');
             return;
           }
           const keep = (r.myAdds || []).length;
