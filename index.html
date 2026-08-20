@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0054</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0120</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8786,7 +8786,7 @@ Or say what you want, in your own words:
                which travels inside every payload — so an incoming version can
                be diffed against its parent without either side being here. */
             const theirSnaps = trunkSnapIndex(t), theirWork = trunkWorkIndex(t);
-            const mineVids = planKnownVids();   // agrees with the relation above
+            const mineVids = new Set((planVersions || []).map(v => v.vid));   // the PICTURE is about rows
             const incoming = (t.log || []).filter(e => e.vid && !mineVids.has(e.vid));
             const ffLog = trunkLogHtml(trunkDeltas(incoming, vid => theirSnaps.get(vid), null,
               vid => theirWork.get(vid)), { head: 'What is arriving' });
@@ -8819,6 +8819,25 @@ Or say what you want, in your own words:
             trunkStep(0, 'run'); await trunkBeat(340);
           }
           hydrate(tip.doc);
+          /* ═══ A FAST-FORWARD TAKES THEIR HISTORY, NOT JUST THEIR PLAN ══════
+             The dialog above promises "their versions become your history",
+             and this branch did not keep that promise: it hydrated the tip's
+             payload and stopped. The chain it inherited was whatever the
+             PUSHER happened to be carrying, so any id the trunk lists that the
+             pusher had already trimmed — or that came from a third person the
+             pusher never adopted — was still missing afterwards. The next push
+             then reported "1 version you do not have", and pulling again ran
+             the same hydrate to the same result: the reported loop, pull and
+             push and pull, with the count never moving.
+
+             Recorded as IDENTITIES rather than appended as rows, because the
+             rows would land after the tip and the tip has to stay last — it is
+             what every ahead/behind count indexes from. Membership is the only
+             thing that was missing, and identity is what membership needs.
+             After hydrate, never before: hydrate replaces this list from the
+             document it is given. */
+          (t.log || []).forEach(e => { if (e && e.vid) rememberSeenVid(e.vid); });
+          if (t.base && t.base.vid) rememberSeenVid(t.base.vid);
           if (!quiet) { trunkStep(0, 'done', tip.byName ? 'from ' + tip.byName : 'the trunk\'s tip');
             trunkStep(1, 'run'); await trunkBeat(300); }
           recompute(); refreshAll();
@@ -8884,7 +8903,7 @@ Or say what you want, in your own words:
           const incoming = (r.auto || []).length + (r.theirAdds || []).length;
           if (!quiet) {
             const theirSnaps2 = trunkSnapIndex(t), theirWork2 = trunkWorkIndex(t);
-            const mineVids2 = planKnownVids();   // agrees with the relation above
+            const mineVids2 = new Set((planVersions || []).map(v => v.vid));   // the PICTURE is about rows
             const incoming2 = (t.log || []).filter(e => e.vid && !mineVids2.has(e.vid));
             const clLog = trunkLogHtml(trunkDeltas(incoming2, vid => theirSnaps2.get(vid), null,
               vid => theirWork2.get(vid)), { head: 'What is arriving' });
@@ -37045,7 +37064,12 @@ Do not write payment terms or exclusions — both are generated from the project
        everybody rather than just for me. */
     function adoptVersions(entries) {
       if (!entries || !entries.length) return 0;
-      const have = planKnownVids();   // trimmed ids count: re-adopting them would undo the trim
+      /* THE LIVE CHAIN, not the known set. Membership questions about where a
+         copy STANDS take in trimmed ids (see planKnownVids); adoption and the
+         pictures that describe it must not, or a join reports that nothing is
+         arriving and its before/after diagram freezes — which is what widening
+         this did, caught by the join-diagram check. */
+      const have = new Set((planVersions || []).map(v => v.vid).filter(Boolean));
       const add = entries.filter(e => e && e.vid && !have.has(e.vid));
       if (!add.length) return 0;
       add.forEach(e => {
