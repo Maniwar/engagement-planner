@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0042</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0054</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6973,7 +6973,7 @@ Or say what you want, in your own words:
        self-declared and unverified — the git model — so it names people the way
        a commit log does, as a claim rather than a fact. */
     function trunkWhoMoved(t) {
-      const mine = new Set((planVersions || []).map(v => v.vid).filter(Boolean));
+      const mine = planKnownVids();
       const entries = (t.log || []).filter(e => e.vid && !mine.has(e.vid));
       const by = new Map();
       entries.forEach(e => {
@@ -6998,6 +6998,12 @@ Or say what you want, in your own words:
     function trunkRelation(t) {
       if (!t || t._format !== TRUNK_FORMAT) return { relation: 'notatrunk' };
       const theirVids = [].concat(t.base && t.base.vid ? [t.base.vid] : [], (t.log || []).map(e => e.vid));
+      /* ORDER MATTERS HERE: the tip is the last of the LIVE chain and the
+         ahead/behind counts are indexes into it, so this stays the live list.
+         Only MEMBERSHIP — "have I seen this id" — takes in the trimmed ones,
+         through mySet below. Building myVids out of the known set instead put
+         a trimmed id last and made this copy report itself behind its own
+         history. */
       const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
       /* ═══ NOTHING OF YOUR OWN IS NOT A DIFFERENT ENGAGEMENT ════════════════
          A page with no activities and no versions has no history that could
@@ -7023,13 +7029,23 @@ Or say what you want, in your own words:
       }
       if (!theirVids.length) return { relation: 'empty' };
       if (!myVids.length) return { relation: 'behind', behind: theirVids.length, ahead: 0 };
-      const theirSet = new Set(theirVids), mySet = new Set(myVids);
+      // membership counts trimmed ids; ordering questions still use the live chain
+      const theirSet = new Set(theirVids), mySet = planKnownVids();
       const myTip = myVids[myVids.length - 1], theirTipV = theirVids[theirVids.length - 1];
       if (myTip === theirTipV) return { relation: 'same', ahead: 0, behind: 0 };
       if (theirSet.has(myTip)) return { relation: 'behind', behind: theirVids.length - 1 - theirVids.indexOf(myTip), ahead: 0 };
-      if (mySet.has(theirTipV)) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };
+      if (mySet.has(theirTipV)) {
+        // their tip may be one this copy has trimmed away, so it need not be in the live chain
+        const ti = myVids.indexOf(theirTipV);
+        return { relation: 'ahead', ahead: ti >= 0 ? myVids.length - 1 - ti : myVids.length, behind: 0 };
+      }
       let base = null;
       for (let i = myVids.length - 1; i >= 0; i--) if (theirSet.has(myVids[i])) { base = myVids[i]; break; }
+      /* A common ancestor this copy trimmed is still a common ancestor. Without
+         this, a long-running plan that has trimmed past the shared point reads
+         as a stranger — refused rather than merged — which is the same mistake
+         as the refusal above, one level down. */
+      if (!base) { for (const v of mySet) if (theirSet.has(v)) { base = v; break; } }
       if (!base) {
         /* ═══ SAME ENGAGEMENT, TWO HISTORIES THAT NEVER MET ══════════════════
            Reported as "the rename is still messing with the trunk", and the
@@ -7059,31 +7075,57 @@ Or say what you want, in your own words:
     }
     /* Identity is kept for every entry; only payloads age out. A gap must stay
        provable a year later, so the vid/pvid pairs are never dropped. */
+    function trunkDocBytes(d) { try { return JSON.stringify(d).length; } catch (e) { return 0; } }
     function trunkCompact(t) {
       const l = t.log || [];
       /* Slim first: an entry that is no longer the newest has no reason to
          carry the document library, and slimming often makes dropping payloads
          unnecessary at all. */
       for (let i = 0; i < l.length; i++) if (l[i].doc) trunkSlimDoc(l[i].doc, i === l.length - 1);
-      const withDoc = () => l.filter(e => e.doc);
+
+      /* EVERY PAYLOAD SIZED ONCE, AND THE RUNNING TOTAL IS ARITHMETIC FROM
+         THERE. The first cut of this put JSON.stringify(WHOLE TRUNK) inside a
+         while condition, so rescuing a 177 MB file meant stringifying 177 MB
+         again for every payload dropped — up to forty times. The page would
+         hang on precisely the file the budget exists to rescue, which is worse
+         than the bloat: the bloat was slow, this was a tab that never came
+         back. Reported from the field as "the trunk file is still huge", and
+         that is the shape of it — the push that would have shrunk it could not
+         finish. */
+      const size = l.map(e => e.doc ? trunkDocBytes(e.doc) : 0);
+      let baseSize = (t.base && t.base.doc) ? trunkDocBytes(t.base.doc) : 0;
+      let total = baseSize + size.reduce((a, b) => a + b, 0);
+      let live = l.reduce((n, e) => n + (e.doc ? 1 : 0), 0);
       const dropOldest = () => {
         for (let i = 0; i < l.length; i++) {
           if (!l[i].doc) continue;
-          // the oldest surviving payload becomes the new floor before its own is dropped
+          /* the oldest surviving payload becomes the new floor before its own
+             is dropped — it moves rather than vanishing, so the total loses the
+             floor it replaces, not the one arriving */
           t.base = { vid: l[i].vid, pvid: l[i].pvid || null, at: l[i].at, by: l[i].by, doc: l[i].doc };
-          l[i].doc = null; return true;
+          total -= baseSize; baseSize = size[i];
+          l[i].doc = null; live--;
+          return true;
         }
         return false;
       };
-      while (withDoc().length > TRUNK_KEEP_DOCS) if (!dropOldest()) break;
+      while (live > TRUNK_KEEP_DOCS) if (!dropOldest()) break;
       /* AND A BUDGET IN BYTES. The count cap alone let this file reach 177 MB,
          because forty entries of a twelve-megabyte plan is forty entries. One
          payload must always survive — that is the floor every pull rebuilds
-         from — so this stops at the last one whatever the size. */
-      let guard = 0;
-      while (trunkBytes(t) > TRUNK_BYTE_BUDGET && withDoc().length > 1 && guard++ < 500)
-        if (!dropOldest()) break;
+         from — so this stops at the last one whatever the size says. */
+      while (total > TRUNK_BYTE_BUDGET && live > 1) if (!dropOldest()) break;
       return t;
+    }
+    /* WHAT THE FILE WOULD WEIGH, without stringifying it to find out. Payload
+       bytes plus a nominal allowance for the entry metadata, which is noise
+       beside a plan snapshot. Used for the receipt and for deciding whether a
+       file needs rescuing on the way in. */
+    function trunkApproxBytes(t) {
+      if (!t) return 0;
+      let n = (t.base && t.base.doc) ? trunkDocBytes(t.base.doc) : 0;
+      (t.log || []).forEach(e => { n += e.doc ? trunkDocBytes(e.doc) : 400; });
+      return n;
     }
     /* ═══ A STORED HANDLE IS NOT A GRANTED HANDLE ════════════════════════════
        Reported live, on push: "Failed to execute 'getFile' on
@@ -7581,7 +7623,7 @@ Or say what you want, in your own words:
     function trunkKinship(t) {
       const theirVids = [].concat(t && t.base && t.base.vid ? [t.base.vid] : [],
                                   ((t && t.log) || []).map(e => e.vid)).filter(Boolean);
-      const myVids = (planVersions || []).map(v => v.vid).filter(Boolean);
+      const myVids = [...planKnownVids()];
       const theirSet = new Set(theirVids);
       const shared = myVids.filter(v => theirSet.has(v));
       const who = [...new Set(((t && t.log) || []).map(e => e.byName || e.by).filter(Boolean))];
@@ -8628,6 +8670,33 @@ Or say what you want, in your own words:
           return;
         }
         if (!t) { flashSaved('The trunk is empty — push yours to start it.'); return; }
+        /* ═══ A PULL HEALS AN OVERSIZED FILE, IT DOES NOT WAIT FOR A PUSH ═══
+           Compaction used to run at exactly one call site, inside push. A team
+           where everybody mostly pulls therefore never got the file trimmed at
+           all, and the one person who did push carried the whole cost — which
+           is how a shared file reaches 177 MB while every member sees it grow
+           and nobody's own action can fix it. Reading is the operation that
+           actually hurts here (every poll parses the thing), so the read path
+           is the right place to notice.
+
+           The trim is written back only on a pull somebody ASKED for: an
+           unattended tick that rewrites a shared file is a surprise, and the
+           in-memory trim already spares this session the weight either way. */
+        const wasBytes = trunkApproxBytes(t);
+        if (wasBytes > TRUNK_BYTE_BUDGET) {
+          trunkCompact(t);
+          const nowBytes = trunkApproxBytes(t);
+          const mb = n => (n / 1048576).toFixed(1);
+          if (!quiet && nowBytes < wasBytes * 0.9) {
+            try {
+              await trunkWrite(trunkHandle, t);
+              flashSaved('🧹 The shared file was ' + mb(wasBytes) + ' MB and is now ' + mb(nowBytes)
+                + ' MB — old document payloads trimmed, every version id kept.');
+            } catch (e) { /* read-only or busy: the next push will do it */ }
+          } else if (quiet) {
+            flashSaved('The shared file is ' + mb(wasBytes) + ' MB — press Pull to compact it.');
+          }
+        }
         const chk = trunkVerifyChain(t);
         let rel = trunkRelation(t);
         /* ═══ WHERE YOU STAND IS A QUESTION ABOUT WHAT YOU HAVE ════════════
@@ -8717,7 +8786,7 @@ Or say what you want, in your own words:
                which travels inside every payload — so an incoming version can
                be diffed against its parent without either side being here. */
             const theirSnaps = trunkSnapIndex(t), theirWork = trunkWorkIndex(t);
-            const mineVids = new Set((planVersions || []).map(v => v.vid));
+            const mineVids = planKnownVids();   // agrees with the relation above
             const incoming = (t.log || []).filter(e => e.vid && !mineVids.has(e.vid));
             const ffLog = trunkLogHtml(trunkDeltas(incoming, vid => theirSnaps.get(vid), null,
               vid => theirWork.get(vid)), { head: 'What is arriving' });
@@ -8815,7 +8884,7 @@ Or say what you want, in your own words:
           const incoming = (r.auto || []).length + (r.theirAdds || []).length;
           if (!quiet) {
             const theirSnaps2 = trunkSnapIndex(t), theirWork2 = trunkWorkIndex(t);
-            const mineVids2 = new Set((planVersions || []).map(v => v.vid));
+            const mineVids2 = planKnownVids();   // agrees with the relation above
             const incoming2 = (t.log || []).filter(e => e.vid && !mineVids2.has(e.vid));
             const clLog = trunkLogHtml(trunkDeltas(incoming2, vid => theirSnaps2.get(vid), null,
               vid => theirWork2.get(vid)), { head: 'What is arriving' });
@@ -9493,7 +9562,7 @@ Or say what you want, in your own words:
         // the version chain travels with the plan. A history that lives only in
         // one browser session is not a history — the whole point of parenting
         // versions is that a later reader can walk back through them.
-        planVersions, nextVersionNo, planLineage: planLineageId(), planForkedFrom, signoffs, nextSignoffNo,
+        planVersions, planSeenVids, nextVersionNo, planLineage: planLineageId(), planForkedFrom, signoffs, nextSignoffNo,
         collapsedIds: [...collapsedIds],
         tasks: tasks.map(t => ({
           id: t.id, name: t.name, o: t.o, m: t.m, p: t.p, milestone: t.milestone,
@@ -9733,6 +9802,12 @@ Or say what you want, in your own words:
          The trunk format already states this rule for its own entries a few
          hundred lines up: "Identity is kept for every entry; only payloads age
          out." The plan's own loader was the one place violating it. */
+      /* The identities of versions this copy has already trimmed away. Without
+         this the memory would last only until reload, and the pull/push
+         deadlock it exists to break would come straight back. Ids only — no
+         snapshots — so it stays a few kilobytes at the cap. */
+      planSeenVids = Array.isArray(data.planSeenVids)
+        ? data.planSeenVids.filter(v => typeof v === 'string' && v).slice(-SEEN_VID_CAP) : [];
       planVersions = Array.isArray(data.planVersions)
         ? data.planVersions.filter(x => x && x.snap && Number.isFinite(+x.v))
             .map(x => ({ v: +x.v, at: String(x.at || ''), kind: String(x.kind || 'snapshot'),
@@ -36970,7 +37045,7 @@ Do not write payment terms or exclusions — both are generated from the project
        everybody rather than just for me. */
     function adoptVersions(entries) {
       if (!entries || !entries.length) return 0;
-      const have = new Set((planVersions || []).map(v => v.vid).filter(Boolean));
+      const have = planKnownVids();   // trimmed ids count: re-adopting them would undo the trim
       const add = entries.filter(e => e && e.vid && !have.has(e.vid));
       if (!add.length) return 0;
       add.forEach(e => {
@@ -37058,6 +37133,41 @@ Do not write payment terms or exclusions — both are generated from the project
        forty rows in one and sixty in the other reasonably concludes the shorter
        one lost something. */
     const VERSION_CAP = 40;
+    /* ═══ TRIMMED IS NOT UNKNOWN ══════════════════════════════════════════════
+       Reported from the field: pull, push, and the push still refuses with "the
+       trunk has moved on — 1 version you do not have", forever.
+
+       The cause is a deadlock between two caps that never knew about each
+       other. The local chain holds forty versions; past that, trimVersions
+       drops the oldest unpinned ones. Every question about where this copy
+       stands — trunkRelation, trunkWhoMoved, trunkKinship — then asked "which
+       trunk ids are in planVersions", and a trimmed id is not. So the trunk
+       listed a version this copy had genuinely seen and adopted, the relation
+       called it missing, and the push was refused. Pulling could not fix it:
+       adoptVersions added the row back and trimVersions, running in the same
+       breath, dropped it again.
+
+       It also explains a 177 MB shared file. Compaction ran on push, and push
+       was the operation that could never complete.
+
+       An id costs about twenty bytes, so the fix is to remember them: a
+       trimmed version keeps its IDENTITY even when its row and snapshot are
+       gone. That is the same principle adoptVersions already states about
+       payload-less entries — identity is what makes the ancestry work. */
+    let planSeenVids = [];
+    const SEEN_VID_CAP = 5000;
+    function rememberSeenVid(vid) {
+      if (!vid) return;
+      if (planSeenVids.indexOf(vid) >= 0) return;
+      planSeenVids.push(vid);
+      if (planSeenVids.length > SEEN_VID_CAP) planSeenVids.splice(0, planSeenVids.length - SEEN_VID_CAP);
+    }
+    /* Every id this copy has ever held, whether or not it still holds the row. */
+    function planKnownVids() {
+      const s2 = new Set((planVersions || []).map(v => v.vid).filter(Boolean));
+      (planSeenVids || []).forEach(v => { if (v) s2.add(v); });
+      return s2;
+    }
     function versionIsPinned(v) {
       if (!v) return false;
       if (v.kind === 'sow' || v.kind === 'co' || v.kind === 'signoff') return true;
@@ -37071,6 +37181,7 @@ Do not write payment terms or exclusions — both are generated from the project
       // oldest first, never the first or the last, never anything pinned
       for (let i = 1; i < planVersions.length - 1 && planVersions.length > VERSION_CAP; ) {
         if (versionIsPinned(planVersions[i])) { i++; continue; }
+        rememberSeenVid(planVersions[i].vid);   // the row goes; the identity stays
         planVersions.splice(i, 1);
         dropped++;
       }
