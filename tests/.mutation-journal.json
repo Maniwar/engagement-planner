@@ -1,29 +1,76 @@
 {
- "at": "2026-08-19T17:26:19.765Z",
+ "at": "2026-08-20T17:02:08.051Z",
  "full": false,
- "ran": 2,
- "of": 449,
+ "ran": 6,
+ "of": 508,
  "rows": [
   {
-   "what": "accrual: the bar draws the timing conclusion and drops the caveat that booked money is accrued",
-   "by": "chart-reconciliation-sweep.js",
+   "what": "undo: undoing past the start of the session is allowed and empties the plan",
+   "by": "undo-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Real export · Cost basis :: money is booked by ACCRUAL from logged effort and the budget note never says so — \"spending ahead of the plan\" reads as cash out of ",
-    "Field export · Cost basis :: money is booked by ACCRUAL from logged effort and the budget note never says so — \"spending ahead of the plan\" reads as cash out of"
+    "QA reference · Undo :: undoing past the start of the session THREW (\"undefined\" is not valid JSON). Past the floor it has to be a no-op — an exception here leav",
+    "Real export · Undo :: undoing past the start of the session THREW (\"undefined\" is not valid JSON). Past the floor it has to be a no-op — an exception here leave"
    ]
   },
   {
-   "what": "resource load: a day somebody never works is treated as an ordinary working day",
-   "by": "resourcing-sweep.js",
+   "what": "revenue: the deposit is dropped, so a 25% up-front payment never reaches the curve",
+   "by": "revenue-sweep.js",
    "survived": false,
    "skipped": false,
    "findings": [
-    "Availability :: taking a working day away from QA — who has unfinished work on 6 dated days, 2 of them on that weekday — produced no new conflict. Work schedule",
-    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within",
-    " 📅 PMO — 07/23/2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Disc"
+    "Revenue :: a 25% deposit came out as $0 of a $90,967 fee",
+    "MONEY IN $48,967 of finished work has never been invoiced — 5 activities recorded as 100% "
    ]
+  },
+  {
+   "what": "revenue: milestone billing ignores the terms, so every checkpoint is paid on the day it lands",
+   "by": "revenue-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "Revenue :: 12 of 12 receipts under MILESTONE billing land on a date that is neither a milestone plus its terms nor the finish — the arrangement is being approxi",
+    "MONEY IN $48,967 of finished work has never been invoiced — 5 activities recorded as 100% "
+   ]
+  },
+  {
+   "what": "revenue: the tail after the last checkpoint bills at the start of the work, not its finish",
+   "by": "three-people-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": []
+  },
+  {
+   "what": "export: the billing CSV total row states a cost that is not the sum of its own rows",
+   "by": "export-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": [
+    "QA reference · Export :: the billing CSV rows add to 10500 and its TOTAL says 9450",
+    "QA reference · Export :: the billing CSV totals cost 9450 and the application says 10500",
+    "Real export · Export :: the billing CSV rows add to 54294 and its TOTAL says 48864",
+    "Real export · Export :: the billing CSV totals cost 48864 and the application says 54293",
+    "Sample-Client-Engagement-CRM-Rollout-activities-editable.csv",
+    "Sample-Client-Engagement-CRM-Rollout-billing.csv",
+    "Sample-Client-Engagement-CRM-Rollout-jira-import.csv",
+    "Sample-Client-Engagement-CRM-Rollout-raid-editable.csv",
+    "Sample-Client-Engagement-CRM-Rollout-requirements.md",
+    "Sample-Client-Engagement-CRM-Rollout-stories-editable.csv",
+    "Sample-Client-Engagement-CRM-Rollout-test-cases-editable.csv",
+    "Sample-Client-Engagement-CRM-Rollout-test-cases.csv",
+    "Sample-Client-Engagement-CRM-Rollout-test-plan.md",
+    "Sample-Client-Engagement-CRM-Rollout-traceability.csv",
+    "Sample-Client-Engagement-CRM-Rollout-variance-plan-vs-actual.csv",
+    "Sample-Client-Engagement-CRM-Rollout-wbs-dictionary.csv"
+   ]
+  },
+  {
+   "what": "export: fixed costs are dropped from the billing CSV but still counted in its total",
+   "by": "three-people-sweep.js",
+   "survived": false,
+   "skipped": false,
+   "findings": []
   }
  ],
  "history": {
@@ -37,7 +84,7 @@
    },
    "Sample-Client-Engagement-CRM-Rollout-team-trunk.json": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -73,7 +120,8 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "+2 more, $1,569 — show": {
@@ -181,7 +229,7 @@
    },
    "Hidden by the filter: blocked 7": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -217,12 +265,15 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Hidden by the filter: blocked 5": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -258,12 +309,15 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Hidden by the filter: blocked 1": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -299,12 +353,15 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Hidden by the filter: blocked 2": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -340,12 +397,15 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Fees and Payment:changed": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -380,12 +440,15 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Service Levels:added": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -420,12 +483,15 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "COMPAREv2 — after CO 1v1 — sentthe draft as it stands→v2 — after CO 1v1 — sentthe draft as it standsidenticalThese two documents are word for word the same.": {
     "first": "2026-08-10T03:12:18.082Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "SOW panel: the document is read through a letterbox again",
      "navigation: two sections of the team tab paint the same panel",
@@ -460,7 +526,10 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "QA reference · Activity editor :: a field marked to pair renders 986px wide inside a 1019px body — it is spanning both columns, so nothing actually sits beside ": {
@@ -637,7 +706,7 @@
    },
    "3d open × 200% = 6d of work — Alice 100% + Bob 100%. More th": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
      "criticality: an activity with a day of float is called critical",
      "criticality: the Gantt loses its milestones the moment a phase is collapsed",
@@ -674,12 +743,16 @@
      "chart: the gate reach sums raw open-duration instead of allocation-weighted work, so the band quotes the wrong work figure",
      "chart: the row-late styling inlines the date test and forgets the completed guard, so finished past work is painted late",
      "chart: the reconciliation drops rows that contribute nothing, so the source columns stop footing to their own totals",
-     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum"
+     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum",
+     "form: the owner box has no datalist behind it, so every name is typed from memory",
+     "form: the RAID owner box stops pointing at the suggestion list",
+     "form: the owner suggestions are built from nobody on the plan or the roster",
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
     ]
    },
    "A milestone consumes no effort — nobody works ON a date. \\n\\nWhat it took to reach": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
      "criticality: an activity with a day of float is called critical",
      "criticality: the Gantt loses its milestones the moment a phase is collapsed",
@@ -718,12 +791,17 @@
      "chart: the work-cell explanation loses its participant roster in a copy trim, so nothing names who is on the activity",
      "chart: the row-late styling inlines the date test and forgets the completed guard, so finished past work is painted late",
      "chart: the reconciliation drops rows that contribute nothing, so the source columns stop footing to their own totals",
-     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum"
+     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum",
+     "chart: an hours project measures a working day as six hours, not eight",
+     "form: the owner box has no datalist behind it, so every name is typed from memory",
+     "form: the RAID owner box stops pointing at the suggestion list",
+     "form: the owner suggestions are built from nobody on the plan or the roster",
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
     ]
    },
    "3.17d open × 200% = 6.33d of work — PMO 100% + A. Rivera 100": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
      "criticality: an activity with a day of float is called critical",
      "criticality: the Gantt loses its milestones the moment a phase is collapsed",
@@ -761,12 +839,16 @@
      "chart: the gate reach sums raw open-duration instead of allocation-weighted work, so the band quotes the wrong work figure",
      "chart: the row-late styling inlines the date test and forgets the completed guard, so finished past work is painted late",
      "chart: the reconciliation drops rows that contribute nothing, so the source columns stop footing to their own totals",
-     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum"
+     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum",
+     "form: the owner box has no datalist behind it, so every name is typed from memory",
+     "form: the RAID owner box stops pointing at the suggestion list",
+     "form: the owner suggestions are built from nobody on the plan or the roster",
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
     ]
    },
    "Phase 1 — Discovery pct=40 red=1 green=1 redH=3": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
      "criticality: an activity with a day of float is called critical",
      "criticality: the Gantt loses its milestones the moment a phase is collapsed",
@@ -804,12 +886,17 @@
      "chart: the work-cell explanation loses its participant roster in a copy trim, so nothing names who is on the activity",
      "chart: the row-late styling inlines the date test and forgets the completed guard, so finished past work is painted late",
      "chart: the reconciliation drops rows that contribute nothing, so the source columns stop footing to their own totals",
-     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum"
+     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum",
+     "chart: an hours project measures a working day as six hours, not eight",
+     "form: the owner box has no datalist behind it, so every name is typed from memory",
+     "form: the RAID owner box stops pointing at the suggestion list",
+     "form: the owner suggestions are built from nobody on the plan or the roster",
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
     ]
    },
    "Project Closed → ◆ Project Closed P 6/226 of 22 finished. ✓ 1.1": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
      "criticality: an activity with a day of float is called critical",
      "form: the watch chip prefixes a question mark to a label that is already a question",
@@ -846,7 +933,12 @@
      "chart: the work-cell explanation loses its participant roster in a copy trim, so nothing names who is on the activity",
      "chart: the row-late styling inlines the date test and forgets the completed guard, so finished past work is painted late",
      "chart: the reconciliation drops rows that contribute nothing, so the source columns stop footing to their own totals",
-     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum"
+     "chart: the phase Work cell sums raw TE spans instead of allocation-weighted work, so the sum column stops being a sum",
+     "chart: an hours project measures a working day as six hours, not eight",
+     "form: the owner box has no datalist behind it, so every name is typed from memory",
+     "form: the RAID owner box stops pointing at the suggestion list",
+     "form: the owner suggestions are built from nobody on the plan or the roster",
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
     ]
    },
    "Kick-off & Discovery :: is marked not critical with a slack of 2.220446049250313e-15": {
@@ -1162,7 +1254,7 @@
    },
    " 📅 PMO — 07/23/2026: 100% of 25% capacity — finished work ✕ 1.1 Kick-off & Disc": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:26:19.765Z",
+    "last": "2026-08-20T16:05:24.008Z",
     "byMutants": [
      "resource load: a double-booked day counted once per person, not per pair",
      "heatmap: a day is painted as a conflict on raw load, ignoring the finished-work rule",
@@ -1188,7 +1280,13 @@
      "ledger: the tie-out to the billing table is never printed, so nobody can tell the two agree",
      "ledger: a person named \"A\" and the pair (A, B) collide in one cell",
      "price gap: the \"rate-card sum\" it quotes is the fee, so the two can never differ",
-     "price gap: the difference is computed and never drawn beside the table it contradicts"
+     "price gap: the difference is computed and never drawn beside the table it contradicts",
+     "ledger: a company still named by a roster row can be deleted",
+     "ledger: renaming a company moves the id and leaves the roster showing the old name",
+     "ledger: a company can be renamed onto a name already on the list",
+     "ledger: merging two companies does not repoint the roster rows onto the survivor",
+     "ledger: a merged-away company stays on the list it was merged out of",
+     "ledger: a company set on the roster is not counted as used, so deleting it looks safe"
     ]
    },
    "QA reference · Round trip :: \"percentComplete\" does not survive save and load — 3 of 5 activities changed, e.g. \"A Design\" held 100 and came back 0": {
@@ -1497,16 +1595,18 @@
    },
    "QA reference · Undo :: editing after an undo left 1 redo step(s) alive, so redo can rebuild a plan from a branch that was abandoned": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:11:51.859Z",
     "byMutants": [
-     "undo: editing after an undo keeps the abandoned redo branch alive"
+     "undo: editing after an undo keeps the abandoned redo branch alive",
+     "undo: an undo no longer clears the redo branch, so redo replays a plan that never existed"
     ]
    },
    "Real export · Undo :: editing after an undo left 1 redo step(s) alive, so redo can rebuild a plan from a branch that was abandoned": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:11:51.859Z",
     "byMutants": [
-     "undo: editing after an undo keeps the abandoned redo branch alive"
+     "undo: editing after an undo keeps the abandoned redo branch alive",
+     "undo: an undo no longer clears the redo branch, so redo replays a plan that never existed"
     ]
    },
    "QA reference · Undo :: undo left a RAID entry that was added after the snapshot": {
@@ -1735,7 +1835,7 @@
    },
    "Before restoring v16": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
      "baseline: it freezes the dates but not the effort",
      "baseline: the feature set is committed at a different moment than the dates",
@@ -1800,12 +1900,17 @@
      "baseline history: a past SOW claims every change order accepted since it was written",
      "baseline history: the SOW never says which change orders it already incorporates",
      "baseline history: the two documents share one box with no way between them",
-     "change order: the log records a price delta the client never approved"
+     "change order: the log records a price delta the client never approved",
+     "baseline: setBaseline freezes the start but never the finish",
+     "baseline: clearing the baseline leaves every finish reference behind",
+     "baseline: the committed feature set is never captured, so scope drift has no reference",
+     "trunk: every version reports itself pinned, so the chain can never be tidied",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "Phase 3 — Build & Go-Live": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
      "baseline: it freezes the dates but not the effort",
      "baseline: the feature set is committed at a different moment than the dates",
@@ -1873,12 +1978,17 @@
      "baseline history: a past SOW claims every change order accepted since it was written",
      "baseline history: the SOW never says which change orders it already incorporates",
      "baseline history: the two documents share one box with no way between them",
-     "change order: the log records a price delta the client never approved"
+     "change order: the log records a price delta the client never approved",
+     "baseline: setBaseline freezes the start but never the finish",
+     "baseline: clearing the baseline leaves every finish reference behind",
+     "baseline: the committed feature set is never captured, so scope drift has no reference",
+     "trunk: every version reports itself pinned, so the chain can never be tidied",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "3 Phase 3 — Build & Go-Live": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
      "baseline: it freezes the dates but not the effort",
      "baseline: the feature set is committed at a different moment than the dates",
@@ -1945,7 +2055,12 @@
      "baseline history: a past SOW claims every change order accepted since it was written",
      "baseline history: the SOW never says which change orders it already incorporates",
      "baseline history: the two documents share one box with no way between them",
-     "change order: the log records a price delta the client never approved"
+     "change order: the log records a price delta the client never approved",
+     "baseline: setBaseline freezes the start but never the finish",
+     "baseline: clearing the baseline leaves every finish reference behind",
+     "baseline: the committed feature set is never captured, so scope drift has no reference",
+     "trunk: every version reports itself pinned, so the chain can never be tidied",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "Real export · Baseline :: the feature set is stamped 2020-01-01 and the schedule baseline 2026-08-10 — two references, two moments": {
@@ -2400,24 +2515,27 @@
    },
    "Version chain :: after 60 commitments the chain holds 80 versions against a cap of 40 — each one is a full copy of the plan, so this grows the file without boun": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
-     "baseline: the version chain grows without bound"
+     "baseline: the version chain grows without bound",
+     "trunk: every version reports itself pinned, so the chain can never be tidied"
     ]
    },
    "Version chain :: 9 change order(s) or sign-off(s) point at a version the trim dropped — the comparison and the drift check both go silently blind, which is wors": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
-     "baseline: the trim takes a version a change order points at"
+     "baseline: the trim takes a version a change order points at",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "Version chain :: a version a sign-off was taken against was trimmed out of the history": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
      "baseline: the trim takes a version a change order points at",
-     "baseline: a sign-off records a date instead of the version it signed"
+     "baseline: a sign-off records a date instead of the version it signed",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "Version chain :: rewording a signed criterion raised no drift, so nothing below tested the repair": {
@@ -2661,16 +2779,18 @@
    },
    "QA reference · RAID form :: the owner box points at a datalist that opening the form leaves EMPTY, with 3 names on the plan — it looks like a picker and behaves": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
-     "form: the RAID owner box is no longer a type-ahead"
+     "form: the RAID owner box is no longer a type-ahead",
+     "form: the owner suggestions are built from nobody on the plan or the roster"
     ]
    },
    "Real export · RAID form :: the owner box points at a datalist that opening the form leaves EMPTY, with 7 names on the plan — it looks like a picker and behaves ": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:12.240Z",
     "byMutants": [
-     "form: the RAID owner box is no longer a type-ahead"
+     "form: the RAID owner box is no longer a type-ahead",
+     "form: the owner suggestions are built from nobody on the plan or the roster"
     ]
    },
    "Field export · Schedule drill-in :: the badge reads 5 and 6 activities matched — the row above states a figure covering all 6 and the disclosure beside it offer": {
@@ -3057,7 +3177,7 @@
    },
    "Northwind Integration:1.48(n=4)": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:05:24.008Z",
     "byMutants": [
      "bank: forgetting a project shortens the list without dropping the records",
      "bank: span-derived actuals are taught to the estimator as measured effort",
@@ -3074,12 +3194,14 @@
      "bank: the slowest payer is listed last, where nobody reads it",
      "bank: the payment history is computed and never drawn",
      "bank: an empty book is laid out as measured zeros",
-     "bank: the billing-discipline cut is presented as payment behaviour"
+     "bank: the billing-discipline cut is presented as payment behaviour",
+     "bank: an archived row carries no owning company, so the by-company split has nothing to group on",
+     "bank: an archived row lists no participants, so nothing downstream can name who did the work"
     ]
    },
    "Northwind Integration:n=3": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:05:24.008Z",
     "byMutants": [
      "bank: forgetting a project shortens the list without dropping the records",
      "bank: span-derived actuals are taught to the estimator as measured effort",
@@ -3095,12 +3217,14 @@
      "bank: the slowest payer is listed last, where nobody reads it",
      "bank: the payment history is computed and never drawn",
      "bank: an empty book is laid out as measured zeros",
-     "bank: the billing-discipline cut is presented as payment behaviour"
+     "bank: the billing-discipline cut is presented as payment behaviour",
+     "bank: an archived row carries no owning company, so the by-company split has nothing to group on",
+     "bank: an archived row lists no participants, so nothing downstream can name who did the work"
     ]
    },
    "Meridian Data Services": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:05:24.008Z",
     "byMutants": [
      "bank: forgetting a project shortens the list without dropping the records",
      "bank: span-derived actuals are taught to the estimator as measured effort",
@@ -3117,7 +3241,9 @@
      "bank: the slowest payer is listed last, where nobody reads it",
      "bank: the payment history is computed and never drawn",
      "bank: an empty book is laid out as measured zeros",
-     "bank: the billing-discipline cut is presented as payment behaviour"
+     "bank: the billing-discipline cut is presented as payment behaviour",
+     "bank: an archived row carries no owning company, so the by-company split has nothing to group on",
+     "bank: an archived row lists no participants, so nothing downstream can name who did the work"
     ]
    },
    "Bank :: five span-derived rows moved the median from 1× to 5× — a calendar gap is being taught to the estimator as measured effort": {
@@ -3178,7 +3304,7 @@
    },
    "Leveling: applied 0 shift(s), project end unchanged. Over-allocated resource-days 9 → 9 across 2 people — remaining conflicts can't be resolved within": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:26:19.765Z",
+    "last": "2026-08-20T16:05:24.008Z",
     "byMutants": [
      "heatmap: a day is painted as a conflict on raw load, ignoring the finished-work rule",
      "heatmap: the day drill-in re-derives \"over\" and offers a jump with nowhere to land",
@@ -3204,7 +3330,13 @@
      "ledger: the tie-out to the billing table is never printed, so nobody can tell the two agree",
      "ledger: a person named \"A\" and the pair (A, B) collide in one cell",
      "price gap: the \"rate-card sum\" it quotes is the fee, so the two can never differ",
-     "price gap: the difference is computed and never drawn beside the table it contradicts"
+     "price gap: the difference is computed and never drawn beside the table it contradicts",
+     "ledger: a company still named by a roster row can be deleted",
+     "ledger: renaming a company moves the id and leaves the roster showing the old name",
+     "ledger: a company can be renamed onto a name already on the list",
+     "ledger: merging two companies does not repoint the roster rows onto the survivor",
+     "ledger: a merged-away company stays on the list it was merged out of",
+     "ledger: a company set on the roster is not counted as used, so deleting it looks safe"
     ]
    },
    "Heatmap drill-in :: heads a discounted day \"⚠ over\" while the row badge for the same person reads OK — two readings of one day, three inches apart": {
@@ -3539,9 +3671,10 @@
    },
    "Bank :: renaming a company loses its history — the four archived activities no longer appear under the new name, which is exactly the join the id exists to prov": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:11:51.859Z",
     "byMutants": [
-     "bank: company history is grouped on the NAME, so a rename splits it in two"
+     "bank: company history is grouped on the NAME, so a rename splits it in two",
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
     ]
    },
    "Bank :: after the rename the company appears under BOTH names, so its history is split in two": {
@@ -3832,7 +3965,7 @@
    },
    "MONEY IN $48,967 of finished work has never been invoiced — 5 activities recorded as 100% ": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "revenue: the curve collects the rate-card sum instead of the fee",
      "revenue: a deposit is ADDED to the fee rather than taken out of it",
@@ -3845,7 +3978,9 @@
      "retainer: a period with no work in it is not billed",
      "retainer: the gap between what is retained and what the work is priced at is reconciled away",
      "retainer: the contract does not say the period is owed whether or not it is used",
-     "SOW: the payment schedule totals less than the price the client is signing"
+     "SOW: the payment schedule totals less than the price the client is signing",
+     "revenue: the deposit is dropped, so a 25% up-front payment never reaches the curve",
+     "revenue: milestone billing ignores the terms, so every checkpoint is paid on the day it lands"
     ]
    },
    "Revenue :: with a deposit the plan expects $113,709 against a fee of $90,967 — the deposit is being ADDED to the fee rather than taken out of it": {
@@ -4007,7 +4142,7 @@
    },
    "variance end date held — undernea": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:28:33.622Z",
     "byMutants": [
      "client: the receivables export drops every activity nobody has invoiced",
      "client: unbilled work is folded into the outstanding total, overstating the book",
@@ -4052,7 +4187,12 @@
      "audience: the matrix calls artifact-evidenced work internal again",
      "SOW: the drafter reorders the sections and the document ignores it",
      "SOW: a reordered section keeps its old number, so cross-references point at the wrong clause",
-     "NFR: the section never says how much it holds"
+     "NFR: the section never says how much it holds",
+     "client: the status report reports earned value and never what was booked",
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced",
+     "SOW: the chosen section order is ignored, so reordering changes nothing in the document",
+     "SOW: Reset order leaves the customised order in place",
+     "SOW: an excluded section prints anyway, so the picker decides nothing"
     ]
    },
    "Receivables :: the outstanding total reads 47217 against 3000 actually invoiced-and-unreceived — money you have not asked for is not money owed to you, and addi": {
@@ -5549,18 +5689,20 @@
    },
    "SOW sections :: a section excluded in the picker still prints": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:28:33.622Z",
     "byMutants": [
      "SOW: the section picker does nothing — every section prints anyway",
-     "SOW: an excluded section leaves a gap in the numbering"
+     "SOW: an excluded section leaves a gap in the numbering",
+     "SOW: an excluded section prints anyway, so the picker decides nothing"
     ]
    },
    "SOW sections :: excluding two sections changed the count from 11 to 11": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:28:33.622Z",
     "byMutants": [
      "SOW: the section picker does nothing — every section prints anyway",
-     "SOW: an excluded section leaves a gap in the numbering"
+     "SOW: an excluded section leaves a gap in the numbering",
+     "SOW: an excluded section prints anyway, so the picker decides nothing"
     ]
    },
    "SOW sections :: the saved version does not record which sections it was written without, so a past document reads under today’s setting": {
@@ -5791,16 +5933,18 @@
    },
    "SOW exclusions :: drafting an exclusion files it on the RAID log and leaves the document saying none have been recorded — the two stores never meet": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:17:48.654Z",
     "byMutants": [
-     "SOW: filing an exclusion changes the log and not the document"
+     "SOW: filing an exclusion changes the log and not the document",
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
     ]
    },
    "SOW exclusions :: the document changed and no version was kept, so the wording it replaced exists nowhere": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:17:48.654Z",
     "byMutants": [
-     "SOW: filing an exclusion changes the log and not the document"
+     "SOW: filing an exclusion changes the log and not the document",
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
     ]
    },
    "SOW exclusions :: patching the exclusions destroyed the boundary clause above them": {
@@ -6521,9 +6665,10 @@
    },
    "SOW order :: a section moved to the top did not become the first section": {
     "first": "2026-08-10T19:48:33.609Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T16:17:48.654Z",
     "byMutants": [
-     "SOW: the drafter reorders the sections and the document ignores it"
+     "SOW: the drafter reorders the sections and the document ignores it",
+     "SOW: the chosen section order is ignored, so reordering changes nothing in the document"
     ]
    },
    "SOW document :: no optional sections: the document refers to §11 and has only 9 sections": {
@@ -6946,7 +7091,7 @@
    },
    "Sample-Client-Engagement-CRM-Rollout-activities-editable.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -6962,12 +7107,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-billing.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -6983,12 +7129,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-jira-import.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7004,12 +7151,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-raid-editable.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7025,12 +7173,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-requirements.md": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7046,12 +7195,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-stories-editable.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7067,12 +7217,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-test-cases-editable.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7088,12 +7239,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-test-cases.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7109,12 +7261,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-test-plan.md": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7130,12 +7283,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-traceability.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7151,12 +7305,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-variance-plan-vs-actual.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7172,12 +7327,13 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "Sample-Client-Engagement-CRM-Rollout-wbs-dictionary.csv": {
     "first": "2026-08-10T22:16:40.263Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T17:02:08.051Z",
     "byMutants": [
      "billing CSV: the TOTAL row overstates cost by 10%",
      "Jira CSV: the first story is silently dropped",
@@ -7193,7 +7349,8 @@
      "export: traceability Story ID column switched to the Jira key",
      "export: project JSON save strips percentComplete as a derived field",
      "export: project JSON withholds internal cost rates as confidential",
-     "export: WBS dictionary work-effort header shortened to plain 'Effort'"
+     "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
     ]
    },
    "QA reference · Change order :: the logged entry does not match the change that was approved: {\"logged\":{\"no\":\"CO-001\",\"f\":3,\"p\":500},\"approved\":{\"no\":\"CO-001\",\"": {
@@ -9128,7 +9285,7 @@
    },
    "+1 more, $433 — show": {
     "first": "2026-08-13T03:23:47.587Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "worklist: the copy names who owns the blocker and drops the blocking activity itself",
      "worklist: the group subtotal row is dropped from every table",
@@ -9163,7 +9320,10 @@
      "RAID: bulk delete removes only the first selected entry",
      "SOW panel: both history tabs show the same history",
      "SOW panel: the selected history tab looks like the unselected one",
-     "SOW panel: the document is read through a letterbox again"
+     "SOW panel: the document is read through a letterbox again",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Worklist :: the effort column has no total at all — the point of putting a size on every row is that they add up to a week": {
@@ -9786,7 +9946,7 @@
    },
    "Effort spent 4.16w→2.56w 62% of plan used at 100% complete ⏱ 3 missing time spent": {
     "first": "2026-08-19T17:19:51.672Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
      "baseline: it freezes the dates but not the effort",
      "baseline: the feature set is committed at a different moment than the dates",
@@ -9851,12 +10011,17 @@
      "baseline history: two SOW versions both claim to be the current one",
      "baseline history: a past SOW claims every change order accepted since it was written",
      "baseline history: the SOW never says which change orders it already incorporates",
-     "baseline history: the two documents share one box with no way between them"
+     "baseline history: the two documents share one box with no way between them",
+     "baseline: setBaseline freezes the start but never the finish",
+     "baseline: clearing the baseline leaves every finish reference behind",
+     "baseline: the committed feature set is never captured, so scope drift has no reference",
+     "trunk: every version reports itself pinned, so the chain can never be tidied",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "Effort spent 11.1w→4.58w 41% of plan used at 67% complete ⏱ 2 missing time spent": {
     "first": "2026-08-19T17:19:51.672Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:53:41.569Z",
     "byMutants": [
      "baseline: it freezes the dates but not the effort",
      "baseline: the feature set is committed at a different moment than the dates",
@@ -9921,7 +10086,12 @@
      "baseline history: two SOW versions both claim to be the current one",
      "baseline history: a past SOW claims every change order accepted since it was written",
      "baseline history: the SOW never says which change orders it already incorporates",
-     "baseline history: the two documents share one box with no way between them"
+     "baseline history: the two documents share one box with no way between them",
+     "baseline: setBaseline freezes the start but never the finish",
+     "baseline: clearing the baseline leaves every finish reference behind",
+     "baseline: the committed feature set is never captured, so scope drift has no reference",
+     "trunk: every version reports itself pinned, so the chain can never be tidied",
+     "trunk: tidying ignores pinning and deletes the versions a document depends on"
     ]
    },
    "Real export · Baseline :: the feature set is stamped 2020-01-01 and the schedule baseline 2026-08-19 — two references, two moments": {
@@ -9961,7 +10131,7 @@
    },
    "Subtotal — 7 activities (5 shown)4.82h": {
     "first": "2026-08-19T17:19:51.672Z",
-    "last": "2026-08-19T17:19:51.672Z",
+    "last": "2026-08-20T15:59:55.562Z",
     "byMutants": [
      "navigation: two sections of the team tab paint the same panel",
      "navigation: the section-scoped toolbar is hidden by a flag the stylesheet overrules",
@@ -9993,7 +10163,10 @@
      "navigation: the Money section is looked up and never written",
      "navigation: the money block is left behind in the Monte Carlo card as well",
      "navigation: the contract badge counts every log entry, open or not",
-     "navigation: leaving the chart clears a reading the click was meant to keep"
+     "navigation: leaving the chart clears a reading the click was meant to keep",
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
     ]
    },
    "Constructed · table :: 2 activit(ies) carry booked cost or plan-to-date and have no row in the table, e.g. \"Requirements Workshop\" — their money is still in the": {
@@ -10377,6 +10550,521 @@
     "byMutants": [
      "trunk: trunkEntryFromVersion defaults a rootless entry's parent to the entry itself, so the very first push files a self-parented link"
     ]
+   },
+   "Real export · Activity list :: a phase shows 2.22w of work against 14.80 in its children — work is the one column that IS a sum": {
+    "first": "2026-08-20T15:44:18.175Z",
+    "last": "2026-08-20T15:44:18.175Z",
+    "byMutants": [
+     "chart: an hours project measures a working day as six hours, not eight"
+    ]
+   },
+   "2.25d open × 200% = 4.5d of work — Alice 100% + Bob 100%. Mo": {
+    "first": "2026-08-20T15:44:18.175Z",
+    "last": "2026-08-20T15:44:18.175Z",
+    "byMutants": [
+     "chart: an hours project measures a working day as six hours, not eight"
+    ]
+   },
+   "2.38d open × 200% = 4.75d of work — PMO 100% + A. Rivera 100": {
+    "first": "2026-08-20T15:44:18.175Z",
+    "last": "2026-08-20T15:44:18.175Z",
+    "byMutants": [
+     "chart: an hours project measures a working day as six hours, not eight"
+    ]
+   },
+   "Status report :: reports earned value to date but never what has actually been booked ($27,900) — a client reading it cannot see the spend": {
+    "first": "2026-08-20T15:44:18.175Z",
+    "last": "2026-08-20T15:44:18.175Z",
+    "byMutants": [
+     "client: the status report reports earned value and never what was booked"
+    ]
+   },
+   "QA reference · Baseline :: the instant it was taken, 5 field(s) already differ from the plan it captured: A Design finish, B Build finish, C Docs finish": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: setBaseline freezes the start but never the finish"
+    ]
+   },
+   "QA reference · Baseline :: setBaseline ran and hasBaseline() still says there is none": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: setBaseline freezes the start but never the finish"
+    ]
+   },
+   "QA reference · Baseline :: a baselined plan reloads reporting that it has no baseline": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: setBaseline freezes the start but never the finish"
+    ]
+   },
+   "Real export · Baseline :: the instant it was taken, 23 field(s) already differ from the plan it captured: Kick-off & Discovery finish, Stakeholder Interviews fi": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: setBaseline freezes the start but never the finish"
+    ]
+   },
+   "Real export · Baseline :: setBaseline ran and hasBaseline() still says there is none": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: setBaseline freezes the start but never the finish"
+    ]
+   },
+   "Real export · Baseline :: a baselined plan reloads reporting that it has no baseline": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: setBaseline freezes the start but never the finish"
+    ]
+   },
+   "QA reference · Baseline :: clearing left a reference on 5 activit(ies), e.g. \"A Design\"": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: clearing the baseline leaves every finish reference behind"
+    ]
+   },
+   "Real export · Baseline :: clearing left a reference on 23 activit(ies), e.g. \"Kick-off & Discovery\"": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: clearing the baseline leaves every finish reference behind"
+    ]
+   },
+   "Real export · Baseline :: froze the dates and the money but captured no feature set": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: the committed feature set is never captured, so scope drift has no reference"
+    ]
+   },
+   "Real export · Baseline :: captured 0 stories / 0 criteria from a plan holding 13 / 40": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: the committed feature set is never captured, so scope drift has no reference"
+    ]
+   },
+   "Real export · Baseline :: the feature set is stamped  and the schedule baseline 2026-08-20 — two references, two moments": {
+    "first": "2026-08-20T15:53:41.569Z",
+    "last": "2026-08-20T15:53:41.569Z",
+    "byMutants": [
+     "baseline: the committed feature set is never captured, so scope drift has no reference"
+    ]
+   },
+   "QA reference · RAID form :: there is no ownerList datalist for the owner box to point at": {
+    "first": "2026-08-20T15:59:12.240Z",
+    "last": "2026-08-20T15:59:12.240Z",
+    "byMutants": [
+     "form: the owner box has no datalist behind it, so every name is typed from memory"
+    ]
+   },
+   "Real export · RAID form :: there is no ownerList datalist for the owner box to point at": {
+    "first": "2026-08-20T15:59:12.240Z",
+    "last": "2026-08-20T15:59:12.240Z",
+    "byMutants": [
+     "form: the owner box has no datalist behind it, so every name is typed from memory"
+    ]
+   },
+   "QA reference · RAID form :: the owner box is a plain text field — every name has to be typed from memory and spelled the same way it was spelled on the activity": {
+    "first": "2026-08-20T15:59:12.240Z",
+    "last": "2026-08-20T15:59:12.240Z",
+    "byMutants": [
+     "form: the RAID owner box stops pointing at the suggestion list"
+    ]
+   },
+   "Real export · RAID form :: the owner box is a plain text field — every name has to be typed from memory and spelled the same way it was spelled on the activity,": {
+    "first": "2026-08-20T15:59:12.240Z",
+    "last": "2026-08-20T15:59:12.240Z",
+    "byMutants": [
+     "form: the RAID owner box stops pointing at the suggestion list"
+    ]
+   },
+   "QA reference · RAID form :: nothing beside the Probability and Impact boxes says they are a 1–5 judgement": {
+    "first": "2026-08-20T15:59:12.240Z",
+    "last": "2026-08-20T15:59:12.240Z",
+    "byMutants": [
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
+    ]
+   },
+   "Real export · RAID form :: nothing beside the Probability and Impact boxes says they are a 1–5 judgement": {
+    "first": "2026-08-20T15:59:12.240Z",
+    "last": "2026-08-20T15:59:12.240Z",
+    "byMutants": [
+     "form: nothing next to Probability and Impact says they are a 1-5 judgement"
+    ]
+   },
+   "Team trunk :: the start-a-trunk button opened showOpenFilePicker, which can only choose a file that ALREADY EXISTS — so the person creating the trunk is shown a": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T15:59:55.562Z",
+    "byMutants": [
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists"
+    ]
+   },
+   "Team trunk :: starting a trunk and joining one both call openFilePicker. They are different acts — one brings the file into being, the other finds it — and one ": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T15:59:55.562Z",
+    "byMutants": [
+     "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists"
+    ]
+   },
+   "Team trunk :: the save picker offers no file name, so whoever starts a trunk has to invent one, and it lands in a folder the whole team shares called whatever t": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T15:59:55.562Z",
+    "byMutants": [
+     "navigation: the save picker offers no file name, so a trunk has to be named from nothing"
+    ]
+   },
+   "Team trunk :: the join button reached for showSaveFilePicker rather than showOpenFilePicker — a save picker aimed at a file that already holds the team's histor": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T15:59:55.562Z",
+    "byMutants": [
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
+    ]
+   },
+   "Team trunk :: starting a trunk and joining one both call saveFilePicker. They are different acts — one brings the file into being, the other finds it — and one ": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T15:59:55.562Z",
+    "byMutants": [
+     "navigation: joining a trunk opens the save picker and can flatten the team history"
+    ]
+   },
+   "a company still named by a roster row was deleted — every record naming it now points at nothing :: undefined": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: a company still named by a roster row can be deleted",
+     "ledger: a company set on the roster is not counted as used, so deleting it looks safe"
+    ]
+   },
+   "a company could not be renamed :: undefined": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: a company still named by a roster row can be deleted",
+     "ledger: a company set on the roster is not counted as used, so deleting it looks safe"
+    ]
+   },
+   "renaming a company left the roster showing its old name — the id moved and the label did not :: undefined": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: a company still named by a roster row can be deleted",
+     "ledger: renaming a company moves the id and leaves the roster showing the old name",
+     "ledger: a company set on the roster is not counted as used, so deleting it looks safe"
+    ]
+   },
+   "a company was renamed onto a name already on the list, making the duplicate the list exists to prevent :: undefined": {
+    "first": "2026-08-20T15:59:55.562Z",
+    "last": "2026-08-20T15:59:55.562Z",
+    "byMutants": [
+     "ledger: a company can be renamed onto a name already on the list"
+    ]
+   },
+   "merging did not repoint the roster row onto the surviving company :: undefined": {
+    "first": "2026-08-20T16:05:24.008Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: merging two companies does not repoint the roster rows onto the survivor"
+    ]
+   },
+   "a roster row points at a company id that is not on the list :: undefined": {
+    "first": "2026-08-20T16:05:24.008Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: merging two companies does not repoint the roster rows onto the survivor"
+    ]
+   },
+   "a merged-away company is still on the list :: undefined": {
+    "first": "2026-08-20T16:05:24.008Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: a merged-away company stays on the list it was merged out of"
+    ]
+   },
+   "a company set on the roster is not counted as used, so the delete guard below has nothing to refuse :: undefined": {
+    "first": "2026-08-20T16:05:24.008Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "ledger: a company set on the roster is not counted as used, so deleting it looks safe"
+    ]
+   },
+   "Bank :: the archived row carries no owning company, so its own line in the bank cannot say who did it": {
+    "first": "2026-08-20T16:05:24.008Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "bank: an archived row carries no owning company, so the by-company split has nothing to group on"
+    ]
+   },
+   "Bank :: the archiver produces no row naming the person who did the work, so nothing downstream can group by who or by their company": {
+    "first": "2026-08-20T16:05:24.008Z",
+    "last": "2026-08-20T16:05:24.008Z",
+    "byMutants": [
+     "bank: an archived row lists no participants, so nothing downstream can name who did the work"
+    ]
+   },
+   "Bank :: eight archived activities across two companies produce no calibration by company — the one signal that carries from engagement to engagement when the in": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "Bank :: three activities worked jointly by two firms are credited to neither — a row with no single owning company drops out of the company calibration entirely": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "Bank :: the in-house side of three shared activities plus three of its own shows n=0 rather than 6 — shared work is evidence about BOTH firms, not one": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "Bank :: rows carrying a company id produce no company bucket at all": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "Bank :: a colleague importing this bank sees no company breakdown at all": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "Bank :: the company's real name does not survive the handoff: a colleague sees \"\"": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "Bank :: a company the registry has not adopted loses its name entirely, showing \"\"": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "bank: a company needs eight records before it is reported, so a real partner never appears"
+    ]
+   },
+   "QA reference · Undo :: the undo button is live with an empty history": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "undo: the undo button stays live on an empty history"
+    ]
+   },
+   "Real export · Undo :: the undo button is live with an empty history": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "undo: the undo button stays live on an empty history"
+    ]
+   },
+   "QA reference · Undo :: the history holds 68 steps against a stated cap of 60": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "undo: the history grows past its stated cap"
+    ]
+   },
+   "Real export · Undo :: the history holds 68 steps against a stated cap of 60": {
+    "first": "2026-08-20T16:11:51.859Z",
+    "last": "2026-08-20T16:11:51.859Z",
+    "byMutants": [
+     "undo: the history grows past its stated cap"
+    ]
+   },
+   "QA reference · Cash curve :: the cash basis totals 10500 against 11550 on accrual — moving money in time must not change how much of it there is": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "cash: net terms on the cost side shift the wrong way, so paying later looks worse"
+    ]
+   },
+   "QA reference · Spend curve :: ends at 11550 against an envelope of 10500": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "cash: net terms on the cost side shift the wrong way, so paying later looks worse"
+    ]
+   },
+   "Real export · Cash curve :: the cash basis totals 54293 against 59723 on accrual — moving money in time must not change how much of it there is": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "cash: net terms on the cost side shift the wrong way, so paying later looks worse"
+    ]
+   },
+   "Real export · Spend curve :: ends at 59723 against an envelope of 54293": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "cash: net terms on the cost side shift the wrong way, so paying later looks worse"
+    ]
+   },
+   "Field export · Cash curve :: the cash basis totals 52066 against 57272 on accrual — moving money in time must not change how much of it there is": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "cash: net terms on the cost side shift the wrong way, so paying later looks worse"
+    ]
+   },
+   "Field export · Spend curve :: ends at 57272 against an envelope of 52066": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "cash: net terms on the cost side shift the wrong way, so paying later looks worse"
+    ]
+   },
+   "SOW document :: the document has no Commercial Terms section at all": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW sections :: the document is unnumbered": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW sections :: excluding two sections changed the count from 0 to 0": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW sections :: change control vanished when unrelated sections were excluded": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW order :: fewer than three numbered sections — this check is vacuous": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW exclusions :: two exclusions are on the log and the document prints -1 — filing one does not reach the contract": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW exclusions :: the document still says none have been recorded after two were filed": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW exclusions :: a filed exclusion does not appear in the Out of Scope section": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW document :: full: the document is unnumbered": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW document :: no optional sections: the document is unnumbered": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW document :: a priced engagement has no Commercial Terms section": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: the document prints unnumbered headings, so nothing can be cross-referenced"
+    ]
+   },
+   "SOW order :: Reset order did not restore the order the tool ships with": {
+    "first": "2026-08-20T16:17:48.654Z",
+    "last": "2026-08-20T16:17:48.654Z",
+    "byMutants": [
+     "SOW: Reset order leaves the customised order in place"
+    ]
+   },
+   "QA reference · Undo :: undoing past the start of the session THREW (\"undefined\" is not valid JSON). Past the floor it has to be a no-op — an exception here leav": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "undo: undoing past the start of the session is allowed and empties the plan"
+    ]
+   },
+   "Real export · Undo :: undoing past the start of the session THREW (\"undefined\" is not valid JSON). Past the floor it has to be a no-op — an exception here leave": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "undo: undoing past the start of the session is allowed and empties the plan"
+    ]
+   },
+   "Revenue :: a 25% deposit came out as $0 of a $90,967 fee": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "revenue: the deposit is dropped, so a 25% up-front payment never reaches the curve"
+    ]
+   },
+   "Revenue :: 12 of 12 receipts under MILESTONE billing land on a date that is neither a milestone plus its terms nor the finish — the arrangement is being approxi": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "revenue: milestone billing ignores the terms, so every checkpoint is paid on the day it lands"
+    ]
+   },
+   "QA reference · Export :: the billing CSV rows add to 10500 and its TOTAL says 9450": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
+    ]
+   },
+   "QA reference · Export :: the billing CSV totals cost 9450 and the application says 10500": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
+    ]
+   },
+   "Real export · Export :: the billing CSV rows add to 54294 and its TOTAL says 48864": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
+    ]
+   },
+   "Real export · Export :: the billing CSV totals cost 48864 and the application says 54293": {
+    "first": "2026-08-20T17:02:08.051Z",
+    "last": "2026-08-20T17:02:08.051Z",
+    "byMutants": [
+     "export: the billing CSV total row states a cost that is not the sum of its own rows"
+    ]
    }
   },
   "everRan": [
@@ -10398,17 +11086,24 @@
    "SOW prose: \"I want to a baseline scorecard\"",
    "SOW versions: deleting one takes the original with it",
    "SOW versions: tidying deletes the document on screen too",
+   "SOW: \"include every section\" leaves one switched off",
+   "SOW: Reset order leaves the customised order in place",
    "SOW: a cross-reference points at a section number that does not exist",
    "SOW: a dependency traces to a delivery-side story the reader cannot look up",
+   "SOW: a reference to an excluded section prints §undefined on the contract",
    "SOW: a reordered section keeps its old number, so cross-references point at the wrong clause",
    "SOW: a saved version does not record the shape it was written in",
    "SOW: a story the contract relies on is left out of the appendix it points readers to",
    "SOW: an excluded section leaves a gap in the numbering",
+   "SOW: an excluded section prints anyway, so the picker decides nothing",
    "SOW: filing an exclusion changes the log and not the document",
    "SOW: milestone billing names the milestones and states no amount against any of them",
+   "SOW: moving a section copies it instead of moving it, so the document gains a duplicate",
    "SOW: out of scope reads as a waiver rather than a limit",
    "SOW: section numbers skip whenever an optional section is empty",
    "SOW: the appendix goes back to printing client-facing stories alone",
+   "SOW: the chosen section order is ignored, so reordering changes nothing in the document",
+   "SOW: the document prints unnumbered headings, so nothing can be cross-referenced",
    "SOW: the drafter reorders the sections and the document ignores it",
    "SOW: the effort column mixes hours and days down one column",
    "SOW: the exclusion patch overwrites the boundary clause above it",
@@ -10433,6 +11128,9 @@
    "audience: the matrix calls artifact-evidenced work internal again",
    "backup: the whole-workspace file leaves the estimate bank behind",
    "backward pass: slack measured from the finish instead of the start",
+   "bank: a company needs eight records before it is reported, so a real partner never appears",
+   "bank: an archived row carries no owning company, so the by-company split has nothing to group on",
+   "bank: an archived row lists no participants, so nothing downstream can name who did the work",
    "bank: an empty book is laid out as measured zeros",
    "bank: an outstanding invoice counts as paid in zero days",
    "bank: archived participants carry no allocation, so one person at 100% reads like four at 25%",
@@ -10440,9 +11138,12 @@
    "bank: days-to-pay is a mean, so one chased invoice moves the headline",
    "bank: forgetting a project shortens the list without dropping the records",
    "bank: joint work is credited to one firm instead of every firm on it",
+   "bank: one record is enough to report a work-type median, so n=1 reads as calibration",
+   "bank: only the owner’s company is archived, so joint work with a partner credits one firm",
    "bank: span-derived actuals are taught to the estimator as measured effort",
    "bank: the archived row loses the set of companies that touched the activity",
    "bank: the billing-discipline cut is presented as payment behaviour",
+   "bank: the calibration median goes back to the upper-middle value, biasing every quote upward",
    "bank: the company calibration is computed and never reaches the prompt",
    "bank: the payment history is computed and never drawn",
    "bank: the slowest payer is listed last, where nobody reads it",
@@ -10480,12 +11181,15 @@
    "baseline: a version can be diffed but not opened",
    "baseline: an owner change is invisible to the change order again",
    "baseline: clearing keeps the committed feature set",
+   "baseline: clearing the baseline leaves every finish reference behind",
    "baseline: delivered stops being distinguished from accepted",
    "baseline: finishing a test case counts as the test passing",
    "baseline: it freezes the dates but not the effort",
    "baseline: re-running a failing case opens a second defect for the same thing",
    "baseline: restoring a version wipes the actuals along with the plan",
+   "baseline: setBaseline freezes the start but never the finish",
    "baseline: the committed effort follows today’s allocation",
+   "baseline: the committed feature set is never captured, so scope drift has no reference",
    "baseline: the diff goes back to keying activities by name",
    "baseline: the evidence field goes back to being unreachable",
    "baseline: the feature set is committed at a different moment than the dates",
@@ -10520,6 +11224,7 @@
    "card: the Budget card paints the project red while the verdict does not",
    "card: the Budget pair and its delta go back to different references",
    "cash: a second curve is drawn on a plan with no payment terms at all",
+   "cash: net terms on the cost side shift the wrong way, so paying later looks worse",
    "cash: terms move money EARLIER, so the plan pays before the work happens",
    "cash: the shift loses money on the way, so a delay reads as a discount",
    "catch-up: the crossing date is floored to the midnight before it",
@@ -10538,7 +11243,10 @@
    "change order: two accepted orders pricing the same line go unnoticed",
    "changelog: a change shows where it landed but not where it came from",
    "changes panel: a large diff expands over the whole tab again",
+   "chart: a long duration never scales up to weeks, so a quarter prints as 60d",
+   "chart: a sub-day duration prints in days, so 4h reads as 0.5d",
    "chart: an always-on hide-completed filter leaks into the Gantt row list, so finished activities lose their bars",
+   "chart: an hours project measures a working day as six hours, not eight",
    "chart: early and late are drawn on the same side of the centre line",
    "chart: fencepost lost in the leaf bar span, so a one-day and a five-day bar are drawn at two different px-per-day scales",
    "chart: over-plan rows draw no overrun, so over and under look the same",
@@ -10559,13 +11267,18 @@
    "check-off: work marked complete with no dates at all is not reported",
    "chip: watching with nothing published looks identical to a working pair",
    "client: a lint finding carries money into the request body in screen-share mode",
+   "client: a replaced plan carries its stale stories forward without asking, so every trace breaks in silence",
+   "client: a replaced plan keeps its old feature-set baseline, so the scope readout certifies activities that no longer exist",
    "client: a test case whose audience nobody can determine is called client-facing",
+   "client: a truncated AI reply is no longer repaired at a string seam",
+   "client: choosing to discard the stale stories after a replace keeps them anyway",
    "client: client-safe mode prints the money it exists to withhold",
    "client: client-safe mode prints what the client has not been billed for",
    "client: the RAID export silently drops the first entry",
    "client: the receivables export drops every activity nobody has invoiced",
    "client: the receivables export loses how long a receipt has been outstanding",
    "client: the status report never says what has been invoiced",
+   "client: the status report reports earned value and never what was booked",
    "client: unbilled delivery is not a health finding",
    "client: unbilled work is folded into the outstanding total, overstating the book",
    "corrupt file: duplicate ids are no longer healed on load",
@@ -10625,10 +11338,13 @@
    "envelope: the bar divides by the frozen sum instead of the plan",
    "envelope: the curve drops work the baseline never dated",
    "export: WBS dictionary work-effort header shortened to plain 'Effort'",
+   "export: fixed costs are dropped from the billing CSV but still counted in its total",
    "export: project JSON save strips percentComplete as a derived field",
    "export: project JSON withholds internal cost rates as confidential",
+   "export: the billing CSV total row states a cost that is not the sum of its own rows",
    "export: traceability Story ID column switched to the Jira key",
    "export: variance sheet Est-effort header renamed 'Planned effort'",
+   "form: Status goes back to a free-text box in the RAID editor",
    "form: a Decision has no way to record how it turned out",
    "form: a decision cannot record which option was taken",
    "form: a decision that still stands is painted as a fault",
@@ -10636,10 +11352,15 @@
    "form: concluding a chain leaves the root cause empty",
    "form: concluding the chain drops the answer it was concluding",
    "form: each why repeats the original question instead of the answer above it",
+   "form: nothing next to Probability and Impact says they are a 1-5 judgement",
    "form: options with none marked as taken are accepted in silence",
    "form: the RAID owner box is no longer a type-ahead",
+   "form: the RAID owner box stops pointing at the suggestion list",
    "form: the log shows the entry and hides the analysis behind it",
    "form: the outcome question asks a decision whether it happened",
+   "form: the owner box has no datalist behind it, so every name is typed from memory",
+   "form: the owner suggestions are built from nobody on the plan or the roster",
+   "form: the probability box accepts a score outside the scale it is labelled with",
    "form: the trail of answers already given is not shown",
    "form: the watch chip prefixes a question mark to a label that is already a question",
    "form: the why chain is written by the editor and dropped by the file",
@@ -10663,9 +11384,15 @@
    "io map: the over-allocation health finding is filed under Cost and fires on the roster object, not the count",
    "io map: the predecessor link is read as a task and yields nothing",
    "io repair: the AI pass overwrites a deliverable somebody wrote",
+   "ledger: a company can be renamed onto a name already on the list",
+   "ledger: a company set on the roster is not counted as used, so deleting it looks safe",
+   "ledger: a company still named by a roster row can be deleted",
+   "ledger: a merged-away company stays on the list it was merged out of",
    "ledger: a person named \"A\" and the pair (A, B) collide in one cell",
    "ledger: client-side people are billed at their bill rate like everybody else",
    "ledger: fixed costs are nobody’s time, so they are left out and the total no longer ties",
+   "ledger: merging two companies does not repoint the roster rows onto the survivor",
+   "ledger: renaming a company moves the id and leaves the roster showing the old name",
    "ledger: several measures draw one header row, so no column says which number it is",
    "ledger: the cell key forgets the measure, so every column shows the same figure",
    "ledger: the company filter is accepted and never applied",
@@ -10685,11 +11412,14 @@
    "navigation: a link into the team tab forgets which section it meant",
    "navigation: a tab no longer writes its own address, so Back leaves the application",
    "navigation: collapse-to-a-level on the activity list is drawn but wired to nothing",
+   "navigation: joining a trunk opens the save picker and can flatten the team history",
    "navigation: leaving the chart clears a reading the click was meant to keep",
+   "navigation: starting a trunk reaches for the open picker, which can only choose a file that exists",
    "navigation: the Money section is looked up and never written",
    "navigation: the RAID kind chip says the word and drops the definition behind it",
    "navigation: the contract badge counts every log entry, open or not",
    "navigation: the money block is left behind in the Monte Carlo card as well",
+   "navigation: the save picker offers no file name, so a trunk has to be named from nothing",
    "navigation: the section-scoped toolbar is hidden by a flag the stylesheet overrules",
    "navigation: two RAID kinds that mean opposite things are drawn identically",
    "navigation: two sections of the team tab paint the same panel",
@@ -10740,6 +11470,8 @@
    "resource load: a day somebody never works is treated as an ordinary working day",
    "resource load: a double-booked day counted once per person, not per pair",
    "resource load: an unset working week means the person works NO days",
+   "resource load: the day-walk leveller drops its move cap and runs unbounded",
+   "resource load: the first-fit leveller is given no time budget at all",
    "retainer: a period with no work in it is not billed",
    "retainer: the contract does not say the period is owed whether or not it is used",
    "retainer: the fixed period amount is scaled by how busy the period was",
@@ -10748,12 +11480,15 @@
    "revenue: a receipt leaks into actual cost, so CPI is computed on a mixed basis",
    "revenue: an unrecorded invoice is counted as an invoice for nothing",
    "revenue: finished work that was never invoiced is not reported at all",
+   "revenue: milestone billing ignores the terms, so every checkpoint is paid on the day it lands",
    "revenue: milestone billing smears across the work like a monthly",
    "revenue: the cash chart draws one side of the zero line only",
    "revenue: the cash chart is scaled non-uniformly and smears its labels",
    "revenue: the cash-positive date is the FIRST crossing, not the last dip",
    "revenue: the curve collects the rate-card sum instead of the fee",
+   "revenue: the deposit is dropped, so a 25% up-front payment never reaches the curve",
    "revenue: the funding gap is stated in words and never drawn",
+   "revenue: the tail after the last checkpoint bills at the start of the work, not its finish",
    "ring: nothing says the ring is about the record, not about effort",
    "ring: the caption counts the flagged cells and names no reason",
    "save/load org adoption mints a fresh local id and never checks the registry for an existing record",
@@ -10785,26 +11520,38 @@
    "three-person sync: trunkPull applies the fast-forward branch to diverged copies, replacing the plan instead of merging",
    "timesheet: planned hours are the span rather than the work",
    "timesheet: the weekly split does not add back to the activity total",
+   "trunk: a fast-forward forgets the base version it fast-forwarded from",
+   "trunk: a fast-forward takes the plan but not the trunk's version ids",
+   "trunk: a trimmed version is forgotten, so an old common ancestor reads as unrelated",
+   "trunk: every version reports itself pinned, so the chain can never be tidied",
    "trunk: mergeCompute inverts the three-way rule, reporting fields only the other side changed as conflicts",
    "trunk: push deduplicates against the trunk by parent id instead of version id, so any version whose parent is already shared never leaves the machine",
    "trunk: the auto-sync control's held-while-editing label is trimmed and no longer says anybody is typing",
+   "trunk: the byte budget is raised past any real file, so compaction never runs",
    "trunk: the kin and twin verdicts are swapped in trunkRelation",
    "trunk: the kinship gate slips to shared >= 0, so a trunk with not one version in common is greeted as kin instead of refused",
    "trunk: the push preview sentence is simplified to a generic line that states neither the size of the push nor who will see it",
    "trunk: the sync chip inverts its outbound-half test, offering the autosave fix exactly when it is already set up",
    "trunk: the syncChip span was renamed in the markup and the renderer's lookup was not, so the loop's state has no element to land in",
    "trunk: the tick's hidden-tab guard records the hold but forgets to return, so a background tab keeps reading and writing the shared file",
+   "trunk: the trunk keeps every SOW body, so the file grows without bound",
    "trunk: the unattended path treats a diverged copy as a plain catch-up, taking the trunk tip instead of merging",
+   "trunk: tidying ignores pinning and deletes the versions a document depends on",
+   "trunk: tidying is free to delete the newest version as well as the oldest",
    "trunk: trunkEntryFromVersion defaults a rootless entry's parent to the entry itself, so the very first push files a self-parented link",
    "trunk: trunkRelation decides 'ahead' from the trunk's ROOT rather than its tip, so a diverged copy reads as merely ahead",
    "trunk: trunkVerifyChain forgets to admit earlier log entries as parents, so it only accepts the base",
    "trunk: trunkWhoMoved builds the \"already mine\" set from the trunk log itself, so every arriving entry reads as already seen",
    "trunk: trunkWhoMoved reads the arriving entries off the local history instead of the trunk log, attributing the move to the person asking",
+   "undo: an undo no longer clears the redo branch, so redo replays a plan that never existed",
    "undo: editing after an undo keeps the abandoned redo branch alive",
    "undo: the depth cap discards the newest step instead of the oldest",
    "undo: the guard fails, so undo records itself and stops progressing",
+   "undo: the history grows past its stated cap",
    "undo: the history is a bag — it pops the oldest state, not the newest",
    "undo: the restore rewinds the activities but not the RAID log",
+   "undo: the undo button stays live on an empty history",
+   "undo: undoing past the start of the session is allowed and empties the plan",
    "variance CSV: the effort ratio divides logged work by the span",
    "wbs dictionary CSV: the exported Work effort column repeats the span",
    "wbs dictionary: the Work column repeats the duration",
@@ -10900,6 +11647,76 @@
     "ran": 2,
     "of": 449,
     "caught": 2
+   },
+   {
+    "at": "2026-08-20T15:33:09.685Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 0
+   },
+   {
+    "at": "2026-08-20T15:44:18.175Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 2
+   },
+   {
+    "at": "2026-08-20T15:53:41.569Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 5
+   },
+   {
+    "at": "2026-08-20T15:59:12.240Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 5
+   },
+   {
+    "at": "2026-08-20T15:59:55.562Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 6
+   },
+   {
+    "at": "2026-08-20T16:05:24.008Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 5
+   },
+   {
+    "at": "2026-08-20T16:11:51.859Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 4
+   },
+   {
+    "at": "2026-08-20T16:17:48.654Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 4
+   },
+   {
+    "at": "2026-08-20T16:28:33.622Z",
+    "full": false,
+    "ran": 5,
+    "of": 508,
+    "caught": 1
+   },
+   {
+    "at": "2026-08-20T17:02:08.051Z",
+    "full": false,
+    "ran": 6,
+    "of": 508,
+    "caught": 6
    }
   ]
  }

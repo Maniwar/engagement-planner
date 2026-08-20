@@ -122,7 +122,22 @@ const QA = JSON.parse(fs.readFileSync(
       // Not "throws" and not "clears the plan" — a no-op, with the button off.
       ran('4·floor');
       const atFloor = snap();
-      doUndo(); doUndo();
+      /* THE THIRD CLAUSE OF THE SENTENCE ABOVE, ACTUALLY TESTED. "Not throws"
+         was written in the comment and asserted nowhere: these two calls ran
+         bare, so a build that DID throw took the whole check down with an
+         unhandled rejection instead of reporting a finding. The mutation engine
+         then read the dead check as a HARNESS FAILURE and halted the run —
+         correctly, since a check that never executed cannot be said to have
+         caught anything, but the cost was six mutants judged as nothing at all.
+         A requirement stated in prose and left out of the code is the same
+         defect this suite exists to find in the product, sitting in the suite. */
+      let floorThrew = '';
+      try { doUndo(); doUndo(); }
+      catch (e) { floorThrew = (e && e.message) || String(e); }
+      if (floorThrew)
+        say('Undo', 'undoing past the start of the session THREW (' + String(floorThrew).slice(0, 90)
+          + '). Past the floor it has to be a no-op — an exception here leaves the page half-restored '
+          + 'and the reader with no way back');
       if (snap() !== atFloor) say('Undo', 'undoing past the start of the session changed the plan');
       const ub = document.getElementById('undoBtn');
       if (ub && !ub.disabled && !undoStack.length)

@@ -198,6 +198,69 @@ const DATA = FIXTURE();
     say('Cai\'s own figure changed while she was trying to SHARE it, which is the one direction that '
       + 'is meant to be incapable of losing her work');
 
+
+  // ── 5. A CLEAN FAST-FORWARD, THEN A PUSH ───────────────────────────────
+  /* THE CASE THAT LOCKED SOMEBODY OUT OF THEIR OWN TRUNK.
+
+     Step 3 already pulls and then pushes, so this looked covered for months and
+     was not: Ben is holding unshared work when he does it, so his pull MERGES —
+     and the merge path records the trunk's version ids on its way through. The
+     pure FAST-FORWARD, somebody with nothing of their own taking the tip whole,
+     is the path that did not record them. It is also the ordinary one: it is
+     what everybody does first thing in the morning.
+
+     Reported as "i did pull first --- but i still see this error". The pull
+     genuinely worked and the plan was right; only the ids were missed, so the
+     next push could find no common ancestor and asked for a pull that had
+     already happened. A loop with no exit from inside the product, and the
+     trunk file grew unbounded behind it because compaction only runs on a push
+     that succeeds.
+
+     ANA IS THE CLEAN ONE HERE. Ben and Cai both hold contested figures by now;
+     Ana has pushed and not touched anything since, so her pull is the straight
+     fast-forward this exists to exercise. Getting that wrong would silently
+     test the merge path again and prove nothing. */
+  /* PAST THE CAP FIRST, or this tests nothing. The chain trims at VERSION_CAP
+     (40) and the TRUNK LOG does not — so until somebody has pushed more than
+     forty times, the tip document still carries every id the log lists and a
+     fast-forward inherits a complete history by accident. That is why the first
+     draft of this scenario passed with the fix removed: six versions, nothing
+     trimmed, nothing to miss. Ben churns past the cap so the trunk's log
+     genuinely outruns the chain inside its own newest document, which is the
+     state a real team reaches in a fortnight and the one the report came from. */
+  await pull(B);
+  for (let i = 0; i < 45; i++) { await setPct(B, 'Discovery', 5 + (i % 90)); await push(B); }
+  const churn = await state(B);
+  notes.push('after 45 shares Ben carries ' + churn.mine + ' versions and the trunk log holds ' + churn.trunk);
+  if (churn.trunk <= churn.mine)
+    say('Ben pushed 45 times and the trunk log (' + churn.trunk + ') has not outgrown his own chain ('
+      + churn.mine + '), so the fast-forward below inherits a complete history by accident and proves '
+      + 'nothing. The cap is what makes this case exist');
+
+  await pull(A);                          // nothing local: a straight fast-forward
+  const ffRel = (await state(A)).rel;
+  notes.push('after a clean fast-forward Ana stands ' + ffRel + ' with the trunk');
+  if (ffRel !== 'same')
+    say('Ana pulled holding no work of her own and stands "' + ffRel + '" with the trunk rather than '
+      + '"same". A fast-forward that does not leave the two copies level has taken the trunk\'s plan '
+      + 'without its history, and every push she makes from here will be refused');
+  const a5 = await setPct(A, 'Discovery', 82);
+  await push(A);
+  const afterFf = await state(A);
+  notes.push('Ana edits and shares after the fast-forward: now ' + afterFf.rel
+    + (afterFf.paused ? ' (paused: ' + afterFf.paused + ')' : ''));
+  const trunkFf = JSON.parse(fs.readFileSync(TRUNK, 'utf8') || '{}');
+  const landed = (trunkFf.log || []).some(e => e.doc
+    && (e.doc.tasks || []).some(t => t.id === a5.id && t.percentComplete === 82));
+  if (!landed)
+    say('Ana pulled cleanly, made one edit, and pushed — and her 82% is not in the trunk file. This is '
+      + 'the "pull first" loop as the person hits it: the pull is accepted, the ids behind it are not '
+      + 'adopted, and the push that follows can find no common ancestor with a trunk it just copied '
+      + 'wholesale. Pulling again cannot help, because pulling was never what was missing');
+  if (afterFf.paused)
+    say('Ana\'s push after a clean fast-forward left the sync paused ("' + afterFf.paused + '"). A '
+      + 'fast-forward followed by an edit is the most ordinary sequence there is and must never need '
+      + 'a person to resolve anything');
   const R = { contradictions: bad, notes: notes, pageErrors: errs.slice(0, 6), trunkFile: TRUNK };
   console.log(JSON.stringify(R, null, 1));
   await browser.close();
