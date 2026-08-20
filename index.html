@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.19.1727</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0042</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -12690,10 +12690,19 @@ Or say what you want, in your own words:
           <td style="color:var(--muted)">▣</td>
           <td>PROJECT TOTAL <span class="help-text" style="font-weight:400">(${leavesAll.filter(t => !t.milestone).length} activities)</span></td>
           <td>—</td>
-          <td><span class="help-text" style="cursor:help" title="${escapeHtml(spanTip('optimistic', projectSpanUp.o))}">${projectSpanUp.o.toFixed(1)}</span></td>
-          <td><span class="help-text" style="cursor:help" title="${escapeHtml(spanTip('most-likely', projectSpanUp.m))}">${projectSpanUp.m.toFixed(1)}</span></td>
-          <td><span class="help-text" style="cursor:help" title="${escapeHtml(spanTip('pessimistic', projectSpanUp.p))}">${projectSpanUp.p.toFixed(1)}</span></td>
-          <td><strong style="cursor:help" title="Expected whole-project duration: the critical path at PERT-expected (TE) durations — the number the Gantt and forecast are built on. Range ${projectSpanUp.o.toFixed(1)}–${projectSpanUp.p.toFixed(1)} ${unitLabel()} best→worst.">${projDur.toFixed(2)}</strong></td>
+          <!-- THE SAME FORMATTER AS EVERY ROW BENEATH IT. These four printed a
+               bare project-unit number — "178.0", "301.00" — while the phases
+               under them read "4.5d" and "2.25w" and this row's own WORK cell
+               read "11.03w". On an hours-denominated plan that put raw hours
+               directly above scaled days with nothing saying so, and the honest
+               reading of it was that the totals had not been recalculated at
+               all. They had: 178 hours IS the 22.25 days the phases sum to. A
+               total a reader cannot reconcile against its own rows is a wrong
+               total, whatever the arithmetic underneath it says. -->
+          <td><span class="help-text" style="cursor:help" title="${escapeHtml(spanTip('optimistic', projectSpanUp.o))}">${fmtDur(projectSpanUp.o)}</span></td>
+          <td><span class="help-text" style="cursor:help" title="${escapeHtml(spanTip('most-likely', projectSpanUp.m))}">${fmtDur(projectSpanUp.m)}</span></td>
+          <td><span class="help-text" style="cursor:help" title="${escapeHtml(spanTip('pessimistic', projectSpanUp.p))}">${fmtDur(projectSpanUp.p)}</span></td>
+          <td><strong style="cursor:help" title="Expected whole-project duration: the critical path at PERT-expected (TE) durations — the number the Gantt and forecast are built on. Range ${projectSpanUp.o.toFixed(1)}–${projectSpanUp.p.toFixed(1)} ${unitLabel()} best→worst.">${fmtDur(projDur)}</strong></td>
           <td><strong style="cursor:help" title="Total WORK in the plan: every activity's duration times its allocation, added up. Unlike the duration beside it this IS a sum — work does not overlap the way calendar time does, which is why the two figures differ.">${(() => {
             const w = leavesAll.filter(t => !t.milestone)
               .reduce((sx, t) => sx + workingDaysToUnit(plannedEffortDays(t)), 0);
