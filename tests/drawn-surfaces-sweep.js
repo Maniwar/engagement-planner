@@ -1473,9 +1473,33 @@ const QA = JSON.parse(fs.readFileSync(
             say('Gantt', 'the milestone row shows no count of the activities behind the gate. The activity '
               + 'table says ' + r.done + '/' + r.n + ' for the same gate, so the two surfaces disagree about '
               + 'the same row');
-          if (r.span != null && txt.indexOf(r.span + 'd') < 0)
+          /* ANCHORED TO THE PROPERTY, not to one printing of it. This asked for
+             the literal `r.span + 'd'` — the CALENDAR figure — so it did two
+             things it was never meant to do: it forbade the column from ever
+             carrying working time, and it passed only while the chart printed
+             calendar days into a column whose every other row is a working-day
+             span. That is the defect the column had (a gate 44 calendar days
+             out read "44d" beside a phase reading "3.22w", which is 16 working
+             days, so the gate looked longer than the phase containing it), and
+             this check was pinned to it. What actually matters is that the cell
+             is NOT EMPTY and says the same thing the activity table's band
+             says, which is what "both come out of milestoneReach()" means. */
+          if (r.spanWd != null && txt.indexOf(fmtDurCell(r.spanWd)) < 0)
             say('Gantt', 'the milestone row leaves the OPEN column empty. A checkpoint has no duration, but '
-              + 'the run up to it does — ' + r.span + ' calendar days — and the column is blank instead');
+              + 'the run up to it does — ' + fmtDurCell(r.spanWd) + ' of working time, ' + r.span
+              + ' calendar days — and the column is blank instead');
+          /* THE TWO SURFACES, ACTUALLY COMPARED. The header above says both
+             columns come out of milestoneReach() "which is what makes them
+             agree" — and nothing ever checked that they did, so the claim held
+             only for as long as nobody edited one of them. Reading both and
+             comparing is the difference between a stated invariant and a
+             tested one. */
+          const band = typeof milestoneBandCell === 'function' ? milestoneBandCell(t) : '';
+          const bandSpan = (band.match(/<i>span<\/i><b>([^<]*)<\/b>/) || [])[1];
+          if (bandSpan && r.spanWd != null && bandSpan !== fmtDurCell(r.spanWd))
+            say('Gantt', 'the chart puts the run up to this gate at ' + fmtDurCell(r.spanWd)
+              + ' and the activity table puts it at ' + bandSpan + ' — one gate, two answers, and the '
+              + 'two columns are supposed to come out of the same milestoneReach()');
           if (r.effort > 0 && !/\d/.test(txt.replace(r.done + '/' + r.n, '')))
             say('Gantt', 'the milestone row leaves the WORK column empty, so the work behind the gate is '
               + 'unsayable on the chart that gets exported');

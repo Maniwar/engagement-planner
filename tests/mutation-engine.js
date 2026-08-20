@@ -2146,8 +2146,12 @@ const MUTANTS = [
     with: "if (e.pvid && !seen.has(e.pvid)) gaps.push({ vid: e.vid, missingParent: e.pvid, by: e.byName || e.by || 'somebody', at: e.at });" },
 
   { what: "trunk: trunkWhoMoved builds the \"already mine\" set from the trunk log itself, so every arriving entry reads as already seen",
-    find: "const mine = new Set((planVersions || []).map(v => v.vid).filter(Boolean));",
-    with: "const mine = new Set(((t && t.log) || []).map(v => v.vid).filter(Boolean));" },
+    /* RE-ANCHORED. The sync repair that ended one user's "Pull first" loop
+       replaced this line, so the mutant stopped applying and read as coverage
+       it no longer had — over exactly the code that had just been changed,
+       which is the worst possible moment to lose a guard. */
+    find: "      const mine = planKnownVids();",
+    with: "      const mine = new Set(((t && t.log) || []).map(v => v.vid).filter(Boolean));" },
 
   { what: "trunk: mergeCompute inverts the three-way rule, reporting fields only the other side changed as conflicts",
     find: "if (String(va) === String(vb)) { auto.push({ id: id, name: a.name, field: f, label: lbl, mine: va, theirs: vc }); return; }",
@@ -2217,8 +2221,13 @@ const MUTANTS = [
     with: "    function plannedEffortUnit(t, useBaseline) {\n      if (!t) return 0;\n      if (t.milestone) { const r = milestoneReach(t); return r ? r.effort : 0; }" },
 
   { what: "network: computing a milestone reach accrues the upstream cost onto the milestone",
-    find: "      const end = isRealDate(t.startDate) ? stripTime(t.startDate) : null;\n      return { n: leaves.length, effort: effort, cost: cost,",
-    with: "      const end = isRealDate(t.startDate) ? stripTime(t.startDate) : null;\n      t.fixedCost = (Number(t.fixedCost) || 0) + cost;\n      return { n: leaves.length, effort: effort, cost: cost," },
+    /* RE-ANCHORED. milestoneReach grew a second span between this mutant's
+       `find` and the return it planted before, so the anchor stopped matching
+       and the mutant silently stopped applying — a false pass, which is the one
+       failure mode this whole file exists to prevent. Anchored to the return
+       line alone now, which is all it was ever about. */
+    find: "      return { n: leaves.length, effort: effort, cost: cost,",
+    with: "      t.fixedCost = (Number(t.fixedCost) || 0) + cost;\n      return { n: leaves.length, effort: effort, cost: cost," },
 
 
   /* ── the AI input boundary, second pass ── */
@@ -2373,12 +2382,20 @@ const MUTANTS = [
     with: "const mine = (planVersions || []).filter(v => v.vid && !have.has(v.pvid || v.vid));" },
 
   { what: "trunk: trunkWhoMoved reads the arriving entries off the local history instead of the trunk log, attributing the move to the person asking",
-    find: "const mine = new Set((planVersions || []).map(v => v.vid).filter(Boolean));\n      const entries = (t.log || []).filter(e => e.vid && !mine.has(e.vid));",
-    with: "const mine = new Set(((t && t.log) || []).map(e => e.vid).filter(Boolean));\n      const entries = (planVersions || []).filter(e => e.vid && !mine.has(e.vid));" },
+    /* RE-ANCHORED. The sync repair that ended one user's "Pull first" loop
+       replaced this line, so the mutant stopped applying and read as coverage
+       it no longer had — over exactly the code that had just been changed,
+       which is the worst possible moment to lose a guard. */
+    find: "      const mine = planKnownVids();\n      const entries = (t.log || []).filter(e => e.vid && !mine.has(e.vid));",
+    with: "      const mine = new Set(((t && t.log) || []).map(e => e.vid).filter(Boolean));\n      const entries = (planVersions || []).filter(e => e.vid && !mine.has(e.vid));" },
 
   { what: "trunk: trunkRelation decides 'ahead' from the trunk's ROOT rather than its tip, so a diverged copy reads as merely ahead",
-    find: "if (mySet.has(theirTipV)) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };",
-    with: "if (mySet.has(theirVids[0])) return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTipV), behind: 0 };" },
+    /* RE-ANCHORED. The sync repair that ended one user's "Pull first" loop
+       replaced this line, so the mutant stopped applying and read as coverage
+       it no longer had — over exactly the code that had just been changed,
+       which is the worst possible moment to lose a guard. */
+    find: "      if (mySet.has(theirTip)) {\n        return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTip), behind: 0, baseVid: theirTip };",
+    with: "      if (mySet.has(theirVids[0])) {\n        return { relation: 'ahead', ahead: myVids.length - 1 - myVids.indexOf(theirTip), behind: 0, baseVid: theirTip };" },
 
   { what: "trunk: the kinship gate slips to shared >= 0, so a trunk with not one version in common is greeted as kin instead of refused",
     find: "return k.shared > 0 ? { relation: 'kin', kin: k } : { relation: 'unrelated', kin: k };",
@@ -2392,6 +2409,249 @@ const MUTANTS = [
     find: "if (document.hidden) { trunkHeld = 'tab'; return; }",
     with: "if (document.hidden) { trunkHeld = 'tab'; }" },
 
+
+
+  /* ═══ BATCH 3 — 56 mutants for regions no assertion had ever fired on ════
+     Rebuilt after the first batch-3 set was lost: it had been spliced in but
+     never committed, and the workspace rolled back underneath it. Committing
+     BEFORE judging is the lesson, and is what happened this time.
+
+     Nine of these guard fixes made the same week they were written — the
+     trimmed-version and fast-forward sync faults that left one user unable to
+     push or pull at all, the trunk byte budget, the duration cells that read
+     every span in hours, and the milestone OPEN column that printed calendar
+     days into a column of working-day spans. A fix with no mutant behind it is
+     a fix that can be silently undone.
+
+     Four candidates were dropped in validation as duplicates of mutants already
+     here — two exact (same find AND same with) and two differing only in
+     wording. The validator compares against BOTH quote styles, because an
+     earlier pass grepped only single-quoted `what:` and missed 93 double-quoted
+     entries, which is how a de-dup pass can itself be the thing that duplicates. */
+
+  { what: 'trunk: a trimmed version is forgotten, so an old common ancestor reads as unrelated',
+    find: '        rememberSeenVid(planVersions[i].vid);   // the row goes; the identity stays',
+    with: '        /* forgotten */                        // the row goes; the identity stays' },
+
+  { what: 'trunk: a fast-forward takes the plan but not the trunk\'s version ids',
+    find: '          (t.log || []).forEach(e => { if (e && e.vid) rememberSeenVid(e.vid); });',
+    with: '          (t.log || []).forEach(e => { if (false) rememberSeenVid(e.vid); });' },
+
+  { what: 'trunk: a fast-forward forgets the base version it fast-forwarded from',
+    find: '          if (t.base && t.base.vid) rememberSeenVid(t.base.vid);',
+    with: '          if (false && t.base.vid) rememberSeenVid(t.base.vid);' },
+
+  { what: 'trunk: the trunk keeps every SOW body, so the file grows without bound',
+    find: '    const TRUNK_KEEP_SOW_BODIES = 2;              // on the newest entry only',
+    with: '    const TRUNK_KEEP_SOW_BODIES = 9999;           // on the newest entry only' },
+
+  { what: 'trunk: the byte budget is raised past any real file, so compaction never runs',
+    find: '    const TRUNK_BYTE_BUDGET = 24 * 1024 * 1024;   // the file, not one entry',
+    with: '    const TRUNK_BYTE_BUDGET = 24 * 1024 * 1024 * 1024;   // the file, not one entry' },
+
+  { what: 'chart: a sub-day duration prints in days, so 4h reads as 0.5d',
+    find: '      if (hrs < 8) return sign + t(hrs) + \'h\';',
+    with: '      if (hrs < 0) return sign + t(hrs) + \'h\';' },
+
+  { what: 'chart: a long duration never scales up to weeks, so a quarter prints as 60d',
+    find: '      if (d < 2 * wdw) return sign + t(d) + \'d\';',
+    with: '      if (d < 2 * wdw * 9999) return sign + t(d) + \'d\';' },
+
+  { what: 'chart: an hours project measures a working day as six hours, not eight',
+    find: '      const hrs = Math.abs(unit === \'hours\' ? n : unit === \'weeks\' ? n * wdw * 8 : n * 8);',
+    with: '      const hrs = Math.abs(unit === \'hours\' ? n : unit === \'weeks\' ? n * wdw * 6 : n * 6);' },
+
+  { what: 'client: a truncated AI reply is no longer repaired at a string seam',
+    find: '      for (let cut = s.lastIndexOf(\'",\'); cut > 0; cut = s.lastIndexOf(\'",\', cut - 1)) {',
+    with: '      for (let cut = -1; cut > 0; cut = s.lastIndexOf(\'",\', cut - 1)) {' },
+
+  { what: 'resource load: the day-walk leveller drops its move cap and runs unbounded',
+    find: '      const MOVES_MAX = 400, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 8000;',
+    with: '      const MOVES_MAX = 0, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 8000;' },
+
+  { what: 'resource load: the first-fit leveller is given no time budget at all',
+    find: '      const MOVES_MAX = 600, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 10000;',
+    with: '      const MOVES_MAX = 600, ITER_MAX = 0, T0 = performance.now(), BUDGET_MS = 10000;' },
+
+  { what: 'client: the status report reports earned value and never what was booked',
+    find: '<b>${fmtMoney(repAC)} booked to date</b>',
+    with: '<b>${fmtMoney(repAC)} to date</b>' },
+
+  { what: 'baseline: setBaseline freezes the start but never the finish',
+    find: '        t.baseFinish = t.finishDate ? new Date(t.finishDate) : null;',
+    with: '        t.baseFinish = null;' },
+
+  { what: 'baseline: clearing the baseline leaves every finish reference behind',
+    find: '      tasks.forEach(t => { t.baseStart = null; t.baseFinish = null; t.baseTe = null; t.baseUnits = null; t.baseCost = null; });',
+    with: '      tasks.forEach(t => { t.baseStart = null; t.baseTe = null; t.baseUnits = null; t.baseCost = null; });' },
+
+  { what: 'baseline: the committed feature set is never captured, so scope drift has no reference',
+    find: '      reqsBaseline = {\n        at: baselineDate,',
+    with: '      reqsBaseline = null && {\n        at: baselineDate,' },
+
+  { what: 'trunk: every version reports itself pinned, so the chain can never be tidied',
+    find: '      if ((coLog || []).some(c => c.fromV === v.v || c.toV === v.v)) return true;',
+    with: '      if (true) return true;' },
+
+  { what: 'trunk: tidying ignores pinning and deletes the versions a document depends on',
+    find: '        if (versionIsPinned(planVersions[i])) { i++; continue; }',
+    with: '        if (false) { i++; continue; }' },
+
+  { what: 'trunk: tidying is free to delete the newest version as well as the oldest',
+    find: '      for (let i = 1; i < planVersions.length - 1 && planVersions.length > VERSION_CAP; ) {',
+    with: '      for (let i = 1; i < planVersions.length - 0 && planVersions.length > VERSION_CAP; ) {' },
+
+  { what: 'form: the owner box has no datalist behind it, so every name is typed from memory',
+    find: '            <datalist id="ownerList"></datalist>',
+    with: '            <datalist id="ownerListGone"></datalist>' },
+
+  { what: 'form: the RAID owner box stops pointing at the suggestion list',
+    find: '<input id="rOwner" type="text" list="ownerList" placeholder="start typing a name…" autocomplete="off" />',
+    with: '<input id="rOwner" type="text" placeholder="start typing a name…" autocomplete="off" />' },
+
+  { what: 'form: the owner suggestions are built from nobody on the plan or the roster',
+    find: '      const names = new Set([...tasks.map(t => (t.owner || \'\').trim()).filter(Boolean), ...Object.keys(resources)]);',
+    with: '      const names = new Set();' },
+
+  { what: 'form: Status goes back to a free-text box in the RAID editor',
+    find: '              <div><label for="rStatus">Status</label><select id="rStatus"></select></div>',
+    with: '              <div><label for="rStatus">Status</label><input id="rStatus" type="text" /></div>' },
+
+  { what: 'form: nothing next to Probability and Impact says they are a 1-5 judgement',
+    find: '<p class="help-text" id="rScaleHint" style="margin:0 0 0.75rem">Probability and impact are a 1–5',
+    with: '<p class="help-text" id="rScaleHint" style="margin:0 0 0.75rem">Probability and impact are a' },
+
+  { what: 'form: the probability box accepts a score outside the scale it is labelled with',
+    find: '<input id="rProb" type="number" min="1" max="5" value="3" oninput="raidScoreSync()" />',
+    with: '<input id="rProb" type="number" min="1" max="50" value="3" oninput="raidScoreSync()" />' },
+
+  { what: 'navigation: starting a trunk reaches for the open picker, which can only choose a file that exists',
+    find: '          ? await showSaveFilePicker({ suggestedName: safeName() + \'-team-trunk.json\', types: kind })',
+    with: '          ? (await showOpenFilePicker({ types: kind }))[0]' },
+
+  { what: 'navigation: the save picker offers no file name, so a trunk has to be named from nothing',
+    find: 'suggestedName: safeName() + \'-team-trunk.json\', types: kind })',
+    with: 'types: kind })' },
+
+  { what: 'navigation: joining a trunk opens the save picker and can flatten the team history',
+    find: '          : (await showOpenFilePicker({ types: kind }))[0];',
+    with: '          : await showSaveFilePicker({ suggestedName: \'trunk.json\', types: kind });' },
+
+  { what: 'ledger: a company still named by a roster row can be deleted',
+    find: '      if (u.total) return u;',
+    with: '      if (false) return u;' },
+
+  { what: 'ledger: renaming a company moves the id and leaves the roster showing the old name',
+    find: '      Object.keys(resources).forEach(n => { if (resources[n].orgId === id) resources[n].org = nm; });',
+    with: '      /* mutant: the label is left behind */' },
+
+  { what: 'ledger: a company can be renamed onto a name already on the list',
+    find: '      if (lib.some(o => o.id !== id && String(o.name || \'\').trim().toLowerCase() === nm.toLowerCase()))\n        return false;',
+    with: '      if (false)\n        return false;' },
+
+  { what: 'ledger: merging two companies does not repoint the roster rows onto the survivor',
+    find: '        if (resources[n].orgId === fromId) { resources[n].orgId = toId; resources[n].org = to.name; moved++; }',
+    with: '        if (false) { resources[n].orgId = toId; resources[n].org = to.name; moved++; }' },
+
+  { what: 'ledger: a merged-away company stays on the list it was merged out of',
+    find: '      saveOrgLib(loadOrgLib().filter(o => o.id !== fromId));',
+    with: '      saveOrgLib(loadOrgLib());' },
+
+  { what: 'ledger: a company set on the roster is not counted as used, so deleting it looks safe',
+    find: '      const names = Object.keys(resources).filter(n => (resources[n] || {}).orgId === key);',
+    with: '      const names = [];' },
+
+  { what: 'bank: an archived row carries no owning company, so the by-company split has nothing to group on',
+    find: '          org: orgOf(t.owner), orgId: orgIdOf(t.owner),',
+    with: '          org: \'\', orgId: \'\',' },
+
+  { what: 'bank: an archived row lists no participants, so nothing downstream can name who did the work',
+    find: '          people: taskParticipants(t).map(pr => ({ n: pr.name, u: Number(pr.units) || 0,',
+    with: '          people: [].map(pr => ({ n: pr.name, u: Number(pr.units) || 0,' },
+
+  { what: 'bank: only the owner’s company is archived, so joint work with a partner credits one firm',
+    find: '          orgs: [...new Set(taskParticipants(t).map(pr => orgOf(pr.name)).filter(Boolean))],',
+    with: '          orgs: [orgOf(t.owner)].filter(Boolean),' },
+
+  { what: 'bank: the calibration median goes back to the upper-middle value, biasing every quote upward',
+    find: '      const medianOf = sorted => sorted.length % 2\n        ? sorted[(sorted.length - 1) / 2]\n        : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;',
+    with: '      const medianOf = sorted => sorted[Math.floor(sorted.length / 2)];' },
+
+  { what: 'bank: a company needs eight records before it is reported, so a real partner never appears',
+    find: '    const ORG_MIN_N = 3;',
+    with: '    const ORG_MIN_N = 8;' },
+
+  { what: 'bank: one record is enough to report a work-type median, so n=1 reads as calibration',
+    find: '    const TAX_MIN_N = 5;',
+    with: '    const TAX_MIN_N = 1;' },
+
+  { what: 'undo: the undo button stays live on an empty history',
+    find: '      if (ub) ub.disabled = !undoStack.length;',
+    with: '      if (ub) ub.disabled = false;' },
+
+  { what: 'undo: the history grows past its stated cap',
+    find: '        if (undoStack.length > 60) undoStack.shift();',
+    with: '        if (undoStack.length > 6000) undoStack.shift();' },
+
+  { what: 'undo: an undo no longer clears the redo branch, so redo replays a plan that never existed',
+    find: '        redoStack = [];',
+    with: '        /* mutant: the abandoned branch is kept */' },
+
+  { what: 'undo: undoing past the start of the session is allowed and empties the plan',
+    find: '      if (!undoStack.length) return;',
+    with: '      if (false) return;' },
+
+  { what: 'revenue: the deposit is dropped, so a 25% up-front payment never reaches the curve',
+    find: '      const dep = Math.max(0, Math.min(100, Math.round(Number(x && x.deposit) || 0)));',
+    with: '      const dep = 0;' },
+
+  { what: 'revenue: milestone billing ignores the terms, so every checkpoint is paid on the day it lands',
+    find: '        const bill = (marks[i] === Infinity ? f : marks[i]) + T.days * DAY;',
+    with: '        const bill = (marks[i] === Infinity ? f : marks[i]);' },
+
+  { what: 'revenue: the tail after the last checkpoint bills at the start of the work, not its finish',
+    find: '      return out.length ? out : [{ s: f + T.days * DAY, f: f + T.days * DAY + DAY, c: c }];',
+    with: '      return out.length ? out : [{ s: s, f: s + DAY, c: c }];' },
+
+  { what: 'export: the billing CSV total row states a cost that is not the sum of its own rows',
+    find: '      rows.push([\'TOTAL\', \'\', \'\', \'\', \'\', d.totDays.toFixed(2), \'\', \'\', d.totCost.toFixed(0), d.totBill.toFixed(0)]);',
+    with: '      rows.push([\'TOTAL\', \'\', \'\', \'\', \'\', d.totDays.toFixed(2), \'\', \'\', (d.totCost * 0.9).toFixed(0), d.totBill.toFixed(0)]);' },
+
+  { what: 'export: fixed costs are dropped from the billing CSV but still counted in its total',
+    find: '      if (d.fixedTotal) rows.push([\'Fixed costs (licenses, travel…)\', \'billed\', \'\', \'\', \'\', \'\', \'\', \'\', d.fixedTotal.toFixed(0), d.fixedTotal.toFixed(0)]);',
+    with: '      if (false) rows.push([]);' },
+
+  { what: 'cash: net terms on the cost side shift the wrong way, so paying later looks worse',
+    find: '      if (T.kind === \'none\') return [{ s: s, f: f, c: c }];',
+    with: '      if (T.kind === \'none\') return [{ s: s, f: f, c: c * 1.1 }];' },
+
+  { what: 'SOW: the document prints unnumbered headings, so nothing can be cross-referenced',
+    find: '        `<h2 style="font-size:16px;margin:16px 0 6px">${i + 1}. ${s.title}</h2>${s.body}`).join(\'\');',
+    with: '        `<h2 style="font-size:16px;margin:16px 0 6px">${s.title}</h2>${s.body}`).join(\'\');' },
+
+  { what: 'SOW: a reference to an excluded section prints §undefined on the contract',
+    find: '        numOf[k] ? \'§\' + numOf[k] : (named[k] || \'the relevant section\'));',
+    with: '        \'§\' + numOf[k]);' },
+
+  { what: 'SOW: the chosen section order is ignored, so reordering changes nothing in the document',
+    find: '        const ia = ord.indexOf(a.key), ib = ord.indexOf(b.key);\n        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);',
+    with: '        return 0;' },
+
+  { what: 'SOW: Reset order leaves the customised order in place',
+    find: '    function sowResetOrder() { delete pricing.sowOrder; saveLocal(); renderSowSectionPicker(); }',
+    with: '    function sowResetOrder() { saveLocal(); renderSowSectionPicker(); }' },
+
+  { what: 'SOW: moving a section copies it instead of moving it, so the document gains a duplicate',
+    find: '      ord.splice(j, 0, ord.splice(i, 1)[0]);',
+    with: '      ord.splice(j, 0, ord[i]);' },
+
+  { what: 'SOW: "include every section" leaves one switched off',
+    find: '    function sowAllSections() { pricing.sowOff = []; saveLocal(); renderSowSectionPicker(); }',
+    with: '    function sowAllSections() { pricing.sowOff = [\'commercial\']; saveLocal(); renderSowSectionPicker(); }' },
+
+  { what: 'SOW: an excluded section prints anyway, so the picker decides nothing',
+    find: '      const add = (key, title, body) => { if (body && sowWants(key)) secs.push({ key, title, body }); };',
+    with: '      const add = (key, title, body) => { if (body) secs.push({ key, title, body }); };' },
 
 ];
 

@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0120</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0352</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -15275,8 +15275,23 @@ Or say what you want, in your own words:
         }
       });
       const end = isRealDate(t.startDate) ? stripTime(t.startDate) : null;
+      /* TWO SPANS, because a gate row sits in a column of working-day spans and
+         its own reach is a calendar distance. Printing the calendar number
+         under a heading every other row answers in working time put two unit
+         systems in one column: a gate 43 calendar days out read "43d" beside a
+         phase reading "3.22w", and 3.22w IS 16 working days — so the gate
+         nested under that phase appeared to outlast it, which nothing in a
+         roll-up can do. The near-miss made it worse rather than better: 43
+         calendar days sat next to 8.67w of upstream effort, and 8.67w is 43.35
+         working days, so converting either one seemed to confirm the other.
+         They were never the same quantity. spanWd is what the column gets;
+         span stays for the tooltip, where the words "calendar days" are
+         written beside it and are true. */
+      const spanWd = (earliest && end)
+        ? workingDaysToUnit(workingDaysBetween(earliest, end, getHolidaySet()) + 1) : null;
       return { n: leaves.length, effort: effort, cost: cost,
         span: (earliest && end) ? Math.abs(calDaysBetween(earliest, end)) + 1 : null,
+        spanWd: spanWd,
         from: earliest, at: end,
         pct: leaves.length === 0 ? 0
           : teSum > 0 ? Math.round(teDone / teSum * 100) : Math.round(done / leaves.length * 100),
@@ -15471,9 +15486,19 @@ Or say what you want, in your own words:
           + escapeHtml(milestoneReachTip(t)) + '">'
         + '<span class="ms-ring" style="--p:' + pct + '" title="' + escapeHtml(ringTip) + '"'
           + ' role="img" aria-label="' + escapeHtml(ringTip) + '"></span>'
-        + (r.span != null ? f('span', r.span + 'd', r.span + ' calendar days from the first thing '
-            + 'upstream starting to this gate. Calendar days, not working days, and NOT the sum of the '
-            + 'durations — work upstream of a gate runs in parallel.') : '')
+        /* WORKING TIME, matching the chart. This chip and the chart's OPEN cell
+           are the same fact on two surfaces and have to agree, so both now read
+           the working-time span and both keep the calendar figure in the
+           tooltip. It used to print calendar days here and calendar days there,
+           which agreed with itself and with nothing else on either surface: on
+           the chart the number sat in a column of working-day spans, where a
+           gate 44 calendar days out read "44d" beside a phase reading "3.22w"
+           — 16 working days — so a gate appeared to outlast the phase it hangs
+           under. Both numbers are worth having; only one belongs in a column
+           whose other rows are working time. */
+        + (r.spanWd != null ? f('span', fmtDurCell(r.spanWd), fmtDurCell(r.spanWd) + ' of working time '
+            + 'from the first thing upstream starting to this gate, which is ' + r.span + ' calendar '
+            + 'days. NOT the sum of the durations — work upstream of a gate runs in parallel.') : '')
         + f('work', fmtDurCell(r.effort), fmtDurCell(r.effort) + ' of work behind this gate, across '
             + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies') + '. This is effort in the plan\'s unit, '
             + 'which is a different quantity from the elapsed span beside it.')
@@ -21021,8 +21046,8 @@ Or say what you want, in your own words:
            this application most often has to make legible. */
         if (!t.milestone && (t.te || 0) > 0) {
           svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="${t.isSummary ? '#94a3b8' : '#64748b'}" text-anchor="end">${escapeXml(fmtDurCell(t.te))}</text>`;
-        } else if (msR && msR.n && msR.span != null) {
-          svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${msR.span}d<title>${escapeXml(msR.span + ' calendar days from the first thing upstream starting to this gate. Calendar days, not working days, and NOT the sum of the durations — work upstream of a gate runs in parallel.')}</title></text>`;
+        } else if (msR && msR.n && msR.spanWd != null) {
+          svg += `<text x="${PAD + LABELW - 84}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${escapeXml(fmtDurCell(msR.spanWd))}<title>${escapeXml('From the first thing upstream starting to this gate: ' + fmtDurCell(msR.spanWd) + ' of working time, which is ' + msR.span + ' calendar days. NOT the sum of the durations — work upstream of a gate runs in parallel — and not this row’s own span, because a gate has no duration of its own.')}</title></text>`;
         }
         /* EFFORT, in its own column. The bar says how long the activity is open;
            this says how much work is inside it, which is a different number
