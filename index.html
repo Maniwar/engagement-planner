@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0352</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.0409</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -32228,6 +32228,55 @@ ${aiSchemaHint()}`];
         // On merges we only draft when stories don't exist yet — an update to the
         // plan shouldn't silently rewrite an existing requirements layer.
         const alsoStories = document.getElementById('aiAlsoStories');
+        /* ═══ A REPLACED PLAN LEAVES ITS REQUIREMENTS LAYER BEHIND ═══════════
+           Reported: "i redid the whole plan but it kept all the same user
+           stories and acceptance criteria from the old list."
+
+           The line that discards stale requirements used to live INSIDE the
+           draft-new-stories branch below, which welded two separate decisions
+           together: "should the old stories go" and "should new ones be drafted
+           now". With the box unticked, a replace rebuilt every activity —
+           applyAIPlan re-issues ids from 1 — and never touched reqs, so every
+           story kept pointing at an id that now means a different activity or
+           none. Ninety-four stories, ninety-four broken traces, no warning.
+
+           Asked rather than assumed, because both answers are legitimate: the
+           Findings tab offers Auto-relink and Create WBS activities, so keeping
+           them is a real workflow, and hand-edited criteria are not something to
+           delete on an inference. What is NOT legitimate is doing either one
+           silently. */
+        if (mode === 'replace' && reqs && Array.isArray(reqs.stories) && reqs.stories.length
+            && !(alsoStories && alsoStories.checked)) {
+          const nS = reqs.stories.length;
+          const nC = reqs.stories.reduce((a, s) => a + ((s.ac || []).length), 0);
+          const drop = confirm(
+            'This replaced every activity in the plan, so the ' + nS + ' user stor'
+            + (nS === 1 ? 'y' : 'ies') + ' and ' + nC + ' acceptance criteri'
+            + (nC === 1 ? 'on' : 'a') + ' already here now trace to activities that no longer exist.\n\n'
+            + 'OK — discard them, and draft fresh ones from the new WBS when you are ready.\n'
+            + 'Cancel — keep them, and relink from Requirements ▸ Findings (Auto-relink, or '
+            + 'Create WBS activities for the rest).');
+          if (drop) { reqs = null; }
+          else status.textContent = '✓ Plan ready — the ' + nS + ' existing stor' + (nS === 1 ? 'y is' : 'ies are')
+            + ' kept and now unlinked. Requirements ▸ Findings has Auto-relink.';
+        }
+        /* THE COMMITTED FEATURE SET GOES EITHER WAY. Not a choice: a baseline
+           is a promise about a set of activities, and a replace deleted them.
+           Leaving it standing had the Requirements tab reporting "exactly the
+           set committed on 2026-08-19" over a plan sharing no activity with the
+           one that was committed — while the SCHEDULE baseline correctly read
+           as gone, because baseStart and baseFinish live on the task objects
+           and went with them. One action, two baselines, opposite answers. */
+        if (mode === 'replace') reqsBaseline = null;
+        /* WRITTEN DOWN HERE, because the draft branch below is what usually
+           saves and it does not run when the box is unticked — which is the
+           exact path this whole block exists for. A decision the reader was
+           asked to make and that does not survive a reload is worse than not
+           asking. */
+        if (mode === 'replace') {
+          saveLocal();
+          try { renderReqs(); } catch (e) {}
+        }
         if (alsoStories && alsoStories.checked && (mode === 'replace' || !reqs || !Array.isArray(reqs.stories) || !reqs.stories.length)) {
           status.textContent = '✓ Plan ready — drafting user stories & acceptance criteria…';
           if (mode === 'replace') reqs = null; // fresh plan = fresh requirements

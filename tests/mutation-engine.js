@@ -2653,6 +2653,25 @@ const MUTANTS = [
     find: '      const add = (key, title, body) => { if (body && sowWants(key)) secs.push({ key, title, body }); };',
     with: '      const add = (key, title, body) => { if (body) secs.push({ key, title, body }); };' },
 
+
+  /* ═══ A REPLACED PLAN AND THE REQUIREMENTS THAT OUTLIVED IT ═══════════════
+     Reported as "i redid the whole plan but it kept all the same user stories
+     and acceptance criteria from the old list" — ninety-four stories tracing to
+     activities that applyAIPlan had just re-issued from id 1, and a scope
+     readout still certifying them as "exactly the set committed". */
+
+  { what: 'client: a replaced plan keeps its old feature-set baseline, so the scope readout certifies activities that no longer exist',
+    find: "        if (mode === 'replace') reqsBaseline = null;",
+    with: "        if (false) reqsBaseline = null;" },
+
+  { what: 'client: a replaced plan carries its stale stories forward without asking, so every trace breaks in silence',
+    find: "            && !(alsoStories && alsoStories.checked)) {",
+    with: "            && !(alsoStories && alsoStories.checked) && false) {" },
+
+  { what: 'client: choosing to discard the stale stories after a replace keeps them anyway',
+    find: "          if (drop) { reqs = null; }",
+    with: "          if (false) { reqs = null; }" },
+
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
