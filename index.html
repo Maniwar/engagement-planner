@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.20.1937</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.21.2204</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -8917,12 +8917,31 @@ Or say what you want, in your own words:
 
                Nothing to take is not nothing to do. Adopting is precisely what
                makes the two histories one again, and it is safe here for the
-               same reason the branch exists — there is no content in dispute. */
-            const took = adoptVersions((t.log || []));
+               same reason the branch exists — there is no content in dispute.
+
+               REMEMBERED, NOT ADOPTED, and the difference is the whole of it.
+               The first cut of this repair called adoptVersions, which APPENDS
+               to the live chain — so the id taken on became the reader's TIP,
+               though it was older than the three versions they already held.
+               trunkRelation reads ahead and behind as indexes into that chain,
+               so the next reading came back "behind 3", measured against their
+               own just-pushed work: the deadlock broken and replaced by a copy
+               that believed it trailed itself. Reported within the hour, with
+               the numbers, which is the only reason it did not stay.
+
+               planSeenVids exists for precisely this: MEMBERSHIP without
+               position. trunkRelation asks planKnownVids() — the live chain
+               plus the remembered ids — for "have I seen this", and myVids —
+               the live chain alone — for "where do I stand". An id that arrived
+               carrying nothing to apply belongs in the first and must stay out
+               of the second. */
+            let took = 0;
+            (t.log || []).forEach(e => { if (e && e.vid) { rememberSeenVid(e.vid); took++; } });
+            if (t && t.base && t.base.vid) rememberSeenVid(t.base.vid);
             if (took) saveLocal();
             flashSaved(took
-              ? 'Nothing of theirs was missing from your plan — ' + took + ' version'
-                + (took === 1 ? '' : 's') + ' of theirs adopted, so the histories have rejoined. Push to share yours.'
+              ? 'Nothing of theirs was missing from your plan — their history is recorded as seen, so the '
+                + 'two have rejoined. Push to share yours.'
               : 'Nothing of theirs is missing from your plan — push to bring the histories back together');
             return;
           }

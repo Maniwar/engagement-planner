@@ -2681,8 +2681,12 @@ const MUTANTS = [
      the state: two chains differing in IDS while agreeing on every FIELD. */
 
   { what: "trunk: a pull with nothing to take leaves the histories divergent, so the push it asks for is refused",
-    find: "            const took = adoptVersions((t.log || []));\n            if (took) saveLocal();",
-    with: "            const took = 0;\n            if (took) saveLocal();" },
+    /* RE-ANCHORED onto the corrected repair. The first cut adopted into the live
+       chain, which made an older id the tip and had the copy reading itself
+       three versions behind its own pushed work; it remembers now, which records
+       the id without claiming a position it never had. */
+    find: "            (t.log || []).forEach(e => { if (e && e.vid) { rememberSeenVid(e.vid); took++; } });",
+    with: "            (t.log || []).forEach(e => { if (false) { rememberSeenVid(e.vid); took++; } });" },
 
 ];
 

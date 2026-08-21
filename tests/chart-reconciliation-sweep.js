@@ -653,7 +653,15 @@ const FIELD = JSON.parse(fs.readFileSync(
       if (!starts.length || !ends.length) return d;   // nothing anchored, nothing to rebase
       const s0 = Math.min.apply(null, starts), e0 = Math.max.apply(null, ends);
       const today = ds(new Date().toISOString().slice(0, 10));
-      const delta = Math.round((today - (s0 + (e0 - s0) * 0.4)) / DAY);
+      /* A QUARTER IN, NOT 40% — and the band is narrower than it looks, which
+         is why 40% expired. Planned value at today grows with the elapsed
+         fraction; earned value does not move, because it comes from the
+         fixture's completion. "early" needs PV below the full EV (about 28% of
+         budget on this plan) and "over", which caps completion at 20%, needs PV
+         ABOVE that. So today has to sit between roughly a fifth and a quarter of
+         the way in: 40% satisfied neither once the clock caught up, and the
+         sweep went red on a date rather than a defect for the second time. */
+      const delta = Math.round((today - (s0 + (e0 - s0) * 0.25)) / DAY);
       const shift = s2 => { const t = ds(s2); return t == null ? s2
         : new Date(t + delta * DAY).toISOString().slice(0, 10); };
       d.projectStart = shift(d.projectStart);
