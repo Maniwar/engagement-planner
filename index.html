@@ -2773,6 +2773,30 @@
     #aiCard.ai-folded .card-header { padding-top: 0.5rem; padding-bottom: 0.5rem; }
     #aiCard #aiNotes { transition: height .18s var(--easeo); }
     .ai-fold { min-width: 2rem; }
+    /* ═══ A SCHEDULE, ATTACHED ═══════════════════════════════════════════
+       Each pasted or dropped schedule is a chip under the notes: a thumbnail
+       or the first rows of the table, what it is, what was done to it on the
+       way in, and a way to take it back. */
+    #aiNotes.ai-drop { outline: 2px dashed var(--primary); outline-offset: 2px; background: var(--primary-50); }
+    .ai-attach-bar { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.4rem; }
+    /* a <label> so the file input opens on click — dressed as the button it is, not as a form label */
+    .ai-attach-bar label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; cursor: pointer; text-transform: none; letter-spacing: normal; }
+    .ai-attach-tray { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .ai-attach-tray[hidden] { display: none; }
+    .ai-att { display: flex; gap: 0.5rem; align-items: flex-start; max-width: 100%; min-width: 0;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 0.4rem 0.45rem 0.4rem 0.5rem; }
+    .ai-att-thumb { flex: none; width: 72px; height: 48px; object-fit: contain; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); }
+    .ai-att-icon { flex: none; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+      color: var(--muted); border-radius: 4px; background: var(--bg); border: 1px solid var(--border); }
+    .ai-att-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--t-sm); }
+    .ai-att-name { font-weight: 600; overflow-wrap: anywhere; }
+    .ai-att-note { color: var(--muted); overflow-wrap: anywhere; }
+    .ai-att-peekwrap { display: block; max-width: 100%; overflow-x: auto; margin-top: 2px; }
+    .ai-att-peek { width: auto; border-collapse: collapse; font-size: var(--t-xs); color: var(--text); }
+    .ai-att-peek td { border: 1px solid var(--border); padding: 1px 4px; max-width: 9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ai-att-peek tr:first-child td { font-weight: 600; background: var(--bg); }
+    .ai-att-acts { display: flex; gap: 0.25rem; flex: none; }
+    .ai-att-acts .btn-sm { padding: 2px 6px; }
     #aiCard.ai-folded .ai-fold { transform: rotate(180deg); }
 
     /* ═══ THE ROW ACTIONS WERE NEVER REACHABLE ═══════════════════════════
@@ -4560,8 +4584,15 @@
           <div style="display:grid;grid-template-columns:1fr;gap:0.75rem">
             <div>
               <label for="aiNotes" class="ai-full">Describe the work</label>
-              <div class="help-text ai-full" style="margin:0 0 0.35rem">Meeting notes, a SOW, an email — anything.</div>
+              <div class="help-text ai-full" style="margin:0 0 0.35rem">Meeting notes, a SOW, an email — anything. Or paste or drop the schedule you already have: a Gantt screenshot, a table from Excel, Smartsheet, MS Project or Google Sheets, or a PDF.</div>
               <textarea id="aiNotes" rows="5" onfocus="aiUnfold()" placeholder="e.g. Kicking off the CRM migration for Acme. Discovery workshop first (~1 week), then Ana leads stakeholder interviews and requirements in parallel. Solution design depends on both. Dev team builds/configures — that's the big one, maybe 2-3 weeks. Then QA integration testing, UAT with training, and a go-live milestone. Data mapping can start once interviews are done."></textarea>
+              <!-- What was pasted or dropped, shown before it is sent: a schedule
+                   read by the model is a schedule somebody should be able to see,
+                   and take back, before it becomes the plan. -->
+              <div id="aiAttachTray" class="ai-attach-tray ai-full" hidden aria-live="polite"></div>
+              <div class="ai-attach-bar ai-full">
+                <label class="btn-sm btn-secondary" title="Attach an existing schedule — PNG, JPEG, WebP or GIF images, a PDF, or a CSV / tab-separated file. Pasting or dropping onto the box above works too."><span class="ico" data-i="upload" aria-hidden="true"></span> Attach a schedule<input type="file" id="aiAttachInput" multiple accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" style="display:none" onchange="aiAttachFiles(Array.from(this.files || [])); this.value = ''" /></label>
+              </div>
             </div>
             <div class="ai-full" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
               <select id="aiMode" style="width:auto">
@@ -31251,7 +31282,7 @@ Apply these as a calibration factor on comparable work: if a bucket runs consist
       "taxonomy": "",         // REQUIRED: exactly one of data|integration|test|govern|delivery — see the work-type rule below
       "description": "",      // REQUIRED: scope statement for the WBS dictionary (one line)
       "acceptance": "",       // REQUIRED: acceptance criteria / definition of done (one line)
-      "dependsOn": ["exact names of predecessor tasks that must finish first"]
+      "dependsOn": ["exact names of predecessor tasks that must finish first"]  // a plain name is finish-to-start with no lag; for a start-to-start, finish-to-finish or start-to-finish link, or one with a lag or lead, give {"name": "exact name", "type": "SS"|"FF"|"SF"|"FS", "lag": n} instead — lag in ${unit}, negative is a lead
     }
   ],
   "resources": [
@@ -31379,6 +31410,22 @@ ${uatStylePref() === 'bigbang'
       aiLiveCtrls.clear();
       aiAbortCtrl = null;
     }
+    /* A request may carry at most FOUR cache breakpoints (prompt-caching FAQ);
+       a fifth is a 400. The prefix blocks and an attachment each add one, so
+       the earliest four are kept — the static prefix is the part most worth
+       re-reading — and any later mark is dropped. Copies, never the caller's
+       blocks, so every continuation round sends an identical opening turn. */
+    const AI_CACHE_MARKS_MAX = 4;
+    function aiCapCacheMarks(messages) {
+      let n = 0;
+      return messages.map(m => {
+        if (!m || !Array.isArray(m.content)) return m;
+        return Object.assign({}, m, { content: m.content.map(x => {
+          if (!x || !x.cache_control || ++n <= AI_CACHE_MARKS_MAX) return x;
+          const c = Object.assign({}, x); delete c.cache_control; return c;
+        }) });
+      });
+    }
     // Shared DELTA contract for every flow that EDITS an existing plan — the AI
     // returns only what changes; unchanged tasks must not be re-emitted.
     function aiDeltaSchemaHint() {
@@ -31391,7 +31438,7 @@ ${uatStylePref() === 'bigbang'
       "milestone": false, "owner": "", "units": 100, "attendees": [],
       "parent": "exact name of the phase it nests under (or \\"\\" for top level)",
       "deliverable": "", "inputs": "", "description": "", "acceptance": "",
-      "dependsOn": ["exact predecessor task names"],
+      "dependsOn": ["exact predecessor task names"],  // a plain name KEEPS the type and lag that link already has (finish-to-start, no lag, when it is new); to set or change them give {"name": "exact name", "type": "FS"|"SS"|"FF"|"SF", "lag": n} instead — lag in ${unit}, negative is a lead
       "taxonomy": "one of data|integration|test|govern|delivery — OMIT THE KEY ENTIRELY if you are not changing it",
       "was": "current name ONLY when renaming this task" }
   ],
@@ -31471,10 +31518,20 @@ Rules:
             role: m.role === 'assistant' ? 'assistant' : 'user',
             content: String(m.content) }))
         : [];
+      /* CONTENT BLOCKS. userContent is a string, or an array of content blocks
+         — text, image, document — in the order the model should read them: an
+         attached schedule first, then the instruction about it (the vision
+         guide: image, then text). The cached prefix still LEADS, unchanged, so
+         an import and a notes request share it. Empty text blocks are dropped:
+         they carry nothing and cannot be cached. A string is sent exactly as it
+         always was. */
+      const userBlocks = Array.isArray(userContent)
+        ? userContent.filter(x => x && x.type && (x.type !== 'text' || String(x.text || '').trim()))
+        : null;
       const userMsg = () => {
         // with prior turns, the cache prefix already rode on history[0]
-        if (!cacheBlocks.length || history.length) return userContent;
-        return cacheBlocks.concat([{ type: 'text', text: userContent }]);
+        if (!cacheBlocks.length || history.length) return userBlocks || userContent;
+        return cacheBlocks.concat(userBlocks || [{ type: 'text', text: userContent }]);
       };
       const priorTurns = () => {
         if (!history.length) return [];
@@ -31621,8 +31678,8 @@ Rules:
              rule); the answer KEPT does not lose it, or a cut just after a space
              runs two words together at the seam. */
           const tail = round ? full.replace(/\s+$/, '') : '';
-          const messages = priorTurns().concat([{ role: 'user', content: userMsg() }],
-            tail ? [{ role: 'assistant', content: tail }, { role: 'user', content: continuationAsk(full) }] : []);
+          const messages = aiCapCacheMarks(priorTurns().concat([{ role: 'user', content: userMsg() }],
+            tail ? [{ role: 'assistant', content: tail }, { role: 'user', content: continuationAsk(full) }] : []));
           const r = await once(messages, full);
           // A refusal is not an answer: said as one, every flow reported it as bad JSON.
           if (r.stopReason === 'refusal') throw new Error(refusalMessage(r.stopDetails));
@@ -32674,6 +32731,439 @@ BAD   {"panel":"price","sev":"watch",
   Four separate failures: it writes numbers the tool already prints; its cite is
   a paraphrase; T#99 is not on the ref list; "reprice" is not a verb.`;
 
+    /* ═══ WHAT AN ANSWER'S FIELDS BECOME ═══════════════════════════════════
+       Shared by Create (applyAIPlan) and Update (applyAIMergeDelta), so a
+       pasted schedule and typed notes land the same way. */
+    const aiNum = v => (v == null || v === '' || !Number.isFinite(+v)) ? null : +v;
+    // strict YYYY-MM-DD that is a real calendar day, or null
+    function aiIsoDate(v) {
+      const s = String(v == null ? '' : v).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+      const d = new Date(s + 'T00:00:00Z');
+      return (!isNaN(d) && d.toISOString().slice(0, 10) === s) ? s : null;
+    }
+    /* ONE FIGURE IS A MOST-LIKELY. An answer carrying mostLikely and neither
+       bound was read as 0/0/M once sorted: the most likely became zero and the
+       one figure the source gave became the worst case. It now gets the range
+       the schema itself prescribes for a single estimate (×0.75 / ×1.6, to the
+       half unit), and the activity is counted so the plan can say so. */
+    function aiSingleRange(m) { const h = x => Math.round(x * 2) / 2; return { o: h(m * 0.75), m: m, p: h(m * 1.6) }; }
+    function aiEstimateOf(pt, isParent) {
+      const gO = aiNum(pt.optimistic), gM = aiNum(pt.mostLikely), gP = aiNum(pt.pessimistic);
+      if (!isParent && !pt.milestone && gM > 0 && gO == null && gP == null) return Object.assign(aiSingleRange(gM), { derived: true });
+      return { o: gO || 0, m: gM || 0, p: gP || 0, derived: false };
+    }
+    let aiDerivedIds = [];        // activities whose range the last apply derived from one figure
+    // A predecessor as the answer gives it: a plain name (finish-to-start, no
+    // lag) or {name, type, lag}. `bare` lets Update keep an existing link's type.
+    const AI_LINK_TYPES = ['FS', 'SS', 'FF', 'SF'];
+    function aiDepOf(x) {
+      if (x == null) return null;
+      if (typeof x !== 'object') { const name = String(x).trim(); return name ? { name, type: 'FS', lag: 0, bare: true } : null; }
+      const name = String(x.name || x.task || '').trim();
+      if (!name) return null;
+      const ty = String(x.type || 'FS').trim().toUpperCase(), lag = Number(x.lag);
+      return { name, type: AI_LINK_TYPES.indexOf(ty) >= 0 ? ty : 'FS', lag: Number.isFinite(lag) ? lag : 0, bare: false };
+    }
+    // …and the other way, for the plan the model is shown: a link that is not
+    // plain finish-to-start says so, or the model cannot keep what it cannot see
+    function aiDepsDigest(t) {
+      return (t.predecessors || []).map(p => {
+        const nm = (tasks.find(x => x.id === p.id) || {}).name;
+        if (!nm) return null;
+        return ((p.type || 'FS') === 'FS' && !p.lag) ? nm : { name: nm, type: p.type || 'FS', lag: Number(p.lag) || 0 };
+      }).filter(Boolean);
+    }
+
+    /* ═══ AN EXISTING SCHEDULE, PASTED OR DROPPED ═══════════════════════════
+       Most engagements arrive with a plan already drawn somewhere: a Gantt
+       screenshot in a proposal, a sheet in Excel or Smartsheet, an MS Project
+       export saved as PDF. Retyping it as notes throws away the one thing it
+       has that notes do not — its structure. So the builder takes the schedule
+       itself, and the model rebuilds it through the same Create / Update paths
+       and the same strict parse: nothing is applied unless the whole answer
+       reads.
+
+       The limits are the vendor's (platform.claude.com, read 2026-11-03):
+       · vision — base64 image blocks, PNG / JPEG / GIF / WebP, at most 10 MB
+         each as base64 and 8000 px a side. Claude 4.7 and later (every model
+         the picker offers) read up to a 2576 px long edge and 4784 visual
+         tokens, ⌈w/28⌉ × ⌈h/28⌉, and downsize anything larger — so a bigger
+         image costs upload and buys nothing. It is downsized HERE, to exactly
+         the size the model would have made of it. Above 20 images in one
+         request every image is held to 2000 px, so 20 is the cap.
+       · PDF support — a `document` block, base64 application/pdf; the whole
+         request may be 32 MB.
+       · prompt caching — image and document blocks in a user turn can carry
+         cache_control; a request may carry at most four breakpoints. */
+    const AI_IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    const AI_IMG_EDGE = 2576, AI_IMG_TOKENS = 4784;
+    const AI_IMG_B64_MAX = 10e6;     // "10 MB (base64-encoded)", read as the smaller of MB and MiB
+    const AI_IMG_READ_MAX = 40e6;    // a file this large is not opened at all
+    const AI_REQ_B64_MAX = 30e6;     // 32 MB a request, less room for the prompt around it
+    const AI_ATTACH_MAX = 20;
+    const AI_TABLE_MAX_CHARS = 400000;
+    let aiAttachments = [];
+    let aiAttachSeq = 0, aiAttachWork = Promise.resolve();
+    const aiMB = n => n < 1e6 ? Math.max(1, Math.round(n / 1e3)) + ' KB' : (n / 1e6).toFixed(n < 10e6 ? 1 : 0) + ' MB';
+    // resolves once every paste, drop and pick still being read has landed
+    function aiAttachIdle() { return aiAttachWork; }
+
+    // The vision guide's resize rule, ported from its reference implementation:
+    // the largest aspect-preserving size within both the edge and token limits.
+    function aiFitImage(w, h, edge, budget) {
+      edge = edge || AI_IMG_EDGE; budget = budget || AI_IMG_TOKENS;
+      const fits = (a, c) => Math.ceil(a / 28) * 28 <= edge && Math.ceil(c / 28) * 28 <= edge && Math.ceil(a / 28) * Math.ceil(c / 28) <= budget;
+      if (fits(w, h)) return { w, h };
+      if (h > w) { const t = aiFitImage(h, w, edge, budget); return { w: t.h, h: t.w }; }
+      const ar = w / h;
+      let lo = 1, hi = w;
+      while (lo + 1 < hi) { const mid = (lo + hi) >> 1; if (fits(mid, Math.max(Math.round(mid / ar), 1))) lo = mid; else hi = mid; }
+      return { w: lo, h: Math.max(Math.round(lo / ar), 1) };
+    }
+    function aiBlobToB64(blob) {
+      return new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result).replace(/^data:[^,]*,/, ''));
+        fr.onerror = () => rej(fr.error || new Error('read failed'));
+        fr.readAsDataURL(blob);
+      });
+    }
+    async function aiReadImage(file) {
+      const name = file.name || 'pasted image';
+      const type = String(file.type || '').toLowerCase();
+      if (AI_IMG_TYPES.indexOf(type) < 0)
+        throw new Error('“' + name + '” is ' + (type || 'a file of unknown type') + ' — the model reads PNG, JPEG, GIF or WebP images. Save it as one of those and add it again.');
+      if (file.size > AI_IMG_READ_MAX)
+        throw new Error('“' + name + '” is ' + aiMB(file.size) + ' — too large to read here (the limit is ' + aiMB(AI_IMG_READ_MAX) + '). A screenshot of the chart at screen size is plenty.');
+      let bmp;
+      try { bmp = await createImageBitmap(file); }
+      catch (e) { throw new Error('“' + name + '” could not be read as an image — it may be damaged, or larger than this browser can open.'); }
+      try {
+        const w0 = bmp.width, h0 = bmp.height, fit = aiFitImage(w0, h0);
+        const resized = fit.w !== w0 || fit.h !== h0;
+        const draw = (t, q) => {
+          const c = document.createElement('canvas'); c.width = fit.w; c.height = fit.h;
+          const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+          if (t === 'image/jpeg') { g.fillStyle = '#ffffff'; g.fillRect(0, 0, fit.w, fit.h); } // JPEG has no transparency
+          g.drawImage(bmp, 0, 0, fit.w, fit.h);
+          return new Promise(r => c.toBlob(r, t, q));
+        };
+        // a GIF is redrawn as PNG: a canvas does not write GIF
+        let blob = resized ? await draw(type === 'image/gif' ? 'image/png' : type, 0.92) : file;
+        let data = await aiBlobToB64(blob);
+        // still over 10 MB as base64 — a photograph, usually: JPEG at falling quality
+        for (const q of [0.9, 0.8, 0.7]) {
+          if (data.length <= AI_IMG_B64_MAX) break;
+          blob = await draw('image/jpeg', q); data = await aiBlobToB64(blob);
+        }
+        if (data.length > AI_IMG_B64_MAX)
+          throw new Error('“' + name + '” is still over the 10 MB an image may be after being downscaled to ' + fit.w + '×' + fit.h + '. Crop it to the chart, or save it as JPEG.');
+        // a browser that cannot write the format asked for writes PNG; say what it IS
+        const mediaType = blob === file ? type : String(blob.type || '').toLowerCase();
+        if (AI_IMG_TYPES.indexOf(mediaType) < 0) throw new Error('“' + name + '” could not be re-encoded as an image the model reads.');
+        // the preview is drawn small: the tray needs a glimpse, not the bytes
+        const k = Math.min(1, 144 / Math.max(w0, h0)), tc = document.createElement('canvas');
+        tc.width = Math.max(1, Math.round(w0 * k)); tc.height = Math.max(1, Math.round(h0 * k));
+        tc.getContext('2d').drawImage(bmp, 0, 0, tc.width, tc.height);
+        return { kind: 'image', name, mediaType, data, w: resized ? fit.w : w0, h: resized ? fit.h : h0,
+          from: resized ? { w: w0, h: h0 } : null, bytes: blob.size, thumb: tc.toDataURL('image/png') };
+      } finally { if (bmp.close) bmp.close(); }
+    }
+    async function aiReadPdf(file) {
+      const name = file.name || 'schedule.pdf';
+      if (Math.ceil(file.size / 3) * 4 > AI_REQ_B64_MAX)
+        throw new Error('“' + name + '” is ' + aiMB(file.size) + ' — a request can carry 32 MB in all, and this would not leave room. Export just the schedule pages, or take a screenshot of the chart.');
+      return { kind: 'pdf', name, mediaType: 'application/pdf', data: await aiBlobToB64(file), bytes: file.size };
+    }
+
+    /* A TABLE IS SENT AS ROWS. Flattened into a paragraph, "3 | 2SS+2 days |
+       Ben" stops being a predecessor column. Each row goes as one JSON array,
+       header first, so a cell holding a comma, a quote or a line break is
+       still one cell, and the model reads columns the way the source had them. */
+    function aiSplitDelimited(text, d) {
+      const rows = []; let row = [], cell = '', q = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === '\r') continue;
+        if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; continue; }
+        if (c === '"' && cell === '') { q = true; continue; }
+        if (c === d) { row.push(cell); cell = ''; continue; }
+        if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; continue; }
+        cell += c;
+      }
+      if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+      return rows;
+    }
+    function aiTableShape(rows, source) {
+      rows = rows.map(r => r.map(c => String(c == null ? '' : c).replace(/\s+$/, ''))).filter(r => r.some(c => c.trim()));
+      let n = rows.reduce((a, r) => Math.max(a, r.length), 0);
+      rows = rows.map(r => r.concat(new Array(n - r.length).fill('')));
+      while (n > 0 && rows.every(r => !r[n - 1].trim())) { rows.forEach(r => r.pop()); n--; }
+      if (rows.length < 2 || n < 2) return null;
+      return { kind: 'table', rows, source, cols: n };
+    }
+    // Tab- or comma-separated text, the way Excel, Sheets and MS Project copy
+    // it. Strict on purpose — every row the same width, more than one column,
+    // and three rows for CSV — so a pasted sentence with commas stays a sentence.
+    function aiTableFromText(text) {
+      const s = String(text || '').replace(/[\r\n]+$/, '');
+      if (s.indexOf('\n') < 0) return null;
+      const d = s.indexOf('\t') >= 0 ? '\t' : ',';
+      const rows = aiSplitDelimited(s, d).filter(r => r.some(c => c.trim()));
+      if (rows.length < (d === '\t' ? 2 : 3) || rows[0].length < 2 || rows.some(r => r.length !== rows[0].length)) return null;
+      return aiTableShape(rows, d === '\t' ? 'tab-separated text' : 'CSV');
+    }
+    // An HTML table — what Excel, Google Sheets and Smartsheet put on the clipboard.
+    function aiTableFromHtml(html) {
+      const s = String(html || '');
+      if (!/<table/i.test(s)) return null;
+      let doc; try { doc = new DOMParser().parseFromString(s, 'text/html'); } catch (e) { return null; }
+      const tables = Array.from(doc.querySelectorAll('table'));
+      if (!tables.length) return null;
+      const t = tables.reduce((a, x) => x.querySelectorAll('td,th').length > a.querySelectorAll('td,th').length ? x : a);
+      /* The outline lives in the cell's indent. Excel writes it as
+         mso-char-indent-count, usually through a class in its <style> block;
+         other sources pad the cell. Either becomes leading spaces, which the
+         prompt names as the source's indent. */
+      const cls = {};
+      Array.from(doc.querySelectorAll('style')).forEach(st => String(st.textContent || '')
+        .replace(/\.([\w-]+)\s*\{([^}]*)\}/g, (m0, c, body) => { cls[c] = (cls[c] || '') + ';' + body; return ''; }));
+      const indentOf = cell => {
+        const st = Array.from(cell.classList || []).map(c => cls[c] || '').join(';') + ';' + (cell.getAttribute('style') || '');
+        const ex = st.match(/mso-char-indent-count\s*:\s*(\d+)/i);
+        if (ex) return +ex[1];
+        const pad = st.match(/(?:padding-left|text-indent)\s*:\s*([\d.]+)\s*(px|pt|em)/i);
+        if (!pad) return 0;
+        const px = +pad[1] * (pad[2].toLowerCase() === 'pt' ? 4 / 3 : pad[2].toLowerCase() === 'em' ? 16 : 1);
+        return px >= 10 ? Math.round(px / 12) || 1 : 0;   // a few px is cell padding, not an outline level
+      };
+      const textOf = cell => {
+        const c = cell.cloneNode(true);
+        c.querySelectorAll('br').forEach(br => br.replaceWith('\u2028'));
+        c.querySelectorAll('p,div,li').forEach(el => { if (el.previousSibling) el.before('\u2028'); });
+        const tx = String(c.textContent || '').replace(/[ \t\r\n\f]+/g, ' ').replace(/^ +| +$/g, '')
+          .replace(/\u00a0/g, ' ').replace(/ *\u2028 */g, '\n').replace(/\s+$/, '');
+        const lv = indentOf(cell);
+        return (lv && tx ? '  '.repeat(lv) : '') + tx;
+      };
+      const grid = [], carry = [];
+      Array.from(t.rows).forEach(tr => {
+        const row = []; let col = 0;
+        const held = () => { while (carry[col] && carry[col] > 0) { carry[col]--; row.push(''); col++; } };
+        Array.from(tr.cells).forEach(cell => {
+          held();
+          const span = Math.max(1, Math.min(50, parseInt(cell.getAttribute('colspan'), 10) || 1));
+          const down = Math.max(1, Math.min(1000, parseInt(cell.getAttribute('rowspan'), 10) || 1));
+          row.push(textOf(cell));
+          for (let k = 1; k < span; k++) row.push('');
+          for (let k = 0; k < span; k++) carry[col + k] = down - 1;
+          col += span;
+        });
+        held();
+        grid.push(row);
+      });
+      const source = /urn:schemas-microsoft-com:office:excel/i.test(s) ? 'Excel'
+        : /google-sheets-html-origin/i.test(s) ? 'Google Sheets' : 'a copied table';
+      return aiTableShape(grid, source);
+    }
+    function aiTableText(a) {
+      return 'a table copied from ' + a.source + ', ' + a.rows.length + ' rows × ' + a.cols + ' columns. One JSON array per row, '
+        + 'the header row first; leading spaces in a cell are the source’s outline indent.\n'
+        + a.rows.map(r => JSON.stringify(r)).join('\n');
+    }
+    // What the request carries for the attachments, in order. Each one is
+    // labelled, so the instruction can say "attachment 2", and the last one
+    // carries a cache breakpoint: a retry within five minutes re-reads them at
+    // a tenth of the price instead of uploading and billing them again.
+    function aiAttachmentBlocks(atts) {
+      const out = [];
+      (atts || []).forEach((a, i) => {
+        const head = 'Attachment ' + (i + 1) + ' — ';
+        if (a.kind === 'image') {
+          out.push({ type: 'text', text: head + '“' + a.name + '”, an image, ' + a.w + '×' + a.h + ' px:' });
+          out.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } });
+        } else if (a.kind === 'pdf') {
+          out.push({ type: 'text', text: head + '“' + a.name + '”, a PDF:' });
+          out.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
+        } else out.push({ type: 'text', text: head + aiTableText(a) });
+      });
+      if (out.length) out[out.length - 1] = Object.assign({}, out[out.length - 1], { cache_control: { type: 'ephemeral' } });
+      return out;
+    }
+
+    function aiAttachSay(msgs) {
+      const el = document.getElementById('aiError'); if (!el) return;
+      if (!msgs.length) return;
+      el.textContent = msgs.join(' ');
+      el.style.display = 'block';
+    }
+    // Admit one read attachment, or say why not. Counted against the request,
+    // not the file: twenty small screenshots and one large PDF can fail together.
+    function aiAttachAdmit(a, said) {
+      if (aiAttachments.length >= AI_ATTACH_MAX) {
+        said.push('“' + a.name + '” was not added — a request takes up to ' + AI_ATTACH_MAX + ' attachments (past 20 images the API holds every image in the request to a smaller size limit). Remove one to add another.');
+        return false;
+      }
+      const sent = aiAttachments.reduce((n, x) => n + (x.data ? x.data.length : 0), 0);
+      if (a.data && sent + a.data.length > AI_REQ_B64_MAX) {
+        said.push('“' + a.name + '” was not added — with what is already attached it would pass the 32 MB a request can carry.');
+        return false;
+      }
+      if (a.kind === 'table' && a.rows.reduce((n, r) => n + JSON.stringify(r).length + 1, 0) > AI_TABLE_MAX_CHARS) {
+        said.push('The pasted table is too large to send in one request (' + a.rows.length + ' rows). Paste the schedule a phase at a time.');
+        return false;
+      }
+      aiAttachments.push(Object.assign({ id: ++aiAttachSeq }, a));
+      return true;
+    }
+    // Files from a paste, a drop or the picker. Read in order, admitted in order.
+    function aiAttachFiles(files) {
+      const list = Array.from(files || []);
+      if (!list.length) return aiAttachWork;
+      const el = document.getElementById('aiError'); if (el) el.style.display = 'none';
+      aiUnfold();
+      aiAttachWork = aiAttachWork.then(async () => {
+        const said = [];
+        for (const f of list) {
+          const type = String(f.type || '').toLowerCase(), nm = String(f.name || '');
+          try {
+            if (type.indexOf('image/') === 0) aiAttachAdmit(await aiReadImage(f), said);
+            else if (type === 'application/pdf' || /\.pdf$/i.test(nm)) aiAttachAdmit(await aiReadPdf(f), said);
+            else if (/^text\/(csv|tab-separated-values|plain)$/.test(type) || /\.(csv|tsv|txt)$/i.test(nm)) {
+              const tb = aiTableFromText(await f.text());
+              if (tb) aiAttachAdmit(Object.assign(tb, { name: nm || 'table' }), said);
+              else said.push('“' + nm + '” does not read as a table — rows of cells separated by commas or tabs, each row the same width.');
+            } else said.push('“' + (nm || 'That file') + '” is not something the builder can read. It takes PNG, JPEG, GIF or WebP images, a PDF, or a CSV / tab-separated table.');
+          } catch (e) { said.push(e.message || String(e)); }
+        }
+        aiAttachSay(said);
+        aiRenderAttachTray();
+      }).catch(() => {});
+      return aiAttachWork;
+    }
+    function aiAttachTable(tb, raw) {
+      const said = [];
+      aiAttachAdmit(Object.assign(tb, { name: 'Table from ' + tb.source, raw: raw || '' }), said);
+      aiAttachSay(said);
+      aiRenderAttachTray();
+    }
+    function aiAttachRemove(id) {
+      aiAttachments = aiAttachments.filter(a => a.id !== id);
+      aiRenderAttachTray();
+    }
+    function aiAttachClear() { aiAttachments = []; aiRenderAttachTray(); }
+    // A table taken as an attachment that was meant as notes goes back, as typed
+    function aiAttachToNotes(id) {
+      const a = aiAttachments.find(x => x.id === id); if (!a) return;
+      const ta = document.getElementById('aiNotes');
+      const txt = a.raw || a.rows.map(r => r.join('\t')).join('\n');
+      ta.value = ta.value ? ta.value.replace(/\s*$/, '\n') + txt : txt;
+      aiAttachRemove(id);
+      ta.focus();
+    }
+    function aiRenderAttachTray() {
+      const tray = document.getElementById('aiAttachTray'); if (!tray) return;
+      tray.hidden = !aiAttachments.length;
+      tray.innerHTML = aiAttachments.map(a => {
+        const nm = escapeHtml(a.name);
+        let pic, note;
+        if (a.kind === 'image') {
+          pic = '<img class="ai-att-thumb" alt="" src="' + escapeHtml(a.thumb || ('data:' + a.mediaType + ';base64,' + a.data)) + '">';
+          note = a.from ? 'downscaled from ' + a.from.w + '×' + a.from.h + ' to ' + a.w + '×' + a.h + ' — the most the model reads'
+            : a.w + '×' + a.h + ' · ' + aiMB(a.bytes);
+        } else if (a.kind === 'pdf') {
+          pic = '<span class="ai-att-icon">' + icoHtml('file-text') + '</span>';
+          note = 'PDF · ' + aiMB(a.bytes);
+        } else {
+          pic = '';
+          note = a.rows.length + ' rows × ' + a.cols + ' columns, sent as rows'
+            + '<span class="ai-att-peekwrap"><table class="ai-att-peek">' + a.rows.slice(0, 4).map(r => '<tr>' + r.slice(0, 5).map(c => '<td>' + escapeHtml(c) + '</td>').join('') + '</tr>').join('') + '</table></span>';
+        }
+        return '<div class="ai-att" data-att="' + a.id + '">' + pic + '<div class="ai-att-body"><span class="ai-att-name">' + nm + '</span>'
+          + '<span class="ai-att-note">' + note + '</span></div><span class="ai-att-acts">'
+          + (a.kind === 'table' ? '<button type="button" class="btn-sm btn-secondary" onclick="aiAttachToNotes(' + a.id + ')" title="Put this table into the notes as text instead">As notes</button>' : '')
+          + '<button type="button" class="btn-sm btn-secondary" onclick="aiAttachRemove(' + a.id + ')" aria-label="Remove ' + nm + '" title="Remove ' + nm + '">' + icoHtml('x') + '</button></span></div>';
+      }).join('');
+    }
+    /* PASTE. A table wins over a picture (Excel puts both on the clipboard), a
+       picture wins over the plain text, and anything else pastes as it always
+       did. In progress mode a table stays text: that flow reads a pasted status
+       table from the notes. */
+    function aiOnPaste(ev) {
+      const dt = ev.clipboardData; if (!dt) return;
+      if (document.getElementById('aiMode').value !== 'progress') {
+        const html = dt.getData('text/html'), text = dt.getData('text/plain');
+        const tb = (html && aiTableFromHtml(html)) || (text && aiTableFromText(text));
+        if (tb) { ev.preventDefault(); aiUnfold(); aiAttachTable(tb, text); return; }
+      }
+      const files = Array.from(dt.files || []).filter(f => /^image\//.test(f.type) || f.type === 'application/pdf');
+      if (files.length) { ev.preventDefault(); aiAttachFiles(files); }
+    }
+    function aiOnDrop(ev) {
+      const dt = ev.dataTransfer; if (!dt) return;
+      ev.currentTarget && ev.currentTarget.classList && ev.currentTarget.classList.remove('ai-drop');
+      const files = Array.from(dt.files || []);
+      if (files.length) { ev.preventDefault(); aiAttachFiles(files); return; }
+      if (document.getElementById('aiMode').value === 'progress') return;
+      const html = dt.getData('text/html'), text = dt.getData('text/plain');
+      const tb = (html && aiTableFromHtml(html)) || (text && aiTableFromText(text));
+      if (tb) { ev.preventDefault(); aiUnfold(); aiAttachTable(tb, text); }
+    }
+    function aiAttachInit() {
+      const ta = document.getElementById('aiNotes'); if (!ta || ta.dataset.attach) return;
+      ta.dataset.attach = '1';
+      ta.addEventListener('paste', aiOnPaste);
+      ta.addEventListener('drop', aiOnDrop);
+      ta.addEventListener('dragover', ev => {
+        const ty = Array.from((ev.dataTransfer && ev.dataTransfer.types) || []);
+        if (ty.indexOf('Files') >= 0 || ty.indexOf('text/html') >= 0) { ev.preventDefault(); ta.classList.add('ai-drop'); }
+      });
+      ta.addEventListener('dragleave', () => ta.classList.remove('ai-drop'));
+    }
+
+    /* THE INSTRUCTION THAT TRAVELS WITH A SCHEDULE. It overrides the planning
+       advice in the schema hint on purpose: that advice designs a plan from
+       notes (how many activities, where UAT goes), and an import must
+       REPRODUCE the plan it was given instead of redesigning it. */
+    function aiImportRules(mode) {
+      const unit = document.getElementById('durationUnit').value;
+      return `IMPORT RULES — the attachments above are an EXISTING SCHEDULE: a Gantt chart, a table copied from a scheduling tool or spreadsheet (Excel, Smartsheet, MS Project, Google Sheets), or a PDF export. ${mode === 'merge' ? 'Bring the CURRENT plan into line with it through the delta.' : 'Rebuild it as this plan.'} Where these rules and the planning advice above differ (activity count, UAT placement, size calibration), these rules win: the source IS the plan, so reproduce it — do not redesign it.
+- STRUCTURE: every summary row, phase and sub-phase becomes a grouping task, and each row's "parent" is the exact name of the row it sits under. Nesting shows as indent, an outline or WBS number (1, 1.1, 1.1.2) or a summary bar; in a pasted table, leading spaces in a cell are the source's indent. Keep names as the source writes them; do not merge, split, rename or add activities${mode === 'merge' ? '. A row whose name matches a current activity IS that activity — update it, never add a second one' : ''}.
+- MILESTONES: zero-duration rows and diamond markers are milestones (milestone true, 0/0/0).
+- DURATIONS in ${unit}: convert the source's units ("5 days", "2w", "40h", "1 mon") at 8 working hours a day and ${workingDaysPerWeek()} working days a week. When the source gives ONE duration figure, it is mostLikely; set optimistic ≈ 0.75× and pessimistic ≈ 1.6× of it, rounded, and set "rangeDerived": true on that task so the tool can say the range is derived. When it gives a range or three points, use them and omit rangeDerived. A bar with no number: estimate it from its drawn length against the timescale, and set rangeDerived true.
+- LINKS: read the predecessor column ("3", "3FS+2d", "5SS", "7FF-1 day", "4SF") or the arrows, translating row numbers and IDs to the names of those rows. A plain name in dependsOn is finish-to-start with no lag; for any other link give {"name": "exact predecessor name", "type": "SS"|"FF"|"SF"|"FS", "lag": n} — start-to-start, finish-to-finish, start-to-finish — with lag in ${unit} (negative is a lead). Never invent a link the source does not show, and do not drop one it does.
+- WORK AND UNITS: a resource cell such as "Ana[50%]" books Ana at units 50. Several names on one row: the first is the owner, the rest are attendees as {"name": "…", "units": n}. When the source gives work or effort as well as duration, units = work ÷ duration × 100, both in the same unit. List every person or team in "resources".
+- DATES as YYYY-MM-DD: give the schedule's earliest start as a top-level "projectStart". Give an activity "startNoEarlier" ONLY when its start is pinned — a start constraint, or no predecessor and a start after the project start; one whose start just follows its predecessors gets none, so it still moves when they slip. Give "deadline" only where the source shows a deadline or a finish constraint.
+- What the source does not have (deliverable, description, acceptance, inputs, taxonomy) is drafted from the names, as the schema asks. "exclusions": only what the source or the notes rule out — a schedule implies none, so [] is right when nothing says so.
+- Read every row and every bar. If part of an attachment cannot be read, import what can be and say what could not in a top-level "importNotes" string.`;
+    }
+    /* SAID WHERE IT STAYS SAID. The status line clears itself after a few
+       seconds, and "these ranges are ours, not the source's" is a fact the
+       plan keeps for as long as nobody has replaced them. So it is filed as an
+       internal ASSUMPTION in the RAID log, linked to every activity it covers —
+       the place a PM looks for exactly this, and where it can be closed. */
+    function aiFileDerivedRanges(ids) {
+      const ts = (ids || []).map(id => tasks.find(t => t.id === id)).filter(Boolean);
+      if (!ts.length) return null;
+      const names = ts.map(t => '“' + t.name + '”');
+      const e = { id: nextRaidId++, type: 'Assumption', v: 2, audience: 'internal',
+        title: 'Imported schedule: ' + ts.length + ' single-figure duration' + (ts.length === 1 ? '' : 's') + ' given a derived range',
+        description: 'The source schedule gave one duration for ' + names.slice(0, 12).join(', ')
+          + (names.length > 12 ? ' and ' + (names.length - 12) + ' more' : '') + '. Each was taken as the most likely figure, with an optimistic of about 0.75× and a pessimistic of about 1.6× of it, so the P80 dates and the price rest on ranges nobody has stated yet.',
+        mitigation: 'Review each range with the activity owner and replace it with their own optimistic and pessimistic figures.',
+        probability: 0, impact: 0, owner: '', status: 'Open', createdAt: fmtISO(new Date()),
+        links: ts.map(t => ({ k: 'act', id: t.id, was: t.name })) };
+      raidSyncTaskId(e);
+      raid.push(e);
+      return e;
+    }
+    function aiDerivedNote(n, filed) {
+      if (!n) return '';
+      return ' ' + n + ' duration' + (n === 1 ? ' was a single figure, so its' : 's were single figures, so their')
+        + ' optimistic / pessimistic range was derived (≈0.75× / 1.6×)' + (filed ? ' — filed in the RAID log as an assumption to check with the owners.' : ' — check ' + (n === 1 ? 'it' : 'them') + ' with the owners.');
+    }
+
     async function generateWithAI() {
       const btn = document.getElementById('aiGenerateBtn');
       const status = document.getElementById('aiStatus');
@@ -32681,19 +33171,31 @@ BAD   {"panel":"price","sev":"watch",
       errEl.style.display = 'none';
       const notes = document.getElementById('aiNotes').value.trim();
       const mode = document.getElementById('aiMode').value;
-      if (!notes) { errEl.textContent = 'Paste some notes or a description first.'; errEl.style.display = 'block'; return; }
+      // a schedule still being read is waited for, not silently left out
+      await aiAttachIdle();
+      const atts = aiAttachments.slice();
+      if (!notes && !atts.length) { errEl.textContent = 'Paste some notes or a description first — or paste or drop the schedule you already have.'; errEl.style.display = 'block'; return; }
       if (!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE))) {
         document.getElementById('aiSettings').style.display = 'block';
         errEl.textContent = 'Add your Anthropic API key first (⚙ API Key).'; errEl.style.display = 'block'; return;
       }
 
-      if (mode === 'progress') { return updateProgressFromNotes(notes, btn, status, errEl); }
+      if (mode === 'progress') {
+        // said, not dropped: a progress update reads the notes only
+        if (atts.length) {
+          errEl.textContent = 'The attached schedule is read when you Create or Update the plan, not by a progress update. Switch the mode, or remove the attachment (×) to update progress from the notes alone.';
+          errEl.style.display = 'block'; return;
+        }
+        return updateProgressFromNotes(notes, btn, status, errEl);
+      }
+      const importing = atts.length > 0;
+      const noteText = importing ? (notes ? `\nThe user's notes on it — they take precedence over the source where the two disagree:\n"""${notes}"""` : '') : '';
       let prompt, cachePrefix;
       if (mode === 'merge' && tasks.length) {
         const current = { projectName: document.getElementById('projectName').value, durationUnit: document.getElementById('durationUnit').value,
           tasks: tasks.map(t => ({ name: t.name, optimistic: t.o, mostLikely: t.m, pessimistic: t.p, milestone: t.milestone, owner: t.owner, units: t.units,
             parent: (tasks.find(x => x.id === t.parentId) || {}).name || '',
-            dependsOn: t.predecessors.map(p => (tasks.find(x => x.id === p.id) || {}).name).filter(Boolean) })),
+            dependsOn: aiDepsDigest(t) })),
           resources: Object.keys(resources).map(n => ({ name: n, capacityPercent: getCapacity(n) })) };
         // static-first for the prompt cache: benchmarks + delta schema lead as
         // cached blocks (identical across iterative "update existing" rounds —
@@ -32701,33 +33203,51 @@ BAD   {"panel":"price","sev":"watch",
         // changing plan JSON + request stream in fresh
         cachePrefix = [histPromptBlock() + bankPromptBlock(), `You are a project planning assistant for engagement/project managers.
 ${aiDeltaSchemaHint()}`];
-        prompt = `Here is the CURRENT project plan as JSON:
+        prompt = importing ? `Here is the CURRENT project plan as JSON:
+${JSON.stringify(current, null, 2)}
+Update it from the attached schedule, following the delta schema and rules above and the IMPORT RULES below.
+${aiImportRules('merge')}${noteText}` : `Here is the CURRENT project plan as JSON:
 ${JSON.stringify(current, null, 2)}
 Apply the following change request to it, following the delta schema and rules above:
 """${notes}"""`;
       } else {
         cachePrefix = [histPromptBlock() + bankPromptBlock(), `You are a project planning assistant for engagement/project managers.
 ${aiSchemaHint()}`];
-        prompt = `Read the following notes/description and turn it into a structured, estimated project plan, following the schema and rules above.
+        prompt = importing ? `Rebuild the attached schedule as a structured, estimated project plan, following the schema and rules above and the IMPORT RULES below.
+${aiImportRules('replace')}${noteText}` : `Read the following notes/description and turn it into a structured, estimated project plan, following the schema and rules above.
 """${notes}"""`;
       }
+      // the attachments first and the instruction after: image, then text
+      const userContent = importing ? aiAttachmentBlocks(atts).concat([{ type: 'text', text: prompt }]) : prompt;
 
       btn.disabled = true;
       const orig = btn.textContent;
       btn.textContent = '⏳ Generating…';
-      status.textContent = 'Contacting Claude…';
-      const onDelta = streamShow(mode === 'merge' ? 'Updating plan (delta — only the changes stream in)' : 'Generating plan');
+      status.textContent = importing ? 'Sending the schedule to Claude…' : 'Contacting Claude…';
+      const onDelta = streamShow(importing ? (mode === 'merge' ? 'Updating the plan from the attached schedule (delta)' : 'Reading the attached schedule')
+        : mode === 'merge' ? 'Updating plan (delta — only the changes stream in)' : 'Generating plan');
       try {
-        const text = await callAnthropic(prompt, { onDelta, cachePrefix });
+        const text = await callAnthropic(userContent, { onDelta, cachePrefix });
         const plan = parseAIJsonStrict(text, 'the plan'); // partial plans are never applied
         const stats = applyAIPlan(plan, mode);
         streamHide(true);
-        status.textContent = stats
+        const derived = aiDerivedIds.slice();
+        const filed = importing && derived.length ? aiFileDerivedRanges(derived) : null;
+        if (filed) { saveLocal(); try { renderRaid(); } catch (e) {} }
+        const said = typeof plan.importNotes === 'string' && plan.importNotes.trim() ? ' Note from the import: ' + plan.importNotes.trim().slice(0, 400) : '';
+        status.textContent = (stats
           ? `✓ Delta applied — ${stats.added} added, ${stats.updated} updated, ${stats.removed} removed.`
             + aiAddedNote(stats)
             + ' Everything else (progress, actuals, links) untouched.'
-          : '✓ Plan ready — review below.';
-        setTimeout(() => { status.textContent = ''; }, 9000);
+          : importing ? '✓ Plan built from the attached schedule — ' + leafTasks().length + ' activities. Review below.'
+          : '✓ Plan ready — review below.') + aiDerivedNote(derived.length, !!filed) + said;
+        // a derived range or a note from the import is worth longer than nine seconds
+        setTimeout(() => { status.textContent = ''; }, derived.length || said ? 30000 : 9000);
+        /* READ ONCE. Left attached, the schedule would ride along with the next
+           "Update existing" as an instruction to re-sync to it — undoing every
+           hand edit made since. A failed answer keeps it, so a retry is one
+           press; a successful one has done its job. */
+        if (importing) aiAttachClear();
         // one continuous flow: notes → plan → requirements (unless opted out).
         // On merges we only draft when stories don't exist yet — an update to the
         // plan shouldn't silently rewrite an existing requirements layer.
@@ -32812,6 +33332,9 @@ ${aiSchemaHint()}`];
       if (!changed.length && !removals.length && !Array.isArray(plan.resources))
         throw new Error('AI response contained no changes (changedTasks / removeTasks / resources all missing).');
       if (plan.projectName) document.getElementById('projectName').value = plan.projectName;
+      const ps = aiIsoDate(plan.projectStart);
+      if (ps) document.getElementById('projectStart').value = ps;
+      aiDerivedIds = [];
       const byLower = {};
       tasks.forEach(t => { byLower[t.name.trim().toLowerCase()] = t; });
       // 1) removals — children climb to the removed task's parent; stories that
@@ -32893,7 +33416,12 @@ ${aiSchemaHint()}`];
           // model contradicting itself, and sorting is the only sane answer
           if (!(o <= m && m <= p)) { const a2 = [o, m, p].sort((a, b) => a - b); o = a2[0]; m = a2[1]; p = a2[2]; }
         }
-        const attendees = Array.isArray(pt.attendees) ? pt.attendees.map(a => ({ name: String(typeof a === 'string' ? a : (a && a.name) || '').trim(), units: 100 })).filter(a => a.name) : null;
+        // an attendee's own allocation is kept, as Create keeps it ("Ben at 25%")
+        const attendees = Array.isArray(pt.attendees) ? pt.attendees.map(a => {
+          const u = Number(a && a.units);
+          return { name: String(typeof a === 'string' ? a : (a && a.name) || '').trim(), units: (a && typeof a === 'object' && Number.isFinite(u) && u >= 0) ? u : 100 };
+        }).filter(a => a.name) : null;
+        const sne = aiIsoDate(pt.startNoEarlier), dl = aiIsoDate(pt.deadline);
         if (!t) {
           // plan.strictIds is set by any flow whose delta was generated FROM a
           // digest of ids. On that path an unresolved name is a hallucination,
@@ -32901,6 +33429,12 @@ ${aiSchemaHint()}`];
           // Hardening" becomes a real zero-duration milestone that renumbers
           // every WBS code beneath it. Refuse, and report the refusal.
           if (plan.strictIds) { rejected.push(name); return; }
+          // a NEW activity given one figure gets the single-estimate range —
+          // it has no current values for the partial rule above to inherit
+          if (!pt.milestone && nGiven === 1 && dM > 0) {
+            ({ o, m, p } = aiSingleRange(dM));
+            aiDerivedIds.push(nextId);
+          } else if (pt.rangeDerived === true && p > 0) aiDerivedIds.push(nextId);
           /* An insert with no durations used to become a MILESTONE by
              inference. That is how a name the model drifted on — an em dash
              normalised to a hyphen, a fixed typo, a reworded title, or a
@@ -32920,10 +33454,16 @@ ${aiSchemaHint()}`];
             description: String(pt.description || '').trim(),
             acceptance: String(pt.acceptance || '').trim(),
             taxonomy: taxCoerce(pt.taxonomy), taxSrc: taxCoerce(pt.taxonomy) ? 'ai' : null,
+            startNoEarlier: sne || '', deadline: dl || '',
             predecessors: [] });
           tasks.push(t); addedN++; addedTasks.push(t);
         } else {
           updatedN++;
+          if (pt.rangeDerived === true && nGiven) aiDerivedIds.push(t.id);
+          // a date is set by a valid date, cleared by an explicit empty one, and
+          // anything else — a malformed string — leaves it as it was
+          if (pt.startNoEarlier !== undefined && (sne || pt.startNoEarlier === '' || pt.startNoEarlier === null)) t.startNoEarlier = sne || '';
+          if (pt.deadline !== undefined && (dl || pt.deadline === '' || pt.deadline === null)) t.deadline = dl || '';
           t.name = name; // rename via "was" keeps id → progress, links, history survive
           if (pt.optimistic != null || pt.mostLikely != null || pt.pessimistic != null) { t.o = o; t.m = m; t.p = p; }
           if (pt.milestone != null) t.milestone = !!pt.milestone && !isSummaryId(t.id);
@@ -32947,7 +33487,8 @@ ${aiSchemaHint()}`];
           });
         }
         byLower[name.toLowerCase()] = t;
-        pending.push({ t, parent: pt.parent != null ? String(pt.parent).trim() : undefined, dependsOn: Array.isArray(pt.dependsOn) ? pt.dependsOn : undefined });
+        pending.push({ t, parent: pt.parent != null ? String(pt.parent).trim() : undefined,
+          dependsOn: Array.isArray(pt.dependsOn) ? pt.dependsOn : (pt.dependsOn != null && pt.dependsOn !== '' ? [pt.dependsOn] : undefined) });
       });
       // resolve parent / dependsOn names against existing + newly added tasks
       pending.forEach(({ t, parent, dependsOn }) => {
@@ -32957,7 +33498,20 @@ ${aiSchemaHint()}`];
           else if (pr && pr.id !== t.id) t.parentId = pr.id; // unresolvable name → keep current nesting
         }
         if (dependsOn !== undefined) {
-          const preds = dependsOn.map(dn => byLower[String(dn || '').trim().toLowerCase()]).filter(x => x && x.id !== t.id).map(x => ({ id: x.id, type: 'FS', lag: 0 }));
+          /* A plain name KEEPS the type and lag its link already has. It used to
+             rebuild every link as finish-to-start with no lag, so re-emitting an
+             activity for any reason — a new owner, a renamed deliverable —
+             silently turned "starts two days after Design starts" into "waits
+             for Design to finish". An object sets the type and lag explicitly. */
+          const had = t.predecessors || [];
+          const preds = [];
+          dependsOn.forEach(dn => {
+            const d = aiDepOf(dn);
+            const x = d && byLower[d.name.toLowerCase()];
+            if (!x || x.id === t.id || preds.some(q => q.id === x.id)) return;
+            const old = d.bare ? had.find(q => q.id === x.id) : null;
+            preds.push(old ? { id: x.id, type: old.type || 'FS', lag: Number(old.lag) || 0 } : { id: x.id, type: d.type, lag: d.lag });
+          });
           if (preds.length || dependsOn.length === 0) t.predecessors = preds; // all names unresolvable → keep old links
         }
       });
@@ -33043,6 +33597,9 @@ ${aiSchemaHint()}`];
       if (plan.projectName) document.getElementById('projectName').value = plan.projectName;
       if (plan.durationUnit && ['days','weeks','hours'].includes(plan.durationUnit))
         document.getElementById('durationUnit').value = plan.durationUnit;
+      const ps = aiIsoDate(plan.projectStart);
+      if (ps) document.getElementById('projectStart').value = ps;
+      aiDerivedIds = [];
 
       // Build fresh task objects; assign ids by order, then resolve dependsOn/parent names.
       const built = [];
@@ -33054,13 +33611,15 @@ ${aiSchemaHint()}`];
         const name = String(pt.name || '').trim();
         if (!name) return;
         const isParent = parentNames.has(name.toLowerCase());
-        let o = Number(pt.optimistic) || 0, m = Number(pt.mostLikely) || 0, p = Number(pt.pessimistic) || 0;
+        const est = aiEstimateOf(pt, isParent);
+        let o = est.o, m = est.m, p = est.p;
         let isMs = (!!pt.milestone || (o === 0 && m === 0 && p === 0)) && !isParent;
         if (!isMs && !isParent) {
           const arr = [o, m, p].sort((a, b) => a - b); o = arr[0]; m = arr[1]; p = arr[2];
           if (p <= 0) { o = m = p = 0; }
         }
         const id = idc++;
+        if (!isMs && !isParent && p > 0 && (est.derived || pt.rangeDerived === true)) aiDerivedIds.push(id);
         nameToId[name.toLowerCase()] = id;
         /* Whether the MODEL chose this allocation or the app defaulted it. The
            difference decides whether the capacity pass below may touch it: a
@@ -33086,13 +33645,15 @@ ${aiSchemaHint()}`];
           description: String(pt.description || '').trim(),
           acceptance: String(pt.acceptance || '').trim(),
           taxonomy: taxCoerce(pt.taxonomy), taxSrc: taxCoerce(pt.taxonomy) ? 'ai' : null,
-          predecessors: [], _dependsOn: pt.dependsOn || [], _parent: String(pt.parent || '').trim() }));
+          startNoEarlier: aiIsoDate(pt.startNoEarlier) || '', deadline: aiIsoDate(pt.deadline) || '',
+          predecessors: [], _dependsOn: Array.isArray(pt.dependsOn) ? pt.dependsOn : (pt.dependsOn ? [pt.dependsOn] : []), _parent: String(pt.parent || '').trim() }));
       });
       // resolve dependencies + WBS parent by name
       built.forEach(t => {
         (t._dependsOn || []).forEach(dn => {
-          const pid = nameToId[String(dn || '').trim().toLowerCase()];
-          if (pid && pid !== t.id) t.predecessors.push({ id: pid, type: 'FS', lag: 0 });
+          const d = aiDepOf(dn);
+          const pid = d && nameToId[d.name.toLowerCase()];
+          if (pid && pid !== t.id && !t.predecessors.some(x => x.id === pid)) t.predecessors.push({ id: pid, type: d.type, lag: d.lag });
         });
         const par = nameToId[String(t._parent || '').trim().toLowerCase()];
         t.parentId = (par && par !== t.id) ? par : null;
@@ -43339,7 +43900,7 @@ IMPORTANT: rows marked [ROLL-UP] are WBS summary rows — the tool schedules and
         tasks: tasks.map(t => ({ name: t.name, optimistic: t.o, mostLikely: t.m, pessimistic: t.p, milestone: t.milestone, owner: t.owner, units: t.units,
           parent: (tasks.find(x => x.id === t.parentId) || {}).name || '',
           deliverable: t.deliverable, description: t.description, acceptance: t.acceptance,
-          dependsOn: t.predecessors.map(p => (tasks.find(x => x.id === p.id) || {}).name).filter(Boolean) })),
+          dependsOn: aiDepsDigest(t) })),
         resources: Object.keys(resources).map(n => ({ name: n, capacityPercent: getCapacity(n), kind: getKind(n) })) };
       const fixPrefix = [histPromptBlock() + bankPromptBlock(), `You are improving a project plan based on a health-check review.
 ${aiDeltaSchemaHint()}`];
@@ -43913,6 +44474,7 @@ Return ONLY JSON: {"narrative":"the three paragraphs separated by \\n\\n"}`;
       /* After hydrate, so "is there a plan yet" is a real answer rather than
          the empty state every load starts in. */
       aiInitFold();
+      aiAttachInit();
     })();
   </script>
   <div id="helpPop" role="tooltip" tabindex="-1" hidden></div>

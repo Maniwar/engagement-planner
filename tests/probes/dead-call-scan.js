@@ -60,6 +60,8 @@ Element HTMLElement Node NodeList Event CustomEvent MutationObserver Intersectio
 ClipboardItem Image Audio Worker IDBKeyRange indexedDB crypto performance
 ErrorEvent PromiseRejectionEvent DOMParser XMLSerializer Range Text Option
 DOMException AbortSignal MouseEvent KeyboardEvent PointerEvent CustomEvent
+ArrayBuffer DataView Uint8Array Uint8ClampedArray Int32Array Float32Array Float64Array
+DataTransfer ClipboardEvent DragEvent InputEvent FocusEvent createImageBitmap ImageBitmap OffscreenCanvas
 eval require module exports process __dirname __filename Buffer
 `.trim().split(/\s+/));
 

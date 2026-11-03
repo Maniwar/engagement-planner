@@ -142,6 +142,30 @@ both are null; before, every flow reported it as bad JSON. A cut just after a
 space keeps exactly one space: the turn sent is trimmed, the answer kept is
 not.
 
+`schedule-import-sweep.js` checks that a schedule pasted or dropped into the
+AI Plan Builder — a Gantt screenshot, a table copied from Excel, Smartsheet,
+MS Project or Google Sheets, TSV/CSV text, or a PDF — becomes the plan through
+the same Create and Update paths as typed notes. No key and no network: fetch
+is stubbed and the request body is read as built. Its spec is the vendor's
+(vision, PDF support and prompt caching, read 2026-11-03), and it holds five
+things. A pasted image is a base64 image block whose media type matches its
+own bytes, placed before the instruction, with the notes flow's cached prefix
+unchanged and one cache mark after the attachments; a cut answer resumes with
+the opening turn, image and all, identical. A pasted table arrives as rows —
+one JSON array per row, cells exact, Excel's indent kept as leading spaces —
+while prose stays prose and a status table in progress mode stays in the
+notes. An image larger than the model reads (2576 px, 4784 visual tokens) is
+downscaled to the documented size and says so; a file too large to open, a
+TIFF, and a 21st attachment are refused by name. The answer lands with WBS
+nesting, SS/FF/SF links with lag, units, attendees and dates; a single
+duration becomes a derived range (it used to land as 0/0/M) and is filed as an
+assumption in the RAID log; and on Update a predecessor named again without a
+type keeps its SS+1 instead of silently becoming finish-to-start. A malformed,
+truncated or wrongly shaped answer changes nothing and leaves the schedule
+attached for a retry; a successful one clears it, so the next Update does not
+resend it. Fourteen hand-planted mutants of this code were each caught by
+name before it was committed.
+
 `mobile-header-sweep.js` checks the header at phone width (390 and 360) and
 on the desktop (1280 and 1440). On a phone it must leave the screen to the plan
 (≤ 140px; it was 226), show the project name from its first letter with an
