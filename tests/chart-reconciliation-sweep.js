@@ -40,8 +40,16 @@ const FIELD = JSON.parse(fs.readFileSync(
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   await page.goto(APP, {waitUntil:'load'});
 
-  const sweep = async (label, data) => {
+  const sweep = async (label, data, bookAtEarned) => {
     await page.evaluate(d => { hydrate(d); calculate(); }, data);
+    /* every activity booked at exactly its earned value: spend ahead of the curve
+       because the work is, nothing overrun (constructed pass 4 below) */
+    if (bookAtEarned) await page.evaluate(() => {
+      const hb = hasBaseline();
+      leafTasks().forEach(t => { t.autoActualCost = false;
+        t.actualCost = plannedCostOf(t, hb) * ((t.percentComplete || 0) / 100); });
+      calculate();
+    });
     await page.waitForTimeout(600);
     /* The panel has to be DRAWN for the geometry checks below. Every other check
        in this file works from planTruthData(), which is the right level for an
@@ -142,6 +150,16 @@ const FIELD = JSON.parse(fs.readFileSync(
           + ' — the date named is later than the real crossing');
       if (cu.days !== Math.max(0, Math.round((cu.on.getTime() - stripTime(new Date()).getTime()) / 86400000)))
         say('Budget bar', 'the "days from now" figure does not match the date beside it');
+      // and the note has to name that day, found here by walking whole days
+      const t03 = stripTime(new Date()).getTime();
+      let d3 = 0;
+      while (d3 < 4000 && accrualAt(segs3, t03 + d3 * 86400000) < ac3) d3++;
+      const wantDay = fmtNice(stripTime(new Date(t03 + d3 * 86400000)));
+      const named = /The gap closes ([^<]+)<\/b>/.exec(String(bud.note || ''));
+      note.catchUpNamed = named ? named[1] : null;
+      if (named && named[1] !== escapeHtml(wantDay))
+        say('Budget bar', 'the note says the gap closes ' + named[1] + ' and the curve first reaches the '
+          + Math.round(ac3) + ' booked on ' + wantDay);
     } else if (cu.never) {
       const total3 = segs3.reduce((n, g) => n + (g.c || 0), 0);
       if (total3 >= ac3 - 0.5)
@@ -637,9 +655,9 @@ const FIELD = JSON.parse(fs.readFileSync(
        block rebases a COPY of the fixture — every anchored date shifted by the
        same whole number of days so that today lands about 40% through the
        baseline window, which is the shape all three tones need and the shape
-       the fixture had on the day it was committed. Only this block uses the
-       copy: everything else in the file reads plans whose properties do not
-       hang on where today falls. */
+       the fixture had on the day it was committed. Only this block and pass 4
+       use the copy: everything else in the file reads plans whose properties
+       do not hang on where today falls. */
     const TONE_CRM = (() => {
       const d = JSON.parse(JSON.stringify(CRM));
       const DAY = 86400000;
@@ -795,6 +813,23 @@ const FIELD = JSON.parse(fs.readFileSync(
           + 'first quarter of the window (front ' + shaped.front.atQ + ' · even ' + shaped.even.atQ
           + ' · back ' + shaped.back.atQ + ') — the two shapes are the wrong way round');
     }
+
+    /* ── 4. AHEAD OF THE CURVE, THROUGH THE WHOLE SWEEP ───────────────────
+       The three plans the sweep reads all closed in July, so none of them is
+       ahead of its spend curve today: the catch-up date (1c) and the dates on a
+       timing row (1e2) were never on screen, and both checks sat green on
+       nothing. The rebased copy, with every activity booked at its earned
+       value, is ahead — so it gets the same sweep, and has to reach both. */
+    const ahead = await sweep('Ahead of the curve', TONE_CRM, true);
+    bad.push(...ahead.contradictions);
+    note.aheadOfCurve = { catchUp: ahead.counts.catchUp, catchUpNamed: ahead.counts.catchUpNamed,
+      timingRows: ahead.counts.timingRows, timingRowsNamingDates: ahead.counts.timingRowsNamingDates };
+    if (!/^\d{4}-\d\d-\d\d$/.test(ahead.counts.catchUp || '') || !ahead.counts.catchUpNamed)
+      say('ahead setup', 'booked at earned value on the rebased plan, the curve still has no catch-up date to '
+        + 'name (' + ahead.counts.catchUp + ') — check 1c tested nothing');
+    if (!ahead.counts.timingRows)
+      say('ahead setup', 'no drill-in row says the money is ahead of or behind its dates, so check 1e2 tested '
+        + 'nothing');
     return { contradictions: bad, counts: note };
   })();
 

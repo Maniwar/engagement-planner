@@ -74,8 +74,10 @@ const DATA = FIXTURE();
     // ── 3. PLAN VS ACTUAL roll-up cards must not contradict those bars ─────
     switchTab('baseline'); renderBaseline();
     const cardsHost = document.getElementById('baselineContainer');
-    const cards = [...cardsHost.querySelectorAll('.bl-cards .stat-card')].map(el => ({
-      label: (el.querySelector('.label') || {}).textContent || '',
+    /* .pa-tile since the cards became tiles. The old .stat-card selector found
+       none, and every card check below sat green on an empty list. */
+    const cards = [...cardsHost.querySelectorAll('.bl-cards .pa-tile')].map(el => ({
+      label: (el.querySelector('.pa-tile-lbl') || {}).textContent || '',
       text: el.textContent.replace(/\s+/g, ' ').trim(),
       /* THE DELTA, not the pair. Both are font-weight:700, and `.find` returns
          the FIRST — which is the "$14,779 due by today → $27,900" line, painted
@@ -93,6 +95,10 @@ const DATA = FIXTURE();
     const budCard = cards.find(c => /Budget/.test(c.label));
     const schCard = cards.find(c => /Schedule/.test(c.label));
     const scpCard = cards.find(c => /Scope/.test(c.label));
+    if (!budCard || !schCard || !scpCard)
+      say('Plan vs actual', 'drew ' + cards.length + ' card(s) and is missing the '
+        + [!budCard && 'Budget', !schCard && 'Schedule', !scpCard && 'Scope'].filter(Boolean).join(', ')
+        + ' one, so the comparisons below read nothing');
     if (budCard) {
       // it must quote the SAME gap as the bar, in the same direction
       const m = budCard.text.match(/([\d,]+(?:\.\d+)?)\s+(above|below) the plan to date/);
@@ -343,6 +349,59 @@ const DATA = FIXTURE();
     R.contradictions.push('IO map :: gaps were found and the dictionary shows no banner naming them');
   if (io.roundTripLost)
     R.contradictions.push('IO map :: a stated input did not survive a save/load round trip');
+
+  /* ═══ THE BUDGET CARD WHILE THE BASELINE IS STILL RUNNING ════════════════
+     On the fixture today is past every baseline finish, so "due by today" IS
+     the envelope and a card quoting either one prints the same figure — the
+     pair-and-delta check above cannot tell them apart. So the baseline windows
+     are moved, whole days, until the last one closes a month from now: what is
+     due today is then a real fraction of the envelope, and the card's pair has
+     to be the delta's own subtraction, due by today → booked. */
+  const open = await page.evaluate(() => {
+    const out = {}, DAY = 86400000;
+    const num = s => { const m = String(s).replace(/,/g, '').match(/-?[\d.]+/); return m ? +m[0] : NaN; };
+    // baseline dates are local-midnight Dates once hydrated; move them by calendar day
+    const day = d => d ? stripTime(d) : null;
+    const ends = leafTasks().map(t => day(t.baseFinish)).filter(d => d && Number.isFinite(d.getTime()));
+    if (!hasBaseline() || !ends.length) { out.unbuilt = 'the plan has no baselined activity to move'; return out; }
+    const shift = Math.round((stripTime(new Date()).getTime() + 30 * DAY
+      - Math.max.apply(null, ends.map(d => d.getTime()))) / DAY);
+    const mv = d => { const x = day(d);
+      if (!x || !Number.isFinite(x.getTime())) return d;
+      x.setDate(x.getDate() + shift); return x; };
+    tasks.forEach(t => { t.baseStart = mv(t.baseStart); t.baseFinish = mv(t.baseFinish); });
+    calculate();
+    const hb = hasBaseline(), today = stripTime(new Date()).getTime();
+    const AC = leafTasks().reduce((s, t) => s + actualCostOf(t), 0);
+    const PV = accrualAt(pvSpread(hb, leafTasks()).segs, today);
+    const BAC = budgetAtCompletion(hb);
+    out.booked = Math.round(AC); out.dueByToday = Math.round(PV); out.envelope = Math.round(BAC);
+    if (!(PV > 1 && BAC - PV > Math.max(2, BAC * 0.02))) {
+      out.unbuilt = 'moving the baseline left ' + Math.round(PV) + ' due by today against a '
+        + Math.round(BAC) + ' envelope, so the two are not distinct and nothing below is tested';
+      return out;
+    }
+    switchTab('baseline'); renderBaseline();
+    const tile = [...document.querySelectorAll('#baselineContainer .bl-cards .pa-tile')]
+      .find(el => /Budget/.test((el.querySelector('.pa-tile-lbl') || {}).textContent || ''));
+    const text = tile ? tile.textContent.replace(/\s+/g, ' ').trim() : '';
+    out.card = text.slice(0, 120);
+    const pair = text.match(/([\d,]+(?:\.\d+)?)[^\d]*?→\s*\$?\s*([\d,]+(?:\.\d+)?)/);
+    const dm = text.match(/([\d,]+(?:\.\d+)?)\s+(above|below) the plan to date/);
+    out.findings = [];
+    if (!pair || !dm) { out.findings.push('the card states no pair or no delta: "' + out.card + '"'); return out; }
+    const left = num(pair[1]), right = num(pair[2]), delta = num(dm[1]) * (dm[2] === 'above' ? 1 : -1);
+    if (Math.abs((right - left) - delta) > 2)
+      out.findings.push('reads "' + fmtMoney(left) + ' → ' + fmtMoney(right) + '" but its delta says ' + dm[0]
+        + ' — the pair and the delta use different references');
+    if (Math.abs(left - PV) > 2)
+      out.findings.push('its pair starts from ' + fmtMoney(left) + ' and ' + fmtMoney(PV) + ' is due by today ('
+        + fmtMoney(BAC) + ' is the whole envelope)');
+    return out;
+  });
+  R.budgetCardOpenWindow = open;
+  if (open.unbuilt) R.contradictions.push('Plan vs actual · Budget card, baseline still running :: ' + open.unbuilt);
+  (open.findings || []).forEach(f => R.contradictions.push('Plan vs actual · Budget card, baseline still running :: ' + f));
 
   R.pageErrors = errs.slice(0, 8);
   console.log(JSON.stringify(R, null, 1));

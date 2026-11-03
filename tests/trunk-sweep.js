@@ -1287,7 +1287,7 @@ function serveApp() {
        "N to send" was only recomputed past four early returns, one of which
        fires while a dialog is open — the moment somebody is most likely to be
        looking at it. A number that is not moving has to be a sentence. */
-    (function () {
+    await (async function () {
       /* PUT BACK WHAT THIS BORROWS. The keystroke below sets trunkLastKey, and
          the typing guard further down reads it — the first draft of this block
          made that check report a focused-but-idle box as busy, which is the
@@ -1307,7 +1307,26 @@ function serveApp() {
       inp2.blur(); inp2.remove();
       trunkHeld = ''; updateTrunkBtn();
       out.freeLabel = btn ? String(btn.textContent || '') : '';
+      /* AND THE TICK ITSELF RECORDS IT. Setting trunkHeld by hand proves the
+         label can show the reason; only a real tick, held off by real typing,
+         proves the loop gives one. */
+      const keepAuto = trunkAuto, keepPaused = trunkPaused;
+      trunkAuto = true; trunkPaused = '';
+      const inp3 = document.createElement('input');
+      inp3.type = 'text';
+      document.body.appendChild(inp3);
+      inp3.focus();
+      inp3.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', bubbles: true }));
+      await trunkAutoTick();
+      clearInterval(trunkTimer); trunkTimer = null;   // a tick that got past the guard restarts the poll
+      out.tickHeldLabel = btn ? String(btn.textContent || '') : '';
+      inp3.blur(); inp3.remove();
+      trunkHeld = ''; trunkAuto = keepAuto; trunkPaused = keepPaused; updateTrunkBtn();
       trunkLastKey = savedKey;
+      if (!/typing/i.test(out.tickHeldLabel))
+        say('Auto sync', 'somebody was typing, the automatic tick held off, and the control still reads "'
+          + out.tickHeldLabel + '". The loop declined without saying so, so a number that is not moving '
+          + 'looks like a loop that is broken');
       if (!/typing/i.test(out.heldLabel))
         say('Auto sync', 'the loop held off because somebody was typing and the control says nothing about '
           + 'it — reading "Auto sync: on" beside work that is not moving is the reason somebody asks why '
@@ -1617,6 +1636,237 @@ function serveApp() {
           + 'The parent version was filed before the work record existed, which is every version in a trunk '
           + 'that predates it — and the work state is in that version\'s stored PLAN, not only in the stamp, '
           + 'so there was always something to compare against');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
+    /* ═══ AND WHEN THAT OLDER PARENT HAS BEEN COMPACTED INTO THE BASE ══════
+       Compaction moves the oldest surviving payload into t.base and leaves its
+       log entry holding only the id, so the base is the one place that
+       version's plan is still kept. Shaped here the way trunkCompact shapes
+       it, on a history with no work stamps, and read off the dialog a
+       newcomer pulling it actually sees. */
+    await (async () => {
+      const sayK = m => say('Compacted history', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h8 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h8;
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      pushVersion('edit', 'old build'); await trunkPush(true);
+      beA('Bob');
+      const tgt = tasks.find(x => x.id === A_ID);
+      const was = Number(tgt.percentComplete) || 0;
+      updatePct(A_ID, was === 100 ? 40 : 100);
+      const now = Number(tgt.percentComplete) || 0;
+      await trunkPush(true);
+
+      const raw = await trunkRead(h8);
+      const strip = doc => ((doc && doc.planVersions) || []).forEach(v => { delete v._work; });
+      (raw.log || []).forEach(e => { delete e._work; strip(e.doc); });
+      const e0 = (raw.log || [])[0];
+      if (!e0 || (raw.log || []).length < 2) { sayK('premise: two pushes left ' + (raw.log || []).length
+        + ' entries, so there is no parent to compact'); return; }
+      raw.base = { vid: e0.vid, pvid: e0.pvid || null, at: e0.at, by: e0.by, doc: e0.doc };
+      e0.doc = null;
+      await trunkWrite(h8, raw);
+
+      const fresh = JSON.parse(JSON.stringify(window.__fixture));
+      fresh.tasks = []; fresh.planVersions = []; fresh.planLineage = '';
+      restore({ doc: fresh, versions: [], lineage: '' }); beA('Newcomer');
+      const el = document.getElementById('joinModal');
+      const pl = trunkPull(false);
+      await new Promise(r => setTimeout(r, 600));
+      const open = !!(el && el.classList.contains('open'));
+      const txt = open ? (document.getElementById('joinBody').innerText || '').replace(/\s+/g, ' ') : '';
+      out.compactedText = txt.slice(0, 160);
+      if (open) joinClose(false);
+      await pl;
+      await new Promise(r => setTimeout(r, 250));
+      if (!open) sayK('premise: a newcomer pulling the trunk was asked nothing, so there is no changelog to read');
+      else if (!new RegExp(was + '%[^%]{0,14}' + now + '%').test(txt))
+        sayK('Bob moved progress from ' + was + '% to ' + now + '% on top of a version whose payload compaction '
+          + 'has moved into the trunk\'s base, and the pull dialog does not show it. The base holds that '
+          + 'version\'s whole plan, so there was something to compare against');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
+    /* ═══ A TRIMMED VERSION IS STILL ONE THIS COPY HAS SEEN ════════════════
+       Past VERSION_CAP the chain drops its oldest working versions. A teammate
+       whose copy last met this one at such a version shares a real ancestor
+       with it, and must read as diverged rather than as a stranger. And
+       tidying never takes the newest, even when everything older is pinned. */
+    (() => {
+      const sayT = m => say('Trimmed history', m);
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      pushVersion('edit', 'the first');
+      const early = pushVersion('edit', 'shared with Bob long ago');
+      for (let i = 0; i < VERSION_CAP; i++) pushVersion('edit', 'since ' + i);
+      out.trimmedEarly = !planVersions.some(v => v.vid === early.vid);
+      if (!out.trimmedEarly)
+        sayT('premise: ' + (VERSION_CAP + 2) + ' versions were filed and the second-oldest is still in the '
+          + 'chain, so nothing was trimmed and the check below proves nothing');
+      else {
+        const branch = { _format: TRUNK_FORMAT, lineage: planLineage, name: 'Bob\'s copy', base: null,
+          log: [{ vid: early.vid, pvid: null, by: 'w2', byName: 'Bob' },
+                { vid: 'v-bob-since', pvid: early.vid, by: 'w2', byName: 'Bob' }] };
+        const rel = trunkRelation(branch);
+        out.trimmedAncestor = rel.relation;
+        if (rel.relation !== 'diverged' || rel.baseVid !== early.vid)
+          sayT('Bob\'s copy grew from a version this plan has since trimmed, and the relation reads "'
+            + rel.relation + '" instead of diverged from it. Trimming dropped the row and forgot the id, so a '
+            + 'real common ancestor is treated as no ancestor at all');
+      }
+
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      for (let i = 0; i < VERSION_CAP; i++) pushVersion('signoff', 'signed ' + i);
+      const newest = pushVersion('edit', 'the plan as it stands');
+      const last = planVersions[planVersions.length - 1];
+      out.newestSurvives = !!last && last.vid === newest.vid;
+      if (!out.newestSurvives)
+        sayT('a version was filed onto a chain of ' + VERSION_CAP + ' sign-offs and tidying removed it, leaving "'
+          + ((last && last.label) || 'nothing') + '" as the newest. The newest is the plan people are working '
+          + 'against, and every ahead/behind count is measured from it');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
+    /* ═══ A FAST-FORWARD TAKES THE TRUNK'S HISTORY, NOT ONLY ITS PLAN ══════
+       hydrate() of the tip brings only the chain the pusher carried. A long
+       trunk lists ids that chain may not: versions an older build trimmed with
+       no record kept, and the base the log grew from. After the pull every one
+       of them is history this copy has seen. Built by hand, since this build
+       never writes a tip that short of its own trunk. */
+    await (async () => {
+      const sayF = m => say('Fast-forward history', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h5 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h5;
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      const rootV = pushVersion('edit', 'where we started');
+      const start5 = capture();
+
+      beA('Bob'); editName(B_ID, 'BOB, MUCH LATER');
+      const tipV = pushVersion('edit', 'bob much later');
+      const middle = 'v-trimmed-by-an-older-build';
+      tipV.pvid = middle;
+      const tipDoc = JSON.parse(JSON.stringify(serialize()));
+      tipDoc.planVersions = (tipDoc.planVersions || []).filter(v => v.vid === tipV.vid);
+      delete tipDoc.planSeenVids;
+      await trunkWrite(h5, { _format: TRUNK_FORMAT, lineage: planLineage, name: 'long-running',
+        base: { vid: rootV.vid, pvid: null, at: rootV.at, by: 'alice@x.test',
+                doc: JSON.parse(JSON.stringify(start5.doc)) },
+        log: [{ vid: middle, pvid: rootV.vid, at: rootV.at, by: 'bob@x.test', byName: 'Bob', kind: 'edit',
+                label: 'trimmed long ago', doc: null },
+              trunkEntryFromVersion(tipV, tipDoc)] });
+
+      restore(start5); beA('Alice');
+      await trunkPull(true);
+      const t5 = await trunkRead(h5);
+      out.ffRelation = trunkRelation(t5).relation;
+      out.ffName = (tasks.find(x => x.id === B_ID) || {}).name;
+      if (out.ffName !== 'BOB, MUCH LATER')
+        sayF('premise: the pull did not take Bob\'s tip (the activity reads "' + out.ffName + '"), so this is '
+          + 'not the fast-forward being checked');
+      const who = trunkWhoMoved(t5);
+      if (who.count)
+        sayF('straight after taking the whole trunk, it still reports "' + who.sentence + '" The fast-forward '
+          + 'took the plan and not the version ids behind it');
+      const strangers = [['the version it fast-forwarded from', rootV.vid], ['an older trimmed version', middle]]
+        .filter(([, id]) => trunkRelation({ _format: TRUNK_FORMAT, lineage: planLineage, name: 'Carol\'s copy',
+          base: null, log: [{ vid: id, pvid: null, by: 'w3', byName: 'Carol' },
+                            { vid: 'v-carol-after-' + id, pvid: id, by: 'w3', byName: 'Carol' }] })
+          .relation !== 'diverged');
+      out.ffStrangers = strangers.map(x => x[0]);
+      if (strangers.length)
+        sayF('after a fast-forward, a copy that grew from ' + out.ffStrangers.join(' and from ') + ' no longer '
+          + 'reads as related, though the trunk this copy just took whole lists it. A common ancestor it was '
+          + 'handed is being treated as none');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
+    /* ═══ A PULL WITH NOTHING TO TAKE STILL JOINS THE HISTORIES ════════════
+       Two people record the same figure. Their chains differ in ids and agree
+       on every field, so the pull has nothing to apply and says "push". The
+       push it asks for has to land, or Pull and Push send each other round in
+       a loop with no exit. */
+    await (async () => {
+      const sayN = m => say('Nothing to take', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h6 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h6;
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      pushVersion('edit', 'shared start'); await trunkPush(true);
+      const start6 = capture();
+      const fig = (Number((tasks.find(x => x.id === A_ID) || {}).percentComplete) || 0) === 70 ? 35 : 70;
+      restore(start6); beA('Bob'); updatePct(A_ID, fig); await trunkPush(true);
+      restore(start6); beA('Alice'); updatePct(A_ID, fig);
+      await trunkPull(true);
+      const tMid = await trunkRead(h6);
+      out.sameEditAfterPull = trunkRelation(tMid).relation;
+      const n0 = (tMid.log || []).length;
+      await trunkPush(true);
+      const t6 = await trunkRead(h6);
+      out.sameEditPushed = (t6.log || []).length - n0;
+      out.sameEditAfterPush = trunkRelation(t6).relation;
+      if (!out.sameEditPushed)
+        sayN('Alice and Bob recorded the same ' + fig + '%. The pull found nothing to take and left the two '
+          + 'histories "' + out.sameEditAfterPull + '", so the push it tells her to make was refused and the '
+          + 'next pull will say the same thing again');
+      else if (out.sameEditAfterPush !== 'same')
+        sayN('after the pull and the push it asked for, the copy still reads "' + out.sameEditAfterPush
+          + '" with the trunk');
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+    })();
+
+    /* ═══ THE TRUNK CARRIES THE PLAN, NOT THE DOCUMENT LIBRARY ═════════════
+       The newest entry keeps only the most recent SOW bodies, and a file far
+       past any plan's size is brought back down by the byte budget on the
+       next push, dropping old payloads and keeping every id. */
+    await (async () => {
+      const sayB = m => say('Trunk size', m);
+      try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
+      const h7 = await root.getFileHandle('trunk-sweep.json', { create: true });
+      trunkHandle = h7;
+      hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
+      beA('Alice'); planLineageId();
+      for (let i = 1; i <= 3; i++) { sowDraft = '<p>Statement of work, draft ' + i + '</p>'; sowPushVersion('draft ' + i); }
+      pushVersion('edit', 'with its documents'); await trunkPush(true);
+      const sv = ((trunkTip(await trunkRead(h7)) || {}).doc || {}).sowVersions || [];
+      out.sowBodies = sv.map(v => !!(v && v.html));
+      if (sv.length < 3)
+        sayB('premise: ' + sv.length + ' SOW version(s) reached the trunk, too few for trimming to apply');
+      else {
+        if (sv[0] && sv[0].html)
+          sayB('the newest trunk entry carries the body of every one of ' + sv.length + ' SOW versions. Each '
+            + 'push re-copies the whole document library, which is how a shared file reached 177 MB');
+        if (!(sv[sv.length - 1] || {}).html)
+          sayB('the newest SOW version reached the trunk without its body, so a colleague pulling has no '
+            + 'document to read');
+      }
+
+      for (let i = 0; i < 4; i++) { editName(A_ID, 'GROWING ' + i); pushVersion('edit', 'growth ' + i); await trunkPush(true); }
+      const raw7 = await trunkRead(h7);
+      const ballast = 'x'.repeat(6 * 1048576);
+      (raw7.log || []).forEach(e => { if (e.doc) e.doc.statusNarrative = ballast; });
+      await trunkWrite(h7, raw7);
+      const fat = (await h7.getFile()).size;
+      const ids7 = (raw7.log || []).map(e => e.vid);
+      editName(A_ID, 'ONTO A FAT FILE'); pushVersion('edit', 'onto a fat file'); await trunkPush(true);
+      const t7 = await trunkRead(h7);
+      const lean = (await h7.getFile()).size;
+      const mb = n => (n / 1048576).toFixed(1) + ' MB';
+      out.fatFile = [mb(fat), mb(lean)];
+      if (lean >= fat)
+        sayB('a push onto a ' + mb(fat) + ' trunk left it at ' + mb(lean) + '. Nothing was compacted, so the '
+          + 'file only ever grows and every poll reparses all of it');
+      const kept7 = new Set((t7.log || []).map(e => e.vid));
+      if (ids7.some(v => !kept7.has(v)))
+        sayB('compacting the trunk dropped version ids as well as payloads, so a gap in the chain can no '
+          + 'longer be proven');
+      if (!(trunkTip(t7) || {}).doc)
+        sayB('compacting the trunk dropped the newest payload, which is the plan every pull rebuilds from');
       hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
     })();
 

@@ -28,6 +28,8 @@ const MEASURE = () => {
   const chip = document.getElementById('projChip');
   const name = chip && (chip.querySelector('b') || chip);
   const cr = chip.getBoundingClientRect(), nr = name.getBoundingClientRect();
+  const cs = getComputedStyle(chip);
+  const innerRight = cr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
   const ctrls = [...document.querySelectorAll('header .header-actions > button, header .header-actions > details > summary, header .header-actions > label')]
     .filter(el => getComputedStyle(el).display !== 'none')
     .map(el => { const r = el.getBoundingClientRect();
@@ -42,11 +44,29 @@ const MEASURE = () => {
     chipText: chip.textContent.trim(),
     nameStartClipped: nr.left < cr.left - 0.5,
     nameCut: name.scrollWidth > name.clientWidth + 1,
+    // the name's own box running past the chip: the chip cuts it, and no ellipsis is drawn there
+    nameRunsOut: nr.right > innerRight + 0.5,
     nameEllipsis: getComputedStyle(name).textOverflow === 'ellipsis',
     h1Text: h1 ? h1.textContent.trim() : '',
     h1Drawn: !!h1 && h1.getBoundingClientRect().width > 1,
     ctrls
   };
+};
+
+/* A name too long for any chip, set on purpose. The plan's own name happens to
+   fit at every width checked here, so without this the rule that a long name
+   yields at its END was never exercised. A mutant that let the name run out of
+   the chip, or centred one that could not shrink, passed for that reason. */
+const LONG_NAME = 'Northwind Holdings – Enterprise CRM Rollout, Data Migration and Service Desk Integration (Phase 2)';
+const longName = async (page, at, say) => {
+  await page.evaluate(n => { document.getElementById('projectName').value = n; renderConfigSummary(); }, LONG_NAME);
+  const L = await page.evaluate(MEASURE);
+  if (!L.nameCut && !L.nameRunsOut) say(at, 'a ' + LONG_NAME.length + '-character project name fits the chip, so the long-name rule was not exercised');
+  if (L.nameStartClipped) say(at, 'a long project name is cut off at its START ("' + L.chipText.slice(0, 30) + '")');
+  if (L.nameRunsOut) say(at, 'a long project name runs past the edge of the chip and is cut there, with no ellipsis');
+  else if (L.nameCut && !L.nameEllipsis) say(at, 'a long project name is cut hard, with no ellipsis');
+  if (L.pageScrollsSideways) say(at, 'a long project name makes the page scroll sideways');
+  return L;
 };
 
 (async () => {
@@ -76,6 +96,7 @@ const MEASURE = () => {
     if (M.headerOverflows) say(at, 'the header content is wider than the header');
     if (M.nameStartClipped) say(at, 'the project name is cut off at its START ("' + M.chipText.slice(0, 30) + '")');
     if (M.nameCut && !M.nameEllipsis) say(at, 'a project name too long for the chip is cut hard, with no ellipsis');
+    if (M.nameRunsOut) say(at, 'the project name runs past the edge of the chip and is cut there, with no ellipsis');
     if (!M.h1Text) say(at, 'the app name is gone from the document, so a screen reader has no page heading');
     if (M.ctrls.length < 5) say(at, 'only ' + M.ctrls.length + ' header controls are shown — undo, redo, Project, Team and Export must all be reachable');
     M.ctrls.forEach(c => {
@@ -100,6 +121,7 @@ const MEASURE = () => {
       await s.click();
       await page.waitForTimeout(100);
     }
+    R['phone' + w + 'LongName'] = await longName(page, at + ', long name', say);
     await ctx.close();
   }
 
@@ -113,7 +135,9 @@ const MEASURE = () => {
     if (!M.h1Drawn) say(at, 'the app name is not drawn');
     if (M.nameStartClipped) say(at, 'the project name is cut off at its START');
     if (M.nameCut && !M.nameEllipsis) say(at, 'a project name too long for the chip is cut hard, with no ellipsis');
+    if (M.nameRunsOut) say(at, 'the project name runs past the edge of the chip and is cut there, with no ellipsis');
     if (M.pageScrollsSideways) say(at, 'the page scrolls sideways');
+    R['desk' + w + 'LongName'] = await longName(page, at + ', long name', say);
     await ctx.close();
   }
 

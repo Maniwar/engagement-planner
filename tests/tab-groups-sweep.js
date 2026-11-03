@@ -20,6 +20,11 @@
    · the gap between two stages is visibly wider than the gap inside one;
    · on the desktop the strip is one row;
    · the pill sits on the active tab after every switch.
+
+   The plan is not this check's input. The strip is drawn the same whatever the
+   plan holds, so the report is identical on a full plan and an empty one, and
+   vacuity-check.js names it for that reason. It accepts the name only while the
+   engine records mutants that this check catches (the "tab groups:" ones).
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const { requirePlaywright, chromePath, APP, FIXTURE } = require('./_harness');

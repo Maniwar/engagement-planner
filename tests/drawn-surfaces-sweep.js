@@ -665,6 +665,25 @@ const QA = JSON.parse(fs.readFileSync(
           say('RAID form', 'the scale says 1–5 and never says what 1 or 5 MEANS, so two people scoring the '
             + 'same risk are not using the same scale and the product they are multiplied into is not '
             + 'comparable between them');
+        /* AND THE BOXES HOLD TO THAT SCALE. Save and the live score both clamp,
+           so the one place a 6 survives is the box the reader is typing into:
+           its arrows step past 5 and it never flags the value as out of range. */
+        ['rProb', 'rImpact'].forEach(id => {
+          const box = document.getElementById(id);
+          const name = ((document.querySelector('label[for="' + id + '"]') || {}).textContent || id).trim();
+          if (!box) { say('RAID form', 'there is no ' + name + ' box'); return; }
+          const keep = box.value;
+          box.value = '5'; try { box.stepUp(); } catch (e) {}
+          const up = box.value;
+          box.value = '1'; try { box.stepDown(); } catch (e) {}
+          const down = box.value;
+          box.value = '6'; const flagged = box.validity.rangeOverflow;
+          box.value = keep;
+          if (up !== '5' || down !== '1' || !flagged)
+            say('RAID form', 'the ' + name + ' box steps from 5 to "' + up + '" and from 1 to "' + down + '"'
+              + (flagged ? '' : ', and takes a 6 without flagging it') + ' — a score outside the scale '
+              + 'it is labelled with');
+        });
         /* ── EVERY TYPE THAT CAN TURN OUT MUST BE ABLE TO SAY SO ──────────
            Reported by a reader looking at a closed Decision with no way to
            record what had happened to it: Closed is a STATUS — it answers "is
@@ -1167,6 +1186,37 @@ const QA = JSON.parse(fs.readFileSync(
           }
         }
         t.units = keptU; t.participants = keptP; calculate();
+      })();
+
+      /* ── A DURATION PRINTS IN THE UNIT ITS SIZE CALLS FOR ───────────────
+         The cell scales both ways: under a working day it reads in hours, past
+         two working weeks in weeks. The phase check above converts whatever
+         suffix it finds, so "0.5d" for 4h or "60d" for a quarter passed it.
+         Neither fixture holds such an estimate, so one is built and read back
+         off the drawn row. */
+      (() => {
+        const t = leafTasks().find(x => !x.isSummary && !x.milestone
+          && document.querySelector('#taskTable tbody tr[data-task-id="' + x.id + '"]'));
+        if (!t) { say('Activity list', 'no leaf activity is drawn — the duration-unit check is vacuous'); return; }
+        const kept = { o: t.o, m: t.m, p: t.p }, wdw = workingDaysPerWeek();
+        // [column, field, working days, unit it must read in, figure]
+        const cases = [['O', 'o', 0.5, 'h', 4], ['M', 'm', 3, 'd', 3], ['P', 'p', 12 * wdw, 'w', 12]];
+        cases.forEach(c => { t[c[1]] = workingDaysToUnit(c[2]); });
+        calculate(); switchTab('tasks'); renderTaskTable();
+        const hdr = [...document.querySelectorAll('#taskTable thead th')].map(x => x.textContent.trim());
+        const row = document.querySelector('#taskTable tbody tr[data-task-id="' + t.id + '"]');
+        out.durCells = {};
+        cases.forEach(([col, , wd, unit, n]) => {
+          const cell = row && row.cells[hdr.indexOf(col)];
+          const got = cell ? cell.textContent.trim() : '';
+          out.durCells[col] = got;
+          const gm = got.match(/^(-?[\d.]+)\s*([mhdw])$/);
+          if (!gm || gm[2] !== unit || Math.abs(+gm[1] - n) > 0.01)
+            say('Activity list', wd + ' working day(s) in the ' + col + ' column print as "' + got + '", not "'
+              + n + unit + '" — ' + (unit === 'h' ? 'sub-day work has to read in hours'
+                : unit === 'w' ? 'a long estimate has to scale up to weeks' : 'a few days have to read in days'));
+        });
+        Object.assign(t, kept); calculate(); renderTaskTable();
       })();
 
       /* ── WORK ABOVE DURATION IS RIGHT, AND HAS TO SAY WHY ───────────────

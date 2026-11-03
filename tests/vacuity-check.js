@@ -86,6 +86,37 @@ const SWEEPS = fs.readdirSync(__dirname)
   .filter(f => !ONLY.length || ONLY.some(o => f.indexOf(o) >= 0))
   .sort();
 
+/* CHECKS WHOSE INPUT IS NOT THE PLAN, BY NAME. Some checks load the shared
+   plan only so the page is in its working state, and then assert something the
+   plan does not reach. Their output is identical on a full plan and an empty
+   one, and correctly so. Each is named here with what its input actually is.
+
+   A name is not enough, though: "this check is fine" in prose is the bandage
+   this file was written to replace. So each name has to be backed by the
+   evidence that stands in for this probe's guarantee: mutants in the engine
+   that the check is recorded as catching (tests/.mutation-killers.json,
+   counted only for mutants still in the engine). A named check with none is a
+   finding. Nothing yet proves it can fail. */
+const NOT_THE_PLAN = {
+  'portfolio-sweep.js': 'builds its own project index inline (hand-chosen numbers so the expected answers '
+    + 'are derivable by hand) and asserts against that, so the shared fixture is not its input',
+  'tab-groups-sweep.js': 'checks the tab strip (the nine tabs and their order, the three stage captions, '
+    + 'the spacing between stages, the pill), which is drawn the same whatever the plan holds; the plan is '
+    + 'loaded only so the page is in its working state',
+};
+const LIVE_MUTANTS = (() => {
+  const src = fs.readFileSync(path.join(__dirname, 'mutation-engine.js'), 'utf8');
+  const re = /\bwhat:\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g, out = new Set();
+  let m;
+  while ((m = re.exec(src))) out.add((m[1] != null ? m[1] : m[2]).replace(/\\(['"\\])/g, '$1'));
+  return out;
+})();
+const KILLERS = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, '.mutation-killers.json'), 'utf8')) || {}; }
+  catch (e) { return {}; }
+})();
+const caughtBy = s => Object.keys(KILLERS).filter(w => KILLERS[w] === s && LIVE_MUTANTS.has(w)).length;
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ptr-vac-'));
 const emptyPath = path.join(tmp, 'empty-plan.json');
 fs.writeFileSync(emptyPath, JSON.stringify(EMPTY));
@@ -133,14 +164,18 @@ function normalise(s) {
        full plan and an empty one, and correctly so: the plan is not its input.
 
        Named rather than silently tolerated, and named with the evidence that
-       replaces this probe's guarantee: five mutants in the engine aim at
-       portfolioData and all five are caught, which is the same assurance
-       reading the fixture would have bought. A false finding that stands for
-       months is how a probe like this one gets ignored. */
-    if (/portfolio-sweep\.js$/.test(s)) {
-      skipped.push(s + ' — builds its own project index inline (hand-chosen numbers so the expected answers '
-        + 'are derivable by hand) and asserts against that, so the shared fixture is not its input. Its '
-        + 'ability to fail is proven instead by the five portfolio mutants in the engine, all caught.');
+       replaces this probe's guarantee: the mutants in the engine it is recorded
+       as catching, which is the same assurance reading the fixture would have
+       bought. A false finding that stands for months is how a probe like this
+       one gets ignored. The same now holds for every check in NOT_THE_PLAN, and
+       the evidence is counted, not written. */
+    if (NOT_THE_PLAN[s]) {
+      const n = caughtBy(s);
+      if (!n) findings.push(s + ' :: is named as not reading the plan, and no mutant still in the engine is '
+        + 'recorded as caught by it, so nothing proves it can fail. Aim a mutant at it in mutation-engine.js '
+        + 'and run the engine');
+      skipped.push(s + ' — ' + NOT_THE_PLAN[s] + '. Its ability to fail is proven instead by the ' + n
+        + ' mutant(s) in the engine it is recorded as catching.');
       continue;
     }
     if (!/\bFIXTURE\b/.test(src)) {

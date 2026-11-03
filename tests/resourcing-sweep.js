@@ -647,6 +647,58 @@ const DATA = FIXTURE();
       return out;
     })();
 
+    /* ═══ A CONFLICT ONE MOVE CAN FIX GETS FIXED ═══════════════════════════
+       The checks above only ask that levelling never makes things worse, which
+       a leveller that stops before its first move also satisfies. Both
+       levellers carry safety limits (a move cap, an iteration cap, a time
+       budget), and "stopped at the safety limit" is only true when one was
+       actually reached. So: two tiny constructed plans, each fixable in one
+       move. Slack levelling must fix the first without moving the finish;
+       extend levelling must fix the second by moving it. Neither may claim a
+       safety stop. */
+    const levelSmall = (() => {
+      const out = {};
+      const mk = (id, d, owner, preds) => ({ id, name: 'Lev ' + id, o: d, m: d, p: d, milestone: false,
+        owner, units: 100, attendees: [], levelDelay: 0, percentComplete: 0, parentId: null,
+        predecessors: (preds || []).map(p => ({ id: p, type: 'FS', lag: 0 })) });
+      const runOn = (list, fn) => {
+        const d = JSON.parse(JSON.stringify(window.__fixture));
+        d.tasks = list; d.nextId = 100; d.levelMode = 'slack'; d.baselineDate = null;
+        d.resources = { 'Lev X': { capacity: 100, rate: 100, billRate: 200 },
+                        'Lev Y': { capacity: 100, rate: 100, billRate: 200 } };
+        hydrate(d); calculate();
+        const r = { n: list.length, before: computeResourceLoad().overResourceDays,
+                    end0: Math.max(...leafTasks().map(t => t.ef)) };
+        try { window[fn](); } catch (e) { r.threw = e.message; }
+        r.after = computeResourceLoad().overResourceDays;
+        r.end1 = Math.max(...leafTasks().map(t => t.ef));
+        r.status = ((document.getElementById('levelStatus') || {}).textContent || '').slice(0, 200);
+        return r;
+      };
+      // X has 5d then B (3d) at the same time; B has 7d of slack and X is free after day 5
+      const s = out.slack = runOn([mk(1, 5, 'Lev X'), mk(2, 5, 'Lev Y', [1]), mk(3, 3, 'Lev X')], 'autoLevel');
+      // two parallel 5d critical activities on one person: only a later finish fixes it
+      const e = out.extend = runOn([mk(1, 5, 'Lev X'), mk(2, 5, 'Lev X')], 'autoLevelExtend');
+      [['Levelling', s, 'one activity with 7 days of slack double-booked against another'],
+       ['Extend-levelling', e, 'two parallel activities on one person']].forEach(([area, r, what]) => {
+        if (r.threw) { say(area, 'threw on a constructed one-move conflict: ' + r.threw); return; }
+        if (!(r.before > 0)) { say(area, 'the constructed conflict (' + what + ') produced no over-allocation, '
+          + 'so nothing below was tested'); return; }
+        if (r.after !== 0)
+          say(area, what + ' is fixed by a single move, and levelling left ' + r.before + ' → ' + r.after
+            + ' over-allocated resource-days. Status: "' + r.status + '"');
+        if (/safety limit/i.test(r.status))
+          say(area, 'reports stopping at the safety limit on a ' + r.before + '-conflict, ' + r.n + '-activity plan '
+            + 'that one move fixes — no cap was reached, so the leveller never really ran');
+      });
+      if (!s.threw && Math.abs(s.end1 - s.end0) > 1e-6)
+        say('Levelling', 'slack levelling moved the finish from ' + s.end0 + ' to ' + s.end1
+          + ' — it is the mode that promises the end date holds');
+      if (!e.threw && e.after === 0 && !(e.end1 > e.end0))
+        say('Extend-levelling', 'cleared a conflict between two critical activities without moving the finish');
+      return out;
+    })();
+
     hydrate(JSON.parse(JSON.stringify(window.__fixture))); calculate();
 
     /* ═══ THE COMPANY LIST HAS TO BE CORRECTABLE ═══════════════════════════
@@ -1244,7 +1296,7 @@ const DATA = FIXTURE();
     })();
 
     return { contradictions: bad, ledger, multiMeasure, timesheet, priceGap, count: n, recount: mine, built,
-             overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, heatmap, roster, roleFamily,
+             overPeople: rl.resourcesOver, atCapacity, ptoCase, doneRule, levelling, levelSmall, heatmap, roster, roleFamily,
              lintFindings: lint.map(f => String(f.finding).slice(0, 80)) };
   });
 

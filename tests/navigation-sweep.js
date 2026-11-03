@@ -1065,6 +1065,56 @@ const { chromium } = requirePlaywright();
   W.contradictions.forEach(x => bad.push(x));
   note.worklist = W.counts;
 
+  /* ═══ 2b. NOTHING CAN START, SO NAME WHAT EVERYONE WAITS ON ══════════════
+     The check above only runs when nothing is startable, and the fixture
+     always has something startable — it never ran. So build that plan: every
+     open activity with nothing in its way is pinned a month out and un-started,
+     which leaves the rest blocked. The headline must say nothing can start and
+     name the activity most of the blocked work waits on, counted here from the
+     blocked rows rather than asked of the panel's own helper. */
+  const W2 = await page.evaluate(() => {
+    const bad2 = [], out = {};
+    const say2 = x => bad2.push('Worklist, nothing startable :: ' + x);
+    const later = fmtISO(new Date(stripTime(new Date()).getTime() + 30 * 86400000));
+    leafTasks().forEach(t => {
+      if ((Number(t.percentComplete) || 0) >= 100 || wlBlockers(t).length) return;
+      t.percentComplete = 0; t.actualStart = ''; t.actualFinish = ''; t.startNoEarlier = later;
+    });
+    calculate();
+    const data = worklistData();
+    out.canStartNow = data.reduce((s, x) => s + x.now.length, 0);
+    out.blocked = data.reduce((s, x) => s + x.blocked.length, 0);
+    if (out.canStartNow || !out.blocked) {
+      say2('pinning every unblocked activity a month out left ' + out.canStartNow + ' startable and '
+        + out.blocked + ' blocked, so the nothing-can-start case was never built');
+      return { contradictions: bad2, counts: out };
+    }
+    const cnt = new Map();
+    data.forEach(p => p.blocked.forEach(r => (r.blockers || []).forEach(bk => {
+      if (!cnt.has(bk.id)) cnt.set(bk.id, { name: bk.name, n: 0 });
+      cnt.get(bk.id).n++;
+    })));
+    const top = Math.max.apply(null, [...cnt.values()].map(x => x.n));
+    const want = [...cnt.values()].filter(x => x.n === top);
+    out.mostWaitedOn = want.map(x => x.name + ' ×' + x.n);
+    switchTab('resources');
+    if (typeof setResTab === 'function') setResTab('worklist'); else renderResources();
+    const lead = document.querySelector('#worklistHost .wl-lead');
+    const txt = lead ? lead.textContent.replace(/\s+/g, ' ') : '';
+    out.lead = txt.slice(0, 200);
+    if (!/nothing can be started/i.test(txt))
+      say2('no activity can be started and the headline does not say so: "' + txt.slice(0, 80) + '"');
+    if (!want.some(x => txt.indexOf(x.name.slice(0, 40)) >= 0 && txt.indexOf(x.n + ' activit') >= 0))
+      say2('every open activity is waiting and the headline never names what most of it waits on ('
+        + want[0].name + ', with ' + top + ' rows behind it)');
+    return { contradictions: bad2, counts: out };
+  });
+  W2.contradictions.forEach(x => bad.push(x));
+  note.worklistNothingStartable = W2.counts;
+  // back to the plan as loaded for everything below
+  await page.evaluate(d => { hydrate(d); calculate(); }, FIXTURE());
+  await page.waitForTimeout(300);
+
   /* ═══ THE SOW PANEL HOLDS ONE DOCUMENT AND ONE HISTORY ══════════════════
      Two version histories of two different things used to sandwich the
      document — the plan's chain in an accordion above it, the document's own

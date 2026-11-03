@@ -449,6 +449,28 @@ clean full pass. A filter matching nothing exits 2 and says nothing was proven.
 The filter is applied AFTER the array is built, so the anchor audit and the
 "n of m" arithmetic both describe the run that actually happened.
 
+### A flaky check can catch a mutant it never looked at (November 2026)
+
+The first full run after `trunk-sweep`'s "Unshared work" flake was fixed came
+back with 29 of 509 mutants surviving, not the five known since August. None was
+new. The other 24 were retested one at a time against the code as it stood before
+that day: 21 stayed green in the check meant to catch them, and the remaining
+three went red only through the flake. Some had been recorded as caught by a
+check going red for an unrelated reason, such as `three-people-sweep` during the
+revenue and billing-CSV mutants. A non-zero exit from the wrong check is recorded
+as a catch, so a flaky suite reports more coverage than it has, and fixing the
+flake made the gap visible.
+
+All 29 are now caught by the check they belong to. Most needed a state the
+shipped fixture never reaches, built inside the check rather than in the shared
+fixture: a version history that has been trimmed, a plan still in progress, a
+second firm on one activity, a project name longer than the header chip. One
+check (`cross-surface`) had been reading an empty list, because the Plan vs
+actual cards had been renamed from `.stat-card` to `.pa-tile`. It now goes red
+when a card is missing. The eight checks added with the November features have
+mutants of their own (30 of them), and each was confirmed red against them
+before it was counted.
+
 ## The checks, checked
 
 `harness-meta.js` is the only file here that does not look at the product. It
@@ -589,7 +611,11 @@ this directory, and the last of the three to get one.
 
 The first root cause was *the fixture cannot reach the branch, and nothing says
 so*; `vacuity-check` answers it by feeding every sweep an empty plan and
-requiring the output to change. The second is *the assertion is on an artefact
+requiring the output to change. A check whose input is not the plan (the tab
+strip, or a portfolio index built inline) is named in its `NOT_THE_PLAN` list
+instead. The name only holds while `.mutation-killers.json` credits that check
+with at least one mutant still in the engine, so the exemption is counted, not
+claimed. The second is *the assertion is on an artefact
 that usually accompanies the property* — a position, a style value, an attribute
 flag, the existence of a row — and it produced at least nine defects, every one
 of them in a **check** rather than in the product:

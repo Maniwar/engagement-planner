@@ -133,6 +133,42 @@ const { chromium } = requirePlaywright();
     }
     revTerms = JSON.parse(before);
 
+    /* ── 4b. ONE EARNED SEGMENT, ASKED DIRECTLY ─────────────────────────────
+       Check 4 reads the assembled curve. This asks revPhaseSeg, which turns
+       one earned segment into its receipts, the rules the curve rests on: the
+       receipts add up to the segment, none is paid before the terms have run
+       from the work's start, and work after the last checkpoint is paid at its
+       own finish plus the terms. The zero-length segment is included on
+       purpose: revSpread widens every instant to a day before calling, so no
+       curve can show where one would bill. Two synthetic checkpoints, so this
+       does not depend on the fixture's milestones. */
+    ran('4b·segmentReceipts');
+    {
+      const DAY = 86400000, TD = 30;
+      const T = revTermsNorm({ kind: 'milestone', days: TD, deposit: 0 });
+      const M1 = new Date(2026, 0, 5).getTime(), M2 = M1 + 20 * DAY;
+      const ms = [{ ms: M1, name: 'M1' }, { ms: M2, name: 'M2' }];
+      [['work before the first checkpoint', M1 - 10 * DAY, M1 - 2 * DAY, false],
+       ['work across the first checkpoint', M1 - 4 * DAY, M1 + 6 * DAY, false],
+       ['work after the last checkpoint', M2 + 3 * DAY, M2 + 8 * DAY, true],
+       ['zero-length work after the last checkpoint', M2 + 5 * DAY, M2 + 5 * DAY, true]
+      ].forEach(([what, s, f, tail]) => {
+        const parts = revPhaseSeg(s, f, 1000, T, ms);
+        const day = x => Math.round((x - M1) / DAY);
+        if (!parts.length) { say(what + ' produces no receipt at all'); return; }
+        if (!near(sum(parts), 1000, 0.01))
+          say('1000 of ' + what + ' becomes ' + sum(parts).toFixed(2) + ' of receipts under milestone billing');
+        const early = parts.filter(p => p.s < s + TD * DAY);
+        if (early.length)
+          say('under milestone billing on ' + TD + '-day terms, ' + what + ' (from day ' + day(s)
+            + ') is paid on day ' + day(early[0].s) + ' — before the terms have run from when it started');
+        if (tail && parts.some(p => Math.abs(p.s - (f + TD * DAY)) > DAY / 2))
+          say(what + ' finishing on day ' + day(f) + ' is paid on day '
+            + parts.map(p => day(p.s)).join('/') + ', not at its finish plus the ' + TD + '-day terms (day '
+            + day(f + TD * DAY) + ')');
+      });
+    }
+
     /* ── 5. NULL IS NOT ZERO ────────────────────────────────────────────────
        The distinction the record exists for. An activity nobody has invoiced is
        UNRECORDED; drawing it as "invoiced $0" invents a fact, and drawing it as

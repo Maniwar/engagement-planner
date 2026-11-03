@@ -109,6 +109,50 @@ const QA = JSON.parse(fs.readFileSync(
             + d2.rows.length + ' on the engagement');
       }
 
+      /* FIXED COSTS ARE ROWS TOO. Neither fixture carries a fixed cost, so the
+         sums above never saw the fixed-cost line and could not miss it. One is
+         set here: the file must list it, and its rows must still add to TOTAL. */
+      ran('1b·billingFixedCosts');
+      {
+        const t = leafTasks().find(x => !x.isSummary && !x.milestone);
+        if (!t) say('Export', 'no activity to put a fixed cost on, so the fixed-cost line was never tested');
+        else {
+          const keepFC = t.fixedCost;
+          t.fixedCost = (Number(keepFC) || 0) + 4321;
+          const d3 = billingData();
+          const txt3 = [...grab('exportBillingCSV').values()][0];
+          t.fixedCost = keepFC;
+          if (typeof txt3 !== 'string') say('Export', 'exportBillingCSV produced no readable file with a fixed cost set');
+          else {
+            const rows3 = csv(txt3), head3 = rows3[0].map(h => h.toLowerCase());
+            const iC = head3.findIndex(h => h.indexOf('cost $') >= 0);
+            const iB = head3.findIndex(h => h.indexOf('billed $') >= 0);
+            const body3 = rows3.slice(1).filter(r => r.length > 1);
+            const tot3 = body3.find(r => /^total$/i.test(String(r[0]).trim()));
+            const rest3 = body3.filter(r => r !== tot3);
+            const fx = rest3.find(r => /^fixed costs/i.test(String(r[0])));
+            if (!fx)
+              say('Export', 'the plan carries ' + d3.fixedTotal.toFixed(0) + ' of fixed costs and the billing CSV '
+                + 'has no line for them');
+            else if (Math.abs(num(fx[iC]) - d3.fixedTotal) > 2 || Math.abs(num(fx[iB]) - d3.fixedTotal) > 2)
+              say('Export', 'the billing CSV fixed-cost line says ' + fx[iC] + ' / ' + fx[iB]
+                + ' against ' + d3.fixedTotal.toFixed(0) + ' of fixed costs on the plan');
+            if (!tot3) say('Export', 'the billing CSV with a fixed cost has no TOTAL row');
+            else {
+              const sC = rest3.reduce((s, r) => s + (num(r[iC]) || 0), 0);
+              const sB = rest3.reduce((s, r) => s + (num(r[iB]) || 0), 0);
+              if (Math.abs(sC - num(tot3[iC])) > 2 || Math.abs(sB - num(tot3[iB])) > 2)
+                say('Export', 'with ' + d3.fixedTotal.toFixed(0) + ' of fixed costs, the billing CSV rows add to '
+                  + sC.toFixed(0) + ' cost / ' + sB.toFixed(0) + ' billed and its TOTAL says '
+                  + num(tot3[iC]).toFixed(0) + ' / ' + num(tot3[iB]).toFixed(0));
+              if (Math.abs(num(tot3[iC]) - d3.totCost) > 2)
+                say('Export', 'with a fixed cost set, the billing CSV totals cost ' + num(tot3[iC]).toFixed(0)
+                  + ' and the application says ' + d3.totCost.toFixed(0));
+            }
+          }
+        }
+      }
+
       // ── 2. THE EDITABLE WORKBOOK SURVIVES A ROUND TRIP ──────────────────
       // It is exported to be edited and brought back. Exporting and importing
       // with nothing changed in between must leave the plan identical; anything

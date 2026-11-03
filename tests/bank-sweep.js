@@ -83,6 +83,12 @@ const { chromium } = requirePlaywright();
               mk('Beta', 6, 4.0), mk('Beta', 7, 3.8), mk('Beta', 8, 3.5), mk('Beta', 9, 3.9), mk('Beta', 10, 4.1)]);
     const both = bankCalibration();
     out.medianBothProjects = both && both.overall;
+    /* Ten rows is an even count, so the median is the midpoint of the middle
+       pair (1.2× and 3.5×). Taking the upper of the two errs one way only —
+       toward a higher quote — on every even-sized bucket. */
+    if (both && both.overall !== 2.35)
+      say('ten activities whose middle pair is 1.2× and 3.5× report a median of ' + both.overall
+        + '×, not the midpoint 2.35× — an even-sized set is being read off one side of its middle');
     bankForgetProject('Beta');
     const after = loadBank();
     out.rowsAfterForget = after.length;
@@ -167,6 +173,30 @@ const { chromium } = requirePlaywright();
         say('the prompt block quotes the span-derived 9× ratio, teaching the estimator from a calendar gap');
     }
 
+    /* ── 5b. A THIN WORK TYPE IS NOT A CALIBRATION ───────────────────────────
+       Five records open a work-type bucket; four, or one, do not. Below the bar
+       the bucket must stay out of the calibration and out of the prompt, or a
+       single activity is handed to the estimator as a multiplier. */
+    ran('5b·thinWorkTypeStaysOut');
+    {
+      const typed = (i, ratio, tax) => Object.assign(mk('T', i, ratio), { tax: tax });
+      saveBank([1, 2, 3, 4, 5].map(i => typed(i, 1.2, 'delivery'))
+        .concat([6, 7, 8, 9].map(i => typed(i, 3.0, 'data')), [typed(10, 4.0, 'integration')]));
+      const cT = bankCalibration(), pbT = bankPromptBlock();
+      out.byTaxThin = cT && cT.byTax.map(x => x.k + ':n=' + x.n);
+      const del = cT && cT.byTax.find(x => x.k === taxLabel('delivery'));
+      if (!del || del.n !== 5)
+        say('five delivery activities do not open a delivery work-type bucket (' + JSON.stringify(out.byTaxThin) + ')');
+      ['data', 'integration'].forEach(id => {
+        const thin = cT && cT.byTax.find(x => x.k === taxLabel(id));
+        if (thin)
+          say('a work type with ' + thin.n + ' record(s) is reported as a calibrated median (' + thin.k + ' '
+            + thin.median + '×) — below five records it is an anecdote, not a multiplier');
+        if (pbT.indexOf(taxLabel(id) + ': median') >= 0)
+          say('the prompt block quotes a "' + taxLabel(id) + '" work-type median built from fewer than five records');
+      });
+    }
+
     /* ── 6. WHO DID IT, AND WHO THEY WORK FOR ────────────────────────────────
        The bank could calibrate by activity kind, work type and role, and could
        not answer the question that comes up every time the same subcontractor
@@ -193,6 +223,13 @@ const { chromium } = requirePlaywright();
       const keepOrg = (resources[who] || {}).org;
       if (!resources[who]) resources[who] = { capacity: 100 };
       resources[who].org = 'Northwind Integration';
+      /* JOINT WORK, built rather than hoped for. The fixture's activity is worked
+         by one firm, so "every firm on it is archived" held with the owner's firm
+         alone. A second participant from another firm is what tells the set of
+         companies from the owner's. Removed again below. */
+      const partner = 'Bank Sweep Partner', keepAtt = owned.attendees;
+      owned.attendees = (owned.attendees || []).concat([{ name: partner, units: 50 }]);
+      resources[partner] = { capacity: 100, org: 'Contoso Delivery' };
       const built = bankRowsFromPlan().filter(r => (r.people || []).some(x => x.n === who));
       out.archivedRowsForPerson = built.length;
       if (!built.length)
@@ -213,6 +250,9 @@ const { chromium } = requirePlaywright();
         const everyOrg = [...new Set(taskParticipants(owned).map(pr => (resources[pr.name] || {}).org)
           .filter(Boolean))];
         out.archivedOrgs = (one.orgs || []).length;
+        if (everyOrg.length < 2)
+          say('the activity built to be worked by two firms shows ' + everyOrg.length + ' on its participants, '
+            + 'so the joint-work case below tested nothing');
         everyOrg.forEach(o2 => {
           if ((one.orgs || []).indexOf(o2) < 0)
             say('"' + o2 + '" worked on this activity and is missing from the archived company set — work '
@@ -226,6 +266,8 @@ const { chromium } = requirePlaywright();
             + 'recorded identically and the effort behind the ratio cannot be read');
       }
       if (keepOrg === undefined) delete resources[who].org; else resources[who].org = keepOrg;
+      if (keepAtt === undefined) delete owned.attendees; else owned.attendees = keepAtt;
+      delete resources[partner];
     }
 
     ran('6b·companyCalibration');

@@ -2465,11 +2465,11 @@ const MUTANTS = [
     find: '      for (let cut = s.lastIndexOf(\'",\'); cut > 0; cut = s.lastIndexOf(\'",\', cut - 1)) {',
     with: '      for (let cut = -1; cut > 0; cut = s.lastIndexOf(\'",\', cut - 1)) {' },
 
-  { what: 'resource load: the day-walk leveller drops its move cap and runs unbounded',
+  { what: 'resource load: the day-walk leveller is allowed no moves, so it gives up before resolving anything',
     find: '      const MOVES_MAX = 400, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 8000;',
     with: '      const MOVES_MAX = 0, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 8000;' },
 
-  { what: 'resource load: the first-fit leveller is given no time budget at all',
+  { what: 'resource load: the first-fit leveller is allowed no iterations, so it resolves nothing',
     find: '      const MOVES_MAX = 600, ITER_MAX = 20000, T0 = performance.now(), BUDGET_MS = 10000;',
     with: '      const MOVES_MAX = 600, ITER_MAX = 0, T0 = performance.now(), BUDGET_MS = 10000;' },
 
@@ -2688,6 +2688,139 @@ const MUTANTS = [
     find: "            (t.log || []).forEach(e => { if (e && e.vid) { rememberSeenVid(e.vid); took++; } });",
     with: "            (t.log || []).forEach(e => { if (false) { rememberSeenVid(e.vid); took++; } });" },
 
+
+  /* ═══ EIGHT CHECKS THAT NOTHING HAD EVER ASKED TO FAIL ═════════════════════
+     The model list, the continuation loop, the phone header, the icon set, the
+     tab stages, the dark theme, the folded working and the schedule import each
+     went in with a check of its own — and not one mutant aimed at any of them.
+     So the engine had nothing to say about whether those checks would notice a
+     break, and a green run of each was a claim nobody had tested. Every mutant
+     below breaks a sentence from the top of its check's file. */
+
+  { what: 'model list: with nothing chosen, a request goes out on Haiku instead of the recommended default',
+    find: "const AI_MODEL_DEFAULT = 'claude-sonnet-5-5';",
+    with: "const AI_MODEL_DEFAULT = 'claude-haiku-5-5';" },
+
+  { what: 'model list: a saved model the picker no longer offers is kept, leaving the picker empty',
+    find: "return (fam && offered.find(v => v.indexOf('claude-' + fam + '-') === 0)) || AI_MODEL_DEFAULT;",
+    with: "return saved;" },
+
+  { what: 'model list: the recommended model is held to half its documented output ceiling',
+    find: "{ p: 'claude-sonnet-5-5', max: 128000 },",
+    with: "{ p: 'claude-sonnet-5-5', max: 64000 }," },
+
+  { what: 'continuation: a cut answer is resent as the final assistant turn, the prefill current models reject',
+    find: "tail ? [{ role: 'assistant', content: tail }, { role: 'user', content: continuationAsk(full) }] : []",
+    with: "tail ? [{ role: 'assistant', content: tail }] : []" },
+
+  { what: 'continuation: a refusal comes back as if it were the answer',
+    find: "if (r.stopReason === 'refusal') throw new Error(refusalMessage(r.stopDetails));",
+    with: "if (r.stopReason === 'refusal') r.stopReason = 'end_turn';" },
+
+  { what: 'continuation: an answer the context window cut off comes back unmarked, as if complete',
+    find: "if (r.stopReason === 'model_context_window_exceeded') return stillOurs(",
+    with: "if (false) return stillOurs(" },
+
+  { what: 'continuation: a continuation that repeats the quoted tail is stitched with the repeat in it',
+    find: 'const CONTINUE_QUOTE = 400, CONTINUE_MIN_OVERLAP = 20;',
+    with: 'const CONTINUE_QUOTE = 400, CONTINUE_MIN_OVERLAP = 100000;' },
+
+  { what: 'continuation: the assistant turn is sent ending in the whitespace the cut left',
+    find: "const tail = round ? full.replace(/\\s+$/, '') : '';",
+    with: "const tail = round ? full : '';" },
+
+  { what: 'continuation: the draft chat saves a cut reply with the raw cut marker in it',
+    find: 'const clean = aiUncut(out).replace(',
+    with: 'const clean = String(out).replace(' },
+
+  { what: 'phone header: the controls fall back to a two-column grid and the header eats the screen',
+    find: '.header-actions { display: flex; flex-wrap: nowrap; gap: 0.4rem; width: 100%; margin-left: 0; }',
+    with: '.header-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; width: 100%; margin-left: 0; }' },
+
+  /* TWO EDITS, because either one alone changes nothing a reader sees. The name
+     yields (min-width 0, overflow hidden, an ellipsis), so the chip's row never
+     overflows, and how that row is justified cannot matter. Moving the
+     justification alone was tried first and survived, correctly: it was not a
+     defect. The original bug needed both halves, a name that cannot shrink and
+     a centred row, and so does this mutant. */
+  { what: 'phone header: a name that cannot shrink is centred in the chip, so it loses its first letters',
+    find: ['.proj-chip { justify-content: flex-start; }',
+           '.proj-chip b { font-weight: 700; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; }'],
+    with: ['.proj-chip { justify-content: center; }',
+           '.proj-chip b { font-weight: 700; color: #fff; }'] },
+
+  { what: 'phone header: the project name cannot shrink, so a long one runs out of the chip with no ellipsis',
+    find: '.proj-chip b { font-weight: 700; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; }',
+    with: '.proj-chip b { font-weight: 700; color: #fff; }' },
+
+  { what: 'phone header: the header controls drop under a 40px touch height',
+    find: '.header-actions .btn-sm, .header-actions summary.btn-sm, .header-actions label.btn-ghost { width: 100%; min-height: 44px;',
+    with: '.header-actions .btn-sm, .header-actions summary.btn-sm, .header-actions label.btn-ghost { width: 100%; min-height: 0; max-height: 30px;' },
+
+  { what: 'icons: the Project menu goes back to an emoji',
+    find: '<span class="ico" data-i="folder-open" aria-hidden="true"></span> Project ▾</summary>',
+    with: '📂 Project ▾</summary>' },
+
+  { what: 'icons: the redo button names an icon the set does not draw',
+    find: 'data-i="redo-2" aria-hidden="true"></span></button>',
+    with: 'data-i="redo-3" aria-hidden="true"></span></button>' },
+
+  { what: 'icons: the icon-only redo button loses its name for a screen reader',
+    find: 'onclick="doRedo()" disabled aria-label="Redo" title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)">',
+    with: 'onclick="doRedo()" disabled>' },
+
+  { what: 'tab groups: the Track stage loses its caption',
+    find: '<span class="tab-stage" aria-hidden="true">Track</span>',
+    with: '' },
+
+  { what: 'tab groups: the Govern caption is read out as part of the tab list',
+    find: '<span class="tab-stage" aria-hidden="true">Govern</span>',
+    with: '<span class="tab-stage">Govern</span>' },
+
+  { what: 'dark mode: Auto ignores the system and always draws the light theme',
+    find: "const d = t === 'dark' || (t !== 'light' && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);",
+    with: "const d = t === 'dark';" },
+
+  { what: 'dark mode: choosing Light or Dark is not remembered',
+    find: "try { if (t === 'auto') localStorage.removeItem(THEME_STORE); else localStorage.setItem(THEME_STORE, t); } catch (e) {}",
+    with: 'try {} catch (e) {}' },
+
+  { what: 'dark mode: body text keeps its light-theme ink, dark on dark',
+    find: '--c-0f172a: #f1f5f9;',
+    with: '--c-0f172a: #0f172a;' },
+
+  { what: 'dark mode: white surfaces stay white in the dark theme',
+    find: '--c-ffffff: #0f172a;',
+    with: '--c-ffffff: #ffffff;' },
+
+  { what: 'quiet working: a long method note is drawn in full again, leading the panel',
+    find: 'const CALM_MIN = 400;',
+    with: 'const CALM_MIN = 400000;' },
+
+  { what: 'quiet working: an opened note folds shut again on the next repaint',
+    find: 'set(calmOpen.has(key));',
+    with: 'set(false);' },
+
+  { what: 'quiet working: dismissing the no-key notice does not stick',
+    find: "function ptHideNoKey() { try { localStorage.setItem(PT_NOKEY_HIDE, '1'); } catch (e) {} ptRepaint(); }",
+    with: 'function ptHideNoKey() { ptRepaint(); }' },
+
+  { what: 'schedule import: a start-to-start link in the answer lands as finish-to-start',
+    find: "return { name, type: AI_LINK_TYPES.indexOf(ty) >= 0 ? ty : 'FS', lag: Number.isFinite(lag) ? lag : 0, bare: false };",
+    with: "return { name, type: 'FS', lag: Number.isFinite(lag) ? lag : 0, bare: false };" },
+
+  { what: 'schedule import: an image larger than the model reads is sent at full size',
+    find: 'if (fits(w, h)) return { w, h };',
+    with: 'return { w, h };' },
+
+  { what: 'schedule import: the attachment is not marked for caching, so a retry uploads and bills it again',
+    find: "if (out.length) out[out.length - 1] = Object.assign({}, out[out.length - 1], { cache_control: { type: 'ephemeral' } });",
+    with: 'if (false) out.length;' },
+
+  { what: 'schedule import: a TIFF is taken as an image the model reads',
+    find: "const AI_IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];",
+    with: "const AI_IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/tiff'];" },
+
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -2860,7 +2993,11 @@ const LIKELY = {
   'portfolio:': 'portfolio-sweep.js', 'trunk:': 'trunk-sweep.js',
   'three-person sync:': 'three-people-sweep.js', 'pricing rate:': 'pricing-sweep.js',
   'export:': 'export-sweep.js',
-  'drill-in:': 'chart-reconciliation-sweep.js', 'backup:': 'persistence-sweep.js', 'accrual:': 'chart-reconciliation-sweep.js', 'cash:': 'chart-reconciliation-sweep.js'
+  'drill-in:': 'chart-reconciliation-sweep.js', 'backup:': 'persistence-sweep.js', 'accrual:': 'chart-reconciliation-sweep.js', 'cash:': 'chart-reconciliation-sweep.js',
+  'model list:': 'ai-model-sweep.js', 'continuation:': 'continuation-sweep.js',
+  'phone header:': 'mobile-header-sweep.js', 'icons:': 'icon-sweep.js', 'tab groups:': 'tab-groups-sweep.js',
+  'dark mode:': 'dark-mode-sweep.js', 'quiet working:': 'calm-prose-sweep.js', 'schedule import:': 'schedule-import-sweep.js',
+  'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is

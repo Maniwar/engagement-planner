@@ -526,6 +526,34 @@ const DATA = FIXTURE();
         if (!v || !Array.isArray(v.off) || v.off.length !== 2)
           say('SOW sections', 'the saved version does not record which sections it was written without, '
             + 'so a past document reads under today\u2019s setting');
+        /* Excluding a section that ANOTHER section points at. Leaving out nfr and
+           team above removes nothing that is referenced, so the fallback for a
+           reference with no section behind it never ran. Out of Scope cites
+           change control by {{sec:change}}; with it excluded the clause must name
+           it, not print a number that is not in the document. */
+        pricing.sowOff = ['change'];
+        const noCc = build().html;
+        const ccRef = (strip(noCc).match(/change-control process in \S+(?: \S+)?/) || [''])[0];
+        if (/\{\{sec:|\u00a7undefined|\u00a7NaN/.test(noCc))
+          say('SOW sections', 'with change control excluded, the Out of Scope clause that points at it reads "'
+            + ccRef + '" \u2014 a reference to a section the document does not contain reached the contract');
+        else if (/process in \u00a7\d/.test(ccRef))
+          say('SOW sections', 'with change control excluded, Out of Scope still sends the reader to a numbered '
+            + 'section: "' + ccRef + '"');
+        /* "Include everything" is a button in the picker; press it, then the
+           document must carry every section the unfiltered build did. */
+        pricing.sowOff = ['nfr', 'team'];
+        const allBtn = document.querySelector('#sowSecModal [onclick="sowAllSections()"]');
+        if (!allBtn) say('SOW sections', 'the section picker has no "Include everything" button');
+        else {
+          allBtn.click();
+          const back = build().html;
+          if (sowOffSet().size)
+            say('SOW sections', '"Include everything" left ' + [...sowOffSet()].join(', ') + ' switched off');
+          if (numsOf(back).length !== before.length)
+            say('SOW sections', '"Include everything" prints ' + numsOf(back).length + ' sections where the '
+              + 'unfiltered document has ' + before.length);
+        }
         pricing.sowOff = keptOff; sowDraft = null;
       }
 
@@ -735,9 +763,27 @@ const DATA = FIXTURE();
           const nums = secNums(doc);
           if (nums.join(',') !== nums.map((_, i) => i + 1).join(','))
             say('SOW order', 'the printed numbers are not 1..n after reordering: ' + nums.join(','));
+          // what is saved with the project: every section once
+          const dupSaved = (pricing.sowOrder || []).filter((k, i, a) => a.indexOf(k) !== i);
+          if (dupSaved.length)
+            say('SOW order', 'after moving sections the saved order lists ' + [...new Set(dupSaved)].join(', ')
+              + ' more than once — a move copied the section instead of moving it');
           sowResetOrder();
           if (secNames(build().html).join('|') !== before.join('|'))
             say('SOW order', 'Reset order did not restore the order the tool ships with');
+          /* And DOWN. Every move above is upward; a move later has to swap the
+             section with the one after it, in the order and in the document. */
+          const o0 = sowOrder();
+          sowMoveSection(o0[0], 1);
+          const o1 = sowOrder();
+          if (o1[0] !== o0[1] || o1[1] !== o0[0])
+            say('SOW order', 'moving "' + o0[0] + '" one place later left the order starting '
+              + o1.slice(0, 3).join(', ') + ' — expected ' + [o0[1], o0[0], o0[2]].join(', '));
+          const downNames = secNames(build().html);
+          if (downNames[1] !== before[0])
+            say('SOW order', 'moving the first section one place later printed "' + downNames[0] + '", "'
+              + downNames[1] + '" at the top — the section did not move down');
+          sowResetOrder();
         }
       }
 
@@ -1196,6 +1242,45 @@ const DATA = FIXTURE();
         aud.unclassified = tcs.filter(t => testCaseAudience(t) === 'unclassified').length;
       }
 
+    /* ═══ 6. A CUT NARRATIVE KEEPS WHAT ARRIVED WHOLE ═══════════════════════
+       The SOW narrative is one flat object of strings, so it has no '},' seam
+       to cut back to. Cut off mid-sentence, the complete sections before the
+       cut must reach the document, the half-written one must not, and the
+       drafter must be told. The model is stubbed — nothing leaves the page. */
+    await (async () => {
+      const kept = { draft: sowDraft, vers: sowVersions.slice(), base: sowBaseline, edited: sowUserEdited,
+                     depth: pricing.sowDepth, mode: pricing.sowStoriesMode };
+      const realCall = window.callAnthropic, realFlash = window.flashSaved;
+      const flashes = [];
+      let asked = 0;
+      const cutReply = '{"overview":"ZZ cut overview sentence.","scopeNarrative":"ZZ cut scope framing.",'
+        + '"acceptanceProcess":"ZZ cut acceptance clause.","changeControl":"ZZ half-written cha\n/*TRUNCATED*/';
+      window.callAnthropic = async () => { asked++; return cutReply; };
+      window.flashSaved = m => { flashes.push(String(m)); };
+      localStorage.setItem('pertGantt.anthropicKey', 'sk-test-not-a-real-key');
+      try { sowUserEdited = false; await generateSOW(); }
+      catch (e) { say('SOW narrative', 'generating from a cut answer threw: ' + e.message); }
+      finally {
+        window.callAnthropic = realCall; window.flashSaved = realFlash;
+        localStorage.removeItem('pertGantt.anthropicKey');
+      }
+      const txt = strip(sowDraft || '');
+      if (!asked) say('SOW narrative', 'the stubbed model was never asked for a narrative, so nothing here is tested');
+      else {
+        const lost = ['ZZ cut overview sentence', 'ZZ cut scope framing', 'ZZ cut acceptance clause']
+          .filter(x => txt.indexOf(x) < 0);
+        if (lost.length)
+          say('SOW narrative', 'an answer cut off in its last sentence lost ' + lost.length + ' of the 3 sections '
+            + 'that had arrived whole (' + lost.join('; ') + ') — the document fell back to the skeleton');
+        if (/ZZ half-written/.test(txt))
+          say('SOW narrative', 'the sentence the answer was cut off in is printed in the contract');
+        if (!lost.length && !flashes.some(m => /cut back to the last complete/.test(m)))
+          say('SOW narrative', 'the narrative was cut back and the drafter was not told to re-run it');
+      }
+      sowDraft = kept.draft; sowVersions = kept.vers; sowBaseline = kept.base; sowUserEdited = kept.edited;
+      pricing.sowDepth = kept.depth; pricing.sowStoriesMode = kept.mode;
+    })();
+
 
     return { contradictions: bad, audience: aud,
       truth: { booked: Math.round(AC), dueByToday: Math.round(PV), earned: Math.round(EV),
@@ -1207,6 +1292,71 @@ const DATA = FIXTURE();
                     baseline: (rep.match(/variance [^.]{0,24}/i) || [])[0] || null },
       barSchedule: sch.delta, sow, doc, safeReportMoneyFigures: leaked.length };
   });
+
+  /* ═══ 7. A REPLACED PLAN AND THE REQUIREMENTS IT LEFT BEHIND ═════════════
+     A replace re-issues every activity id from 1, so the stories already here
+     trace to activities that no longer exist. Keeping them is legitimate;
+     keeping them without asking is not, and the committed feature set goes
+     either way — it is a promise about activities that were just deleted.
+     Run last, each case on a fresh hydrate, because it throws the plan away.
+     The model is stubbed. */
+  R.replaced = await page.evaluate(async (data) => {
+    const bad = [];
+    const say = (a, b2) => bad.push(a + ' :: ' + b2);
+    const PLAN = { projectName: 'ZZ replacement plan', durationUnit: 'days', tasks: [
+      { name: 'ZZ Phase', parent: '' },
+      { name: 'ZZ Design', parent: 'ZZ Phase', optimistic: 2, mostLikely: 3, pessimistic: 5, owner: 'Ana' },
+      { name: 'ZZ Build', parent: 'ZZ Phase', optimistic: 4, mostLikely: 6, pessimistic: 9, owner: 'Ana', dependsOn: ['ZZ Design'] },
+      { name: 'ZZ Live', parent: 'ZZ Phase', milestone: true, dependsOn: ['ZZ Build'] }],
+      resources: [{ name: 'Ana', capacityPercent: 100 }], exclusions: [] };
+    const replace = async (answer) => {
+      hydrate(data); calculate();
+      const n = ((reqs && reqs.stories) || []).length, hadFs = featureScope().hb;
+      const asked = [];
+      const realCall = window.callAnthropic, realConfirm = window.confirm;
+      window.callAnthropic = async () => JSON.stringify(PLAN);
+      window.confirm = m => { asked.push(String(m)); return answer; };
+      document.getElementById('aiMode').value = 'replace';
+      document.getElementById('aiNotes').value = 'ZZ replace the whole plan';
+      document.getElementById('aiAlsoStories').checked = false;
+      localStorage.setItem('pertGantt.anthropicKey', 'sk-test-not-a-real-key');
+      try { await generateWithAI(); }
+      finally {
+        window.callAnthropic = realCall; window.confirm = realConfirm;
+        localStorage.removeItem('pertGantt.anthropicKey');
+      }
+      const err = document.getElementById('aiError');
+      renderReqs();
+      return { n, hadFs, asked, after: ((reqs && reqs.stories) || []).length,
+        replaced: tasks.some(t => t.name === 'ZZ Build'), fs: featureScope(),
+        readout: (document.getElementById('reqContainer') || {}).textContent || '',
+        err: err && err.style.display !== 'none' ? err.textContent.trim() : '' };
+    };
+    const keep = await replace(false);
+    if (!keep.n) { say('Replaced plan', 'the fixture holds no stories, so a replace leaves nothing behind and this proves nothing'); return { bad }; }
+    if (!keep.hadFs) say('Replaced plan', 'the fixture commits no feature set, so whether a replace clears it cannot be seen');
+    if (!keep.replaced) { say('Replaced plan', 'the stubbed replace did not rebuild the plan: ' + (keep.err || 'no error shown')); return { bad }; }
+    if (!keep.asked.some(m => m.indexOf(String(keep.n)) >= 0))
+      say('Replaced plan', 'replacing every activity carried the ' + keep.n + ' existing stories forward without '
+        + 'asking — each now traces to an activity id that means something else or nothing');
+    else if (keep.after !== keep.n)
+      say('Replaced plan', 'answering "keep them" left ' + keep.after + ' of ' + keep.n + ' stories');
+    if (keep.fs.hb)
+      say('Replaced plan', 'the committed feature set survived a replace that deleted every activity it was '
+        + 'committed against — the schedule baseline went with the tasks, this one did not');
+    if (/exactly the set committed/.test(keep.readout))
+      say('Replaced plan', 'after a replace the Requirements tab still reads "exactly the set committed" over '
+        + 'stories whose activities no longer exist');
+    const drop = await replace(true);
+    if (drop.replaced && drop.asked.length && drop.after)
+      say('Replaced plan', 'answering "discard them" after a replace kept ' + drop.after + ' stale stories');
+    if (drop.replaced && !drop.asked.length && drop.after)
+      say('Replaced plan', 'a replace kept ' + drop.after + ' stale stories and never asked whether to');
+    if (drop.fs.hb) say('Replaced plan', 'with the stale stories discarded, a committed feature set still stands');
+    return { bad, kept: keep.after, asked: keep.asked.length };
+  }, DATA);
+  (R.replaced.bad || []).forEach(c => R.contradictions.push(c));
+  delete R.replaced.bad;
 
   R.pageErrors = errs.slice(0, 8);
   console.log(JSON.stringify(R, null, 1));
