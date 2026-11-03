@@ -389,6 +389,17 @@ function serveApp() {
         bad.push('Auto sync :: the plan moved, settled, and the visible tab sent nothing. A loop that only '
           + 'ever receives keeps one person current and everybody else stale, which is the problem it was '
           + 'built to end');
+
+      /* AND STOPPED, BECAUSE THIS BLOCK STARTED IT. The ticks above are real
+         ticks, and a tick that syncs calls trunkAutoStart(), which is what
+         the app is meant to do: it restarts the fifteen-second poll. Nothing
+         here stopped that poll, so it kept running through every block below,
+         and every one of them drives the trunk by hand. It fired inside
+         "Unshared work" and fast-forwarded a plan that block had just restored.
+         So the poll is stopped here, where it was started, and that block
+         checks that it stayed stopped. trunkAuto is left as it is, because the
+         label checks further down read it. */
+      clearInterval(trunkTimer); trunkTimer = null;
     })();
 
     /* ═══ A DIFFERENT STAMP IS NOT A DIFFERENT ENGAGEMENT ═════════════════
@@ -1026,6 +1037,20 @@ function serveApp() {
        everybody including the newcomer who has nothing yet. */
     await (async () => {
       const sayW = m => say('Unshared work', m);
+      /* NOTHING ELSE MAY BE SYNCING. This block restores a plan, then reads
+         it between awaits, so it has to be the only thing that moves it. It
+         was not: the automatic loop was still ticking from the auto-sync block
+         above, and its tick, fifteen seconds after that block last synced,
+         fell inside this one on most runs. It fast-forwarded the plan this
+         block had just restored, and which step it hit depended on how fast
+         the machine got here: an empty changelog in 1b, a pull dropped as busy
+         in 2, a different newcomer in 3. Checked here rather than left to the
+         clock, so a loop left running is reported as that instead of as a
+         defect in the pull. */
+      if (trunkTimer)
+        sayW('the automatic sync loop is still running while this block drives Pull by hand, so a tick can '
+          + 'pull or push between any two of its steps and the results below describe the timer, not the '
+          + 'pull. Whatever armed it has to disarm it first');
       try { await root.removeEntry('trunk-sweep.json'); } catch (e) {}
       const h2 = await root.getFileHandle('trunk-sweep.json', { create: true });
       trunkHandle = h2;
@@ -1108,12 +1133,13 @@ function serveApp() {
       fresh.tasks = []; fresh.planVersions = []; fresh.planLineage = '';
       restore({ doc: fresh, versions: [], lineage: '' });
       beA('Newcomer');
-      /* MINTED ON PURPOSE, because leaving it to chance is what this sub-check
-         did first and it disagreed with itself between runs: the stamp appears
-         the moment anything saves, so whether an empty page had one depended on
-         which async write landed first. Minting it makes the case the harder
-         of the two — a newcomer who opened the app and let it save once before
-         joining — and makes the answer the same every run. */
+      /* MINTED ON PURPOSE. Left to chance, this sub-check disagreed with itself
+         between runs. That was first put down to "which async write landed
+         first". The real cause was the automatic loop left running from the
+         auto-sync block, whose tick pulled the trunk into this empty page at a
+         moment set by the clock (now disarmed, and checked at the top of this
+         block). The mint stays because it is the harder of the two cases: a
+         newcomer who opened the app and let it save once before joining. */
       planLineageId();
       const tN = await trunkRead(h2);
       out.newcomerSaw = { rel: trunkRelation(tN).relation, hasStamp: !!planLineage,
