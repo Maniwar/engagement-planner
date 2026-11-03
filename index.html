@@ -120,6 +120,17 @@
     }
     .tab.active { background: white; color: var(--primary); box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
     .tab:hover:not(.active) { color: var(--text); }
+    /* ═══ THREE STAGES, ONE STRIP ═══════════════════════════════════════════
+       Nine equal tabs said nothing about how they relate. They are three stages
+       of one job: PLAN the work, TRACK it against the plan, GOVERN what is agreed
+       with the client. Each stage is captioned and set apart by a rule. The
+       captions are not controls — aria-hidden, no pointer events, outside the
+       .tab set — so the tablist still owns exactly the nine tabs, and the pill,
+       placed from the active tab's offsets in the bar, is unaffected. */
+    .tab-stage { flex: none; align-self: center; padding: 0 0.3rem 0 0.7rem; font-size: var(--t-xs); font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; color: #475569; white-space: nowrap; user-select: none; pointer-events: none; }
+    .tab-stage:not(:first-child):not(.tab-slider + .tab-stage) { margin-left: 0.55rem; border-left: 1px solid #cbd5e1; }
+    .tab-stage:first-child, .tab-slider + .tab-stage { padding-left: 0.45rem; }
     .view { display: none; }
     .view.active { display: block; }
     label {
@@ -4281,11 +4292,13 @@
 
     <!-- Tabs -->
     <div class="tabs" role="tablist">
+      <span class="tab-stage" aria-hidden="true">Plan</span>
       <button class="tab active" data-tab="tasks" role="tab" aria-selected="true" aria-controls="view-tasks" onclick="switchTabAnimated('tasks')" title="Build the plan: AI from notes, or add activities with 3-point estimates">Tasks</button>
       <button class="tab" data-tab="wbs" role="tab" aria-selected="false" aria-controls="view-wbs" onclick="switchTabAnimated('wbs')" title="Work Breakdown Structure with deliverables, scope and acceptance criteria per element">WBS</button>
       <button class="tab" data-tab="req" role="tab" aria-selected="false" aria-controls="view-req" onclick="switchTabAnimated('req')" title="User stories with Given/When/Then acceptance criteria, NFRs and assumptions — AI-drafted and traced to the WBS">Stories</button>
       <button class="tab" data-tab="pert" role="tab" aria-selected="false" aria-controls="view-pert" onclick="switchTabAnimated('pert')" title="Dependency network with the critical path — ES/EF/LS/LF/slack per activity">PERT</button>
       <button class="tab" data-tab="gantt" role="tab" aria-selected="false" aria-controls="view-gantt" onclick="switchTabAnimated('gantt')" title="Schedule on real dates with progress, baseline, reserves and dependency arrows — exportable as an image">Gantt</button>
+      <span class="tab-stage" aria-hidden="true">Track</span>
       <button class="tab" data-tab="resources" role="tab" aria-selected="false" aria-controls="view-resources" onclick="switchTabAnimated('resources')" title="Who does what: capacity, rates, PTO, workload heatmap, over-allocation fixes, rate cards">Resources</button>
       <!-- The LABEL is "Plan vs actual"; the tab ID stays "baseline". Every
            stored AI reading that carries act.ref="baseline", every deep link,
@@ -4294,6 +4307,7 @@
            label is what a reader needs; the id is what the file needs. -->
       <button class="tab" data-tab="baseline" role="tab" aria-selected="false" aria-controls="view-baseline" onclick="switchTabAnimated('baseline')" title="Log what actually happened — actual dates and time spent — and read every activity against the plan you committed to">Plan vs actual</button>
       <button class="tab" data-tab="analytics" role="tab" aria-selected="false" aria-controls="view-analytics" onclick="switchTabAnimated('analytics')" title="Monte-Carlo forecast, health check, reserves, cost/EVM, criticality">Analytics</button>
+      <span class="tab-stage" aria-hidden="true">Govern</span>
       <button class="tab" data-tab="raid" role="tab" aria-selected="false" aria-controls="view-raid" onclick="switchTabAnimated('raid')" title="Risk log, pricing & margin, SOW and change-order drafts">RAID &amp; SOW</button>
     </div>
 

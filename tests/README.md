@@ -150,6 +150,14 @@ defined icon (a typo draws nothing), and on an icon-only control with no name
 for a screen reader. Messages, alerts and the email-ready reports keep their
 emoji by design: they are text that leaves the page.
 
+`tab-groups-sweep.js` checks the three stage captions in the tab strip — Plan,
+Track, Govern — at 1440, 1280 and on a 390px phone. Each caption sits directly
+before its stage's first tab and is a caption, not a control (aria-hidden,
+unfocusable), so the tablist still owns exactly nine tabs in their old order.
+The gap between stages is clearly wider than the gap inside one, the desktop
+strip stays one row, and after every switch the view shows and the sliding
+pill sits on the active tab.
+
 `dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
 not just show numbers, they narrate them — "this is not a scope change, all 22
 changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is
