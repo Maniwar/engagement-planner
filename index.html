@@ -2425,6 +2425,22 @@
       background: repeating-linear-gradient(135deg, var(--bg) 0 6px, var(--card) 6px 12px); }
     .ptr-sc-lock b { color: var(--text); }
     .ptr-sc-fine { font-size: var(--t-xs); color: var(--muted); line-height: 1.55; margin-top: 0.45rem; }
+    /* ═══ THE WORKING FOLDS UNDER THE NUMBERS ═══════════════════════════════
+       A long method note shows two lines and folds the rest under "How this is
+       measured" (calmProse adds .calm and the toggle). A line clamp, not
+       display:none — the text stays laid out, so everything that reads these
+       sentences still reads all of them — and print shows every note whole. */
+    .calm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+    .calm.calm-open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+    .calm-toggle { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 0.25rem; background: none; border: none;
+      padding: 0.15rem 0; margin-top: 0.1rem; color: var(--primary); font-size: var(--t-sm); font-weight: 600; cursor: pointer; }
+    .calm-toggle:hover { text-decoration: underline; }
+    .calm-toggle .ico { transition: transform .15s ease; }
+    .calm-toggle[aria-expanded="true"] .ico { transform: rotate(180deg); }
+    @media print { .calm { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; } .calm-toggle { display: none !important; } }
+    .rdg-nokey .rdg-text { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; }
+    .rdg-x { margin-left: auto; background: none; border: none; padding: 0.2rem; color: var(--muted); cursor: pointer; border-radius: 6px; line-height: 1; }
+    .rdg-x:hover { color: var(--text); background: var(--c-e2e8f0); }
     .ptr-sc-fine b { color: var(--text); }
 
 
@@ -3762,6 +3778,8 @@
     .ico[data-i="monitor"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Crect width='20' height='14' x='2' y='3' rx='2' /%3E%3Cline x1='8' x2='16' y1='21' y2='21' /%3E%3Cline x1='12' x2='12' y1='17' y2='21' /%3E%3C/svg%3E"); }
     .ico[data-i="moon"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z' /%3E%3C/svg%3E"); }
     .ico[data-i="sun"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Ccircle cx='12' cy='12' r='4' /%3E%3Cpath d='M12 2v2' /%3E%3Cpath d='M12 20v2' /%3E%3Cpath d='m4.93 4.93 1.41 1.41' /%3E%3Cpath d='m17.66 17.66 1.41 1.41' /%3E%3Cpath d='M2 12h2' /%3E%3Cpath d='M20 12h2' /%3E%3Cpath d='m6.34 17.66-1.41 1.41' /%3E%3Cpath d='m19.07 4.93-1.41 1.41' /%3E%3C/svg%3E"); }
+    .ico[data-i="x"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='M18 6 6 18' /%3E%3Cpath d='m6 6 12 12' /%3E%3C/svg%3E"); }
+    .ico[data-i="chevron-down"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='m6 9 6 6 6-6' /%3E%3C/svg%3E"); }
     /* W20: inline editing shows its hand */
     #taskTable td[onclick]:hover { outline: 1.5px solid var(--c-93c5fd); outline-offset: -1.5px; border-radius: 4px; }
     #taskTable td[data-name-id] span[onclick]:hover { outline: 1.5px solid var(--c-93c5fd); outline-offset: 2px; border-radius: 4px; }
@@ -5634,7 +5652,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1732</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1752</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -29572,6 +29590,33 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       if (mc2) mc2.innerHTML = '<div class="empty-state"><h3>Run Calculate to see the money</h3></div>';
     }
 
+    // ═══ CALM PROSE — see "THE WORKING FOLDS UNDER THE NUMBERS" ═══
+    // Long method notes on Analytics and Plan vs actual. The panels repaint
+    // constantly, so this runs after every repaint and remembers which notes
+    // were opened, by position, so an open note stays open.
+    const CALM_SEL = '#view-analytics .ptr-note, #view-analytics .ptr-drv-note, #view-analytics .ptr-sc-fine, '
+      + '#view-analytics .ptr-cap, #view-analytics .ptr-foot, #view-baseline .help-text';
+    const CALM_MIN = 400;
+    const calmOpen = new Set();
+    function calmProse() {
+      const seen = {};
+      document.querySelectorAll(CALM_SEL).forEach(el => {
+        const cls = String(el.className).split(' ')[0] || el.tagName;
+        const key = cls + ':' + (seen[cls] = (seen[cls] || 0) + 1);
+        if (el.dataset.calm || el.closest('[aria-live]') || (el.textContent || '').trim().length < CALM_MIN) return;
+        el.dataset.calm = key;
+        el.classList.add('calm');
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'calm-toggle no-print';
+        b.innerHTML = 'How this is measured ' + icoHtml('chevron-down');
+        const set = open => { el.classList.toggle('calm-open', open); b.setAttribute('aria-expanded', String(open)); if (open) calmOpen.add(key); else calmOpen.delete(key); };
+        b.onclick = () => set(!el.classList.contains('calm-open'));
+        el.after(b);
+        set(calmOpen.has(key));
+      });
+    }
+    try { new MutationObserver(() => { clearTimeout(calmProse._t); calmProse._t = setTimeout(calmProse, 0); })
+      .observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
     // ═══ THEME — Auto (the system's), Light or Dark; see COLOUR TOKENS ═══
     const THEME_STORE = 'pertGantt.theme';
     function themePref() { try { return localStorage.getItem(THEME_STORE) || 'auto'; } catch (e) { return 'auto'; } }
@@ -32036,10 +32081,12 @@ Rules:
              not for the ceiling, so leaving it at the model's own maximum —
              the same one the other eighteen flows use — costs nothing and
              removes a way to lose good work.
-             noContinue stays, and is a different thing: the continuation round
-             resends with an assistant prefill, which these models reject with
-             a 400, so for a single-answer flow it is a guaranteed failure one
-             round later rather than a safety net. */
+             noContinue stays, and is a different thing. Continuation now works
+             (the cut answer rides as an ordinary assistant turn and a user turn
+             asks for the rest), but a reading is ten one-sentence items: one
+             that reaches the ceiling is a runaway, not a long answer, and
+             stitching more onto it only makes a bigger wrong one. Cut, marked
+             truncated, refused by the strict parser: nothing written. */
           noContinue: true
         });
         const res = parseAIJsonStrict(text, 'the reading', { noContinue: true });   // repaired/truncated -> nothing written
@@ -32060,15 +32107,23 @@ Rules:
     function ptRepaint() { try { renderPlanTruth(); renderPricing(); renderBaseline(); renderHealth(); } catch (e) {} }
 
     // ---- SYNCHRONOUS paint. This is what the render anchors call.
+    const PT_NOKEY_HIDE = 'pertGantt.noKeyHidden';
+    function ptNoKeyHidden() { try { return localStorage.getItem(PT_NOKEY_HIDE) === '1'; } catch (e) { return false; } }
+    function ptHideNoKey() { try { localStorage.setItem(PT_NOKEY_HIDE, '1'); } catch (e) {} ptRepaint(); }
     function ptReadingHtml(panel) {
       const hasKey = !!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE));
       const S = ptStore[activeProjectId()];
       // The ask row rides on every state that has a key — including "no reading
       // yet", because a question is a perfectly good first press.
-      if (!hasKey) return '<div class="rdg" data-state="nokey"><p class="rdg-text"><b>Readings are off — no API key.</b> '
-        + 'This panel’s numbers, thresholds, warnings and buttons all work exactly as they do now. What you don’t get is the '
-        + 'sentence saying what they mean for this engagement, or the action worth taking. '
-        + '<button class="btn-sm btn-secondary no-print" onclick="switchTab(\'tasks\');document.getElementById(\'aiSettings\').style.display=\'block\'"><span class="ico" data-i="settings" aria-hidden="true"></span> Add a key</button></p></div>';
+      /* ONE LINE, AND DISMISSIBLE. Four panels opened on the same 235-character
+         paragraph; it now says the one thing (everything works, a key adds the
+         reading) and can be put away for all of them at once. The full account
+         stays on the tooltip for anyone who wants it. */
+      if (!hasKey && ptNoKeyHidden()) return '';
+      if (!hasKey) return '<div class="rdg rdg-nokey" data-state="nokey" title="This panel’s numbers, thresholds, warnings and buttons all work exactly as they do now. What a key adds is the sentence saying what they mean for this engagement, and the action worth taking."><p class="rdg-text"><b>Readings are off — no API key.</b> '
+        + 'Everything here works; a key adds a reading of what it means. '
+        + '<button class="btn-sm btn-secondary no-print" onclick="switchTab(\'tasks\');document.getElementById(\'aiSettings\').style.display=\'block\'"><span class="ico" data-i="settings" aria-hidden="true"></span> Add a key</button>'
+        + '<button type="button" class="rdg-x no-print" data-nokey-hide onclick="ptHideNoKey()" aria-label="Hide this notice on every panel" title="Hide this notice on every panel — ⚙ API Key still adds a key">' + icoHtml('x') + '</button></p></div>';
       if (ptBusy) return '<div class="rdg" data-state="busy"><p class="rdg-text">⏳ '
         + (ptBusyKind === 'ask'
             ? (ptBusyPanel === panel ? 'Answering your question…' : 'Answering a question on another panel…')

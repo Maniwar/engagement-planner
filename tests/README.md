@@ -171,6 +171,17 @@ neutral surface that was pale in light stays pale in dark, the tell-tale of a
 colour the override never reached. Transitions are switched off while it
 measures: a reading taken mid-fade is neither theme.
 
+`calm-prose-sweep.js` checks that the working folds under the numbers on
+Analytics and Plan vs actual. Every visible note over 400 characters is
+clamped to about two lines, with a "How this is measured" toggle beside it
+that opens it in full, says so with aria-expanded, and stays open through a
+repaint. Live readouts (aria-live) are output, not working, and are never
+folded. In print every note is whole and no toggle is printed. The no-key
+notice is one short line (102 characters, from 235) with Add a key and a
+dismiss, and dismissing it clears it from every panel across a reload. Folded
+is not removed: a line clamp keeps the text laid out, so every check that
+reads these sentences still reads all of them.
+
 `dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
 not just show numbers, they narrate them — "this is not a scope change, all 22
 changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is
