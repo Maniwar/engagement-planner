@@ -26,7 +26,7 @@
    than one that repeats a whole quoted line.
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
-const { requirePlaywright, chromePath, APP } = require('./_harness');
+const { requirePlaywright, chromePath, APP, FIXTURE } = require('./_harness');
 const { chromium } = requirePlaywright();
 
 const SEAM = '{"tasks":[{"name":"Alpha task","owner":"Priya"},';
@@ -154,7 +154,7 @@ const WHOLE = SEAM + REST;
       const H = await run([[SEAM, 'model_context_window_exceeded'], ['never sent', 'end_turn']]);
       out.H = { text: H.text, threw: H.threw, requests: H.bodies.length };
       if (H.threw) say('Context window', 'a context-window stop threw instead of returning the marked answer: ' + H.threw);
-      else if (!/\/\*TRUNCATED\*\/$/.test(H.text)) say('Context window', 'an answer the context window cut off came back unmarked, as if it were complete');
+      else if (H.text.indexOf('/*TRUNCATED*/') < 0) say('Context window', 'an answer the context window cut off came back unmarked, as if it were complete');
       if (H.bodies.length !== 1) say('Context window', 'a context-window stop was resumed (' + H.bodies.length + ' requests) — the window is already full');
 
       // ── I. a refusal is a refusal, not malformed JSON ─────────────────
@@ -188,6 +188,75 @@ const WHOLE = SEAM + REST;
     out.contradictions = bad;
     return out;
   }, [SEAM, REST, WHOLE]);
+
+  /* ═══ WHERE A CUT IS READ ═══════════════════════════════════════════════
+     The marker is only half of it; what matters is what a person is then told.
+     K: the strict parser names the cause — a context window that filled is not
+     "the maximum output even after 8 auto-continuations", and the advice for
+     the two is different. L: the deliverable draft chat shows its reply as
+     text, so a cut reply arrived with the raw marker at its end — after the
+     closing fence, so the fence was not stripped either — and a context-window
+     stop makes that one round away instead of eight. It must read as a draft
+     with a plain notice, inside the message cap, notice included. */
+  await page.evaluate(d => { hydrate(d); calculate(); }, FIXTURE());
+  await page.waitForTimeout(300);
+  const W = await page.evaluate(async ([SEAM]) => {
+    const bad = []; const say = (a, m) => bad.push(a + ' :: ' + m);
+    const realFetch = window.fetch, realAlert = window.alert;
+    const key = document.getElementById('aiKey'); const keyWas = key.value; key.value = 'sk-ant-test-fixture-not-a-key';
+    const sse = (text, stop) => ['message_start', 'content_block_delta', 'message_delta'].map(x => 'event: ' + x + '\ndata: ' + JSON.stringify(
+      x === 'message_start' ? { type: x, message: { usage: { input_tokens: 1 } } }
+      : x === 'content_block_delta' ? { type: x, index: 0, delta: { type: 'text_delta', text: text } }
+      : { type: x, delta: { stop_reason: stop } })).join('\n\n') + '\n\n';
+    const stub = rounds => { let n = 0; window.fetch = async () => { const r = rounds[Math.min(n++, rounds.length - 1)];
+      return new Response(sse(r[0], r[1]), { status: 200, headers: { 'content-type': 'text/event-stream' } }); }; };
+    const out = {};
+    try {
+      // K — the cause, in words
+      stub([[SEAM, 'model_context_window_exceeded']]);
+      const cutW = await callAnthropic('Draft the plan.', { quiet: true });
+      let msgW = ''; try { parseAIJsonStrict(cutW, 'the plan'); } catch (e) { msgW = e.message; }
+      out.K = { msgW };
+      if (!/context window/i.test(msgW)) say('Strict parser', 'a context-window cut is reported as: ' + (msgW || '(no error)'));
+      if (/8 auto-continuations/.test(msgW)) say('Strict parser', 'a context-window cut is blamed on the output limit');
+      const parts = []; for (let i = 0; i < 9; i++) parts.push(['"part ' + i + ' of a plan that never ends",', 'max_tokens']);
+      stub(parts);
+      const cutL = await callAnthropic('Draft the plan.', { quiet: true });
+      let msgL = ''; try { parseAIJsonStrict(cutL, 'the plan'); } catch (e) { msgL = e.message; }
+      out.K.msgL = msgL;
+      if (!/8 auto-continuations/.test(msgL)) say('Strict parser', 'an output-limit cut lost its own explanation: ' + (msgL || '(no error)'));
+
+      // L — the draft chat
+      const subj = leafTasks().filter(x => !x.isSummary && !x.milestone)[0];
+      const keepChat = subj.aiChat;
+      window.alert = () => {};
+      const draft = async (rounds) => {
+        subj.aiChat = [];
+        stub(rounds);
+        openDraftChat(subj.id, '', false);
+        await adSend('Draft it');
+        const last = (subj.aiChat || []).filter(m => m.role === 'ai').pop();
+        closeDraftChat();
+        return last ? last.text : '';
+      };
+      const w = await draft([['```markdown\n# Charter\nThe body of the draft, cut where the window filled.\n```', 'model_context_window_exceeded']]);
+      out.L = { window: w.slice(-160) };
+      if (/TRUNCATED|CONTEXT-WINDOW/.test(w)) say('Draft chat', 'the reply is saved with the raw cut marker in it');
+      if (/```/.test(w)) say('Draft chat', 'a cut reply keeps its code fence');
+      if (!/^# Charter/.test(w)) say('Draft chat', 'the draft itself is not what the reply opens with: ' + JSON.stringify(w.slice(0, 40)));
+      if (!/cut off/i.test(w) || !/context window/i.test(w)) say('Draft chat', 'a reply cut by a full context window does not say so: ' + JSON.stringify(w.slice(-90)));
+      const longParts = []; for (let i = 0; i < 9; i++) longParts.push([('Paragraph ' + i + ' of a long draft. ').repeat(28), 'max_tokens']);
+      const l = await draft(longParts);
+      out.L.long = { len: l.length, cap: CHAT_MSG_CHARS, tail: l.slice(-120) };
+      if (l.length > CHAT_MSG_CHARS) say('Draft chat', 'a long cut reply is ' + l.length + ' characters, over the ' + CHAT_MSG_CHARS + ' cap');
+      if (!/cut off/i.test(l.slice(-200))) say('Draft chat', 'the cut-off notice of a long reply was lost to the message cap');
+      if (/TRUNCATED/.test(l)) say('Draft chat', 'a long cut reply carries the raw marker');
+      subj.aiChat = keepChat;
+    } finally { window.fetch = realFetch; window.alert = realAlert; key.value = keyWas; }
+    out.contradictions = bad;
+    return out;
+  }, [SEAM]);
+  R.where = W; (W.contradictions || []).forEach(c => R.contradictions.push(c));
 
   R.outboundRequests = requests.slice(0, 8);
   if (requests.length) R.contradictions.push('Network :: the page made ' + requests.length + ' request(s) off the machine');

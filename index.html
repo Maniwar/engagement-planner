@@ -25361,10 +25361,9 @@ Or say what you want, in your own words:
         alert('The draft could not be produced: ' + (e.message || e));
         return;
       }
-      const clean = String(out || '').replace(/^\s*```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
-      const kept = clean.slice(0, CHAT_MSG_CHARS);
-      t.aiChat = chatLogNorm(t.aiChat.concat([{ role: 'ai', text: kept, at: new Date().toISOString(),
-        trimmed: Math.max(0, clean.length - kept.length) }]));
+      const reply = aiChatReply(out);
+      t.aiChat = chatLogNorm(t.aiChat.concat([{ role: 'ai', text: reply.text, at: new Date().toISOString(),
+        trimmed: reply.trimmed }]));
       adBusy = false;
       saveLocal();
       adPaint();
@@ -31632,7 +31631,7 @@ Rules:
              to resume: the next round would resend everything plus this answer
              into a window that is already full. Mark it, and the strict parser
              refuses it — nothing is applied. */
-          if (r.stopReason === 'model_context_window_exceeded') return stillOurs(full + '\n/*TRUNCATED*/');
+          if (r.stopReason === 'model_context_window_exceeded') return stillOurs(full + '\n' + AI_CUT_MARK + ' ' + AI_CUT_WINDOW_MARK);
           // Short-output flows (readings, briefings, RAID capture) opt OUT of
           // continuation. They were opted out when it was a guaranteed 400; they
           // stay out because one of their answers reaching the ceiling is a
@@ -31663,9 +31662,27 @@ Rules:
         aiStripCount();
       }
     }
+    // THE CUT MARKER. Every cut answer ends with AI_CUT_MARK, which is what the
+    // readers test for. A cut by a FULL CONTEXT WINDOW adds AI_CUT_WINDOW_MARK,
+    // because the cause decides the advice: a longer answer can be asked for,
+    // and a fuller window cannot.
+    const AI_CUT_MARK = '/*TRUNCATED*/', AI_CUT_WINDOW_MARK = '/*CONTEXT-WINDOW*/';
+    function aiCutOf(text) { const t = String(text || ''); return t.indexOf(AI_CUT_MARK) < 0 ? null : t.indexOf(AI_CUT_WINDOW_MARK) >= 0 ? 'window' : 'length'; }
+    function aiUncut(text) { return String(text || '').split(AI_CUT_MARK).join('').split(AI_CUT_WINDOW_MARK).join('').replace(/\s+$/, ''); }
+    // A chat reply is read as text, so a cut one gets a sentence, not the marker
+    // ("Handle truncated responses gracefully"); the cap is applied BEFORE the
+    // notice, so the notice is never what gets cut.
+    function aiChatReply(out) {
+      const cut = aiCutOf(out);
+      const clean = aiUncut(out).replace(/^\s*```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
+      const note = cut === 'window' ? '\n\n[Reply cut off — this conversation filled the model’s context window. Start a fresh draft, or ask for a shorter one.]'
+        : cut ? '\n\n[Reply cut off — it ran past the longest answer the model gives. Ask for the rest, or for a shorter draft.]' : '';
+      const kept = clean.slice(0, CHAT_MSG_CHARS - note.length);
+      return { text: kept + note, trimmed: Math.max(0, clean.length - kept.length) };
+    }
     function parseAIJson(text) {
       parseAIJson.repaired = false; // set true when we had to cut back to the last complete object
-      let s = text.replace('/*TRUNCATED*/', '').trim();
+      let s = aiUncut(text).trim();
       // strip markdown fences if present
       s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
       const first = s.indexOf('{');
@@ -31717,7 +31734,9 @@ Rules:
        them looking for a control that does not exist — the reading has no
        per-phase mode. Same guard, honest wording. */
     function parseAIJsonStrict(text, what, opts) {
-      if (String(text).indexOf('/*TRUNCATED*/') >= 0) {
+      if (aiCutOf(text) === 'window')
+        throw new Error('The AI response for ' + what + ' was cut off: the request and its answer filled the model’s context window. NOTHING was changed. A smaller request leaves room for the answer.');
+      if (aiCutOf(text)) {
         if (opts && opts.noContinue)
           throw new Error('The response for ' + what + ' ran past the length this request allows, so it arrived incomplete. NOTHING was changed — press ⟳ to ask again; a second attempt on the same numbers is usually shorter.');
         throw new Error('The AI response for ' + what + ' exceeded the maximum output even after 8 auto-continuations. NOTHING was changed. Split the request into smaller pieces (e.g. one phase at a time) and retry.');
