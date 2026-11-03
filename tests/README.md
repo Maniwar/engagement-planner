@@ -109,6 +109,18 @@ phrasing you did not anticipate. The protection is that a reading has no
 execution power and is escaped when drawn — so the sweep proves the escaping
 instead of trusting it.
 
+`ai-model-sweep.js` checks the models the app OFFERS against the vendor's own
+list, and the request it builds for each. Its spec table is copied from
+platform.claude.com (model ids, and the per-model output limits), so a new
+model release starts here: update the table, and the check names everything
+the app still has to catch up on. It replaces `window.fetch` for each call and
+reads the request body exactly as built — the chosen model, its full output
+ceiling, streaming on, no manual thinking budget (a 400 on current models), and
+no prefilled assistant turn. It also seeds the old saved choices into a fresh
+browser and requires each to move to the same family's current model, be saved
+back, and be announced. Before, an id the picker no longer offered left the
+select EMPTY, and every call silently went out on a hardcoded fallback.
+
 `dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
 not just show numbers, they narrate them — "this is not a scope change, all 22
 changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is

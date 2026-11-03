@@ -4222,10 +4222,10 @@
               <div>
                 <label for="aiModel">Model</label>
                 <select id="aiModel">
-                  <option value="claude-opus-5">Opus 5 (highest quality)</option>
-                  <option value="claude-sonnet-5">Sonnet 5 (recommended)</option>
-                  <option value="claude-opus-4-8">Opus 4.8</option>
-                  <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fastest)</option>
+                  <option value="claude-fable-5-1">Fable 5.1 (most capable, highest cost)</option>
+                  <option value="claude-opus-5-5">Opus 5.5 (high quality)</option>
+                  <option value="claude-sonnet-5-5" selected>Sonnet 5.5 (recommended)</option>
+                  <option value="claude-haiku-5-5">Haiku 5.5 (fastest, lowest cost)</option>
                 </select>
               </div>
               <button class="btn-primary" onclick="saveApiKey()">Save Key</button>
@@ -5359,7 +5359,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.08.21.2204</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1636</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -25081,7 +25081,7 @@ Or say what you want, in your own words:
       const h1 = (m.text.match(/^\s*#\s+(.+)$/m) || [])[1];
       t.aiDoc = aiDocNorm({ title: (h1 || t.deliverable || t.name || '').trim(), body: m.text,
         at: new Date().toISOString(),
-        model: (document.getElementById('aiModel') || {}).value || '', storyId: adStoryId });
+        model: aiModelId(), storyId: adStoryId });
       /* Fill the deliverable ONLY when it is blank. Overwriting a deliverable
          somebody wrote — the thing the SOW scope table prints and the client
          signs against — because a draft happened to have a different heading
@@ -29298,6 +29298,24 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
     // ========================= AI PLAN BUILDER =========================
     const AI_KEY_STORE = 'pertGantt.anthropicKey';
     const AI_MODEL_STORE = 'pertGantt.aiModel';
+    // must match the picker option marked `selected` — tests/ai-model-sweep.js holds them together
+    const AI_MODEL_DEFAULT = 'claude-sonnet-5-5';
+    function aiModelId() {
+      const sel = document.getElementById('aiModel');
+      return (sel && sel.value) || AI_MODEL_DEFAULT;
+    }
+    /* A saved model id outlives the picker that offered it. Setting a select to
+       a value it has no option for leaves it EMPTY, and every call then went out
+       on the hardcoded fallback — someone who chose Opus got Sonnet with nothing
+       on screen saying so. So an id the picker no longer offers moves to the
+       same family's current model, and anything unrecognised to the default. */
+    function resolveAiModel(saved) {
+      const sel = document.getElementById('aiModel');
+      const offered = sel ? Array.from(sel.options).map(o => o.value) : [];
+      if (offered.indexOf(saved) >= 0) return saved;
+      const fam = (String(saved || '').match(/^claude-(fable|opus|sonnet|haiku)-/) || [])[1];
+      return (fam && offered.find(v => v.indexOf('claude-' + fam + '-') === 0)) || AI_MODEL_DEFAULT;
+    }
     function toggleAiSettings() {
       const el = document.getElementById('aiSettings');
       el.style.display = el.style.display === 'none' ? 'block' : 'none';
@@ -29307,7 +29325,16 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         const k = localStorage.getItem(AI_KEY_STORE);
         if (k) document.getElementById('aiKey').value = k;
         const m = localStorage.getItem(AI_MODEL_STORE);
-        if (m) document.getElementById('aiModel').value = m;
+        if (m) {
+          const sel = document.getElementById('aiModel');
+          const use = resolveAiModel(m);
+          sel.value = use;
+          if (use !== m) {
+            localStorage.setItem(AI_MODEL_STORE, use);
+            const label = sel.options[sel.selectedIndex].textContent.split(' (')[0];
+            flashSaved('ℹ Your saved AI model (' + m + ') is no longer offered — now using ' + label + '. Change it under ⚙ API Key.');
+          }
+        }
         updateKeyBadge();
       } catch (e) {}
     }
@@ -30940,7 +30967,18 @@ ${uatStylePref() === 'bigbang'
       el.dataset.base = base;
       el.textContent = n > 1 ? base + '  (+' + (n - 1) + ' more running — ⏹ stops all)' : base;
     }
+    /* Max output tokens per model, from the "Output limits" table at
+       platform.claude.com/docs/en/build-with-claude/thinking (read 2026-11-03).
+       Matched by id PREFIX and the first hit wins, so the picker's current ids
+       come first: claude-opus-5 is a prefix of claude-opus-5-5, and
+       claude-haiku-5-5 shares no prefix at all — without its own row it fell to
+       the 64k unknown-model floor, half its real ceiling. */
     const MODEL_CAPS = [
+      { p: 'claude-fable-5-1',  max: 128000 },
+      { p: 'claude-opus-5-5',   max: 128000 },
+      { p: 'claude-sonnet-5-5', max: 128000 },
+      { p: 'claude-haiku-5-5',  max: 128000 },
+      // earlier ids — no longer in the picker, but opts.model can still name one
       { p: 'claude-haiku-4-5', max: 64000 },
       { p: 'claude-opus-5',    max: 128000 },
       { p: 'claude-sonnet-5',  max: 128000 },
@@ -31007,14 +31045,14 @@ Rules:
       // opts.model lets one flow pick a cheaper/stronger model without touching
       // the global select — mutating that select would silently re-point every
       // other flow AND invalidate their prompt cache, which is model-scoped.
-      const model = opts.model || document.getElementById('aiModel').value || 'claude-sonnet-5';
+      const model = opts.model || aiModelId();
       /* PER-MODEL OUTPUT CEILING. This was `indexOf('haiku') ? 64000 : 128000`
          — a substring test with a hardcoded fallback, so ANY model string that
-         is not Haiku was handed 128k whether or not that is its ceiling. The
-         numbers happen to be right for the three models this app offers
-         (Sonnet 5 and Opus 4.8 allow 128k output, Haiku 4.5 64k, and both
-         require streaming for large outputs, which every call here does), but
-         a table that is right by luck fails silently the day it stops being.
+         is not Haiku was handed 128k whether or not that is its ceiling. It
+         stopped being right the day Haiku 5.5 shipped with 128k, which is the
+         point: a table that is right by luck fails silently the day it stops
+         being. (Every model the picker offers allows 128k output and needs
+         streaming for large outputs, which every call here does.)
 
          So: an EXPLICIT table, matched by id prefix rather than a substring
          anywhere in the name, and a learned override. If the API ever rejects
@@ -31206,7 +31244,8 @@ Rules:
           full += r.text;
           // Short-output flows (readings, briefings) opt OUT of continuation.
           // The continuation resend uses an assistant prefill, which returns 400
-          // on claude-sonnet-5 and claude-opus-4-8 — so for a flow with a small
+          // on every model the picker offers (Claude 4.6 and later reject a
+          // prefilled final assistant turn) — so for a flow with a small
           // maxTokens the loop is not a safety net, it is a guaranteed failure
           // one round later. Mark the output truncated and let
           // parseAIJsonStrict refuse it, which applies nothing.
@@ -31684,7 +31723,7 @@ Rules:
         const res = parseAIJsonStrict(text, 'the reading', { noContinue: true });   // repaired/truncated -> nothing written
         const v = ptValidate(res, dg);
         ptStore[activeProjectId()] = { items: v.items, drops: v.drops, quiet: v.quiet, fp,
-          at: new Date().toISOString(), model: (document.getElementById('aiModel').value || 'claude-sonnet-5'),
+          at: new Date().toISOString(), model: aiModelId(),
           contractV: PT_CONTRACT_V };
         ptSave();
         streamHide(true);
@@ -31978,7 +32017,7 @@ Rules:
         const res = parseAIJsonStrict(text, 'the answer', { noContinue: true });
         const v = ptValidate(res, dg, { askOnly: true });
         ptAskStore[activeProjectId()] = { panel, q, items: v.items, drops: v.drops, quiet: v.quiet, fp,
-          at: new Date().toISOString(), model: (document.getElementById('aiModel').value || 'claude-sonnet-5') };
+          at: new Date().toISOString(), model: aiModelId() };
         ptAskSave();
         streamHide(true);
       } catch (e) {

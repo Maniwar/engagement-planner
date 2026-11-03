@@ -55,6 +55,7 @@ setTimeout setInterval clearTimeout clearInterval requestAnimationFrame queueMic
 alert confirm prompt fetch btoa atob getComputedStyle matchMedia
 console document window navigator localStorage sessionStorage location history
 Blob File FileReader FormData URL URLSearchParams TextEncoder TextDecoder AbortController
+Headers Request Response
 Element HTMLElement Node NodeList Event CustomEvent MutationObserver IntersectionObserver
 ClipboardItem Image Audio Worker IDBKeyRange indexedDB crypto performance
 ErrorEvent PromiseRejectionEvent DOMParser XMLSerializer Range Text Option
