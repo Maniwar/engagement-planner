@@ -121,6 +121,20 @@ browser and requires each to move to the same family's current model, be saved
 back, and be announced. Before, an id the picker no longer offered left the
 select EMPTY, and every call silently went out on a hardcoded fallback.
 
+`continuation-sweep.js` checks that an answer cut at the output ceiling is
+STITCHED rather than lost. The resume used to send the partial answer as the
+final assistant turn — a prefill — which Claude 4.6 and later reject with a
+400, so on every offered model round two of a big plan was a guaranteed
+failure. Its fetch stub answers a request ending on an assistant turn the way
+the API does, so the old code fails here exactly as it failed in the field. It
+then holds the documented replacement to its contract: the request ends on a
+user turn that quotes how the answer ended, the opening turn is unchanged (the
+cache matches only an identical prefix), a model that repeats the quoted tail
+or fences its continuation is trimmed back to one clean answer, a short
+coincidental overlap is kept as content, conversations keep their turn order,
+flows that opted out still stop at the first cut, and a run that never ends is
+marked truncated after its eighth round.
+
 `dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
 not just show numbers, they narrate them — "this is not a scope change, all 22
 changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is

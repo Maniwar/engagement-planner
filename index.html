@@ -980,6 +980,22 @@
     .rd-resp, td.rd-resp { width: 20rem; }
     .rd-stat, td.rd-stat { width: 7.5rem; }
     .rd-out, td.rd-out { width: 11rem; }
+    /* Below a 1366px window these columns no longer fit. At 1280 the table's
+       min-content was 1208px in a 1198px wrap — a 10px sideways scroll that
+       reaches nothing (the geometry probe's TRAPPED). The outcome select is
+       sized by its longest option and cannot give; the owner block ellipsizes
+       its name and role (.pers-n / .pers-r), so it is the one that yields.
+       Its nowrap role line contributed its full width (up to .pers-r's 168px)
+       to the column's minimum, outvoting any width written here; a zero-width
+       text block that grows to fill takes its room FROM the column instead.
+       And a floor, because a squeezed table shrinks a cell's `width` to its
+       min-content — min-width is the one a cell keeps (as rd-entry's does). */
+    @media (max-width: 1365px) {
+      td.rd-own, th.rd-own { min-width: 12rem; }
+      /* left: a block that now fills the cell would otherwise centre the name
+         and role under the column's inherited text-align */
+      .rd-own .pers-t { width: 0; flex: 1 1 auto; text-align: left; }
+    }
     /* Chip and tense side by side HERE ONLY. Stacked, they cost the entry
        block a whole line before the title, which is the line the row height is
        made of; the form and the SOW keep the stacked version where vertical
@@ -5359,7 +5375,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1636</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1654</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -31003,6 +31019,29 @@ ${uatStylePref() === 'bigbang'
       if (!Number.isFinite(+n) || +n <= 0) return;
       try { const o = modelCapOverrides(); o[model] = +n; localStorage.setItem(MODEL_CAP_LEARNED, JSON.stringify(o)); } catch (e) {}
     }
+    /* Resuming an answer cut at the output ceiling. The documented pattern
+       (platform.claude.com, "Migrating away from prefilled responses"): quote
+       how the answer ended and ask for the rest in a USER turn. Asked rather
+       than forced, a model can repeat the tail it was shown or fence what it
+       adds, so stitchContinuation trims both. A repeat shorter than
+       CONTINUE_MIN_OVERLAP is kept — at that length a match at the seam is
+       likelier to be content (",2,", "": "") than an echo of a quoted line. */
+    const CONTINUE_QUOTE = 400, CONTINUE_MIN_OVERLAP = 20;
+    function continuationAsk(sofar) {
+      return 'Your previous response was cut off at the output limit. It ended with:\n<<<\n'
+        + String(sofar).slice(-CONTINUE_QUOTE)
+        + '\n>>>\nContinue from exactly the next character. Output ONLY the continuation: do not repeat '
+        + 'any of the text above, do not restart, and add no preamble, explanation or code fence.';
+    }
+    function stitchContinuation(sofar, more) {
+      sofar = String(sofar || '');
+      let s = String(more || '').replace(/^\s*```[a-z]*[ \t]*\n/i, '');
+      // a closing fence is the answer's own only when the answer opened with one
+      if (!/^\s*```/.test(sofar)) s = s.replace(/\n?```\s*$/, '');
+      for (let k = Math.min(CONTINUE_QUOTE, sofar.length, s.length); k >= CONTINUE_MIN_OVERLAP; k--)
+        if (sofar.endsWith(s.slice(0, k))) return s.slice(k);
+      return s;
+    }
     const aiLiveCtrls = new Set();
     let aiAbortCtrl = null;   // the newest — kept for callers that read it
     function stopAIStream() {
@@ -31212,8 +31251,9 @@ Rules:
       };
 
       // Auto-continuation: if the model hits the output ceiling, resend with the
-      // partial answer as an assistant prefill so it resumes mid-token-stream —
-      // huge plans get stitched together seamlessly across responses.
+      // partial answer as an assistant turn and a user turn asking for the rest
+      // (continuationAsk / stitchContinuation) — huge plans get stitched
+      // together seamlessly across responses.
       /* The project this request was BUILT from. Every AI flow reads the live
          globals to compose its prompt, awaits a 1-3 minute call, then mutates
          those same globals and calls saveLocal() — which writes to whatever
@@ -31235,19 +31275,24 @@ Rules:
       try {
         let full = '';
         for (let round = 0; round < 8; round++) {
-          const prefill = full.replace(/\s+$/, ''); // API rejects trailing whitespace in prefills
-          const messages = priorTurns().concat(prefill
-            ? [{ role: 'user', content: userMsg() }, { role: 'assistant', content: prefill }]
-            : [{ role: 'user', content: userMsg() }]);
-          if (prefill) full = prefill;
+          /* The request always ENDS ON A USER TURN. This used to resend the cut
+             answer as the final assistant turn — a prefill — and Claude 4.6 and
+             later reject that with a 400, which is every model the picker
+             offers: round two of a big plan was a guaranteed failure. The cut
+             answer now rides as an ordinary assistant turn and a user turn asks
+             for the rest. An empty cut (the whole ceiling went on thinking) has
+             nothing to continue, so that round is a plain retry. */
+          const tail = round ? full.replace(/\s+$/, '') : '';
+          if (round) full = tail;
+          const messages = priorTurns().concat([{ role: 'user', content: userMsg() }],
+            tail ? [{ role: 'assistant', content: tail }, { role: 'user', content: continuationAsk(tail) }] : []);
           const r = await once(messages, full);
-          full += r.text;
-          // Short-output flows (readings, briefings) opt OUT of continuation.
-          // The continuation resend uses an assistant prefill, which returns 400
-          // on every model the picker offers (Claude 4.6 and later reject a
-          // prefilled final assistant turn) — so for a flow with a small
-          // maxTokens the loop is not a safety net, it is a guaranteed failure
-          // one round later. Mark the output truncated and let
+          full += tail ? stitchContinuation(full, r.text) : r.text;
+          // Short-output flows (readings, briefings, RAID capture) opt OUT of
+          // continuation. They were opted out when it was a guaranteed 400; they
+          // stay out because one of their answers reaching the ceiling is a
+          // runaway, not a long answer, and stitching more onto it only makes a
+          // bigger wrong one. Mark the output truncated and let
           // parseAIJsonStrict refuse it, which applies nothing.
           if (opts.noContinue && r.stopReason === 'max_tokens') return stillOurs(full + '\n/*TRUNCATED*/');
           if (r.stopReason !== 'max_tokens') return stillOurs(full);
