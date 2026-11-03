@@ -133,7 +133,14 @@ cache matches only an identical prefix), a model that repeats the quoted tail
 or fences its continuation is trimmed back to one clean answer, a short
 coincidental overlap is kept as content, conversations keep their turn order,
 flows that opted out still stop at the first cut, and a run that never ends is
-marked truncated after its eighth round.
+marked truncated after its eighth round. The other two ways an answer ends
+early are held too. A stop on `model_context_window_exceeded` comes back
+marked truncated and is not resumed: the next round would resend everything
+into a window that is already full. A `refusal` throws a "declined" error
+carrying the API's category and explanation, and still reads cleanly when
+both are null; before, every flow reported it as bad JSON. A cut just after a
+space keeps exactly one space: the turn sent is trimmed, the answer kept is
+not.
 
 `mobile-header-sweep.js` checks the header at phone width (390 and 360) and
 on the desktop (1280 and 1440). On a phone it must leave the screen to the plan

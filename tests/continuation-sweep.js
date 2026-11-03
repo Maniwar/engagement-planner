@@ -51,10 +51,10 @@ const WHOLE = SEAM + REST;
     const keyWas = key.value;
     key.value = 'sk-ant-test-fixture-not-a-key';
 
-    const sse = (text, stop) => ['message_start', 'content_block_delta', 'message_delta'].map(t => 'event: ' + t + '\ndata: ' + JSON.stringify(
+    const sse = (text, stop, extra) => ['message_start', 'content_block_delta', 'message_delta'].map(t => 'event: ' + t + '\ndata: ' + JSON.stringify(
       t === 'message_start' ? { type: t, message: { usage: { input_tokens: 1 } } }
       : t === 'content_block_delta' ? { type: t, index: 0, delta: { type: 'text_delta', text: text } }
-      : { type: t, delta: { stop_reason: stop } })).join('\n\n') + '\n\n';
+      : { type: t, delta: Object.assign({ stop_reason: stop }, extra || {}) })).join('\n\n') + '\n\n';
     /* rounds: [[text, stop_reason], …] answered in order. A request ending on an
        assistant turn is answered the way the API answers it. */
     const run = async (rounds, opts) => {
@@ -68,7 +68,7 @@ const WHOLE = SEAM + REST;
             message: 'This model does not support assistant message prefill. The conversation must end with a user message.' } }),
             { status: 400, headers: { 'content-type': 'application/json' } });
         const r = rounds[Math.min(bodies.length - 1, rounds.length - 1)];
-        return new Response(sse(r[0], r[1]), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+        return new Response(sse(r[0], r[1], r[2]), { status: 200, headers: { 'content-type': 'text/event-stream' } });
       };
       let text = '', threw = '';
       try { text = await callAnthropic('Draft the plan.', Object.assign({ quiet: true }, opts || {})); }
@@ -146,6 +146,41 @@ const WHOLE = SEAM + REST;
       if (G.bodies.length !== 8) say('Exhaustion', 'the continuation loop ran ' + G.bodies.length + ' rounds, not its limit of 8');
       if (!G.threw && !/\/\*TRUNCATED\*\/$/.test(G.text)) say('Exhaustion', 'an answer still cut after the last round is not marked truncated');
       if (!G.threw && G.text.indexOf('"part 7 of a plan') < 0) say('Exhaustion', 'the last round\'s text is missing from the result');
+      // ── H. the context window filled: cut, and said to be cut ──────────
+      /* A second round would resend everything plus the partial answer — more
+         input into a window that is already full — so this one is not resumed;
+         it is marked, and the strict parser refuses it. (handling-stop-reasons:
+         model_context_window_exceeded is a truncation like max_tokens.) */
+      const H = await run([[SEAM, 'model_context_window_exceeded'], ['never sent', 'end_turn']]);
+      out.H = { text: H.text, threw: H.threw, requests: H.bodies.length };
+      if (H.threw) say('Context window', 'a context-window stop threw instead of returning the marked answer: ' + H.threw);
+      else if (!/\/\*TRUNCATED\*\/$/.test(H.text)) say('Context window', 'an answer the context window cut off came back unmarked, as if it were complete');
+      if (H.bodies.length !== 1) say('Context window', 'a context-window stop was resumed (' + H.bodies.length + ' requests) — the window is already full');
+
+      // ── I. a refusal is a refusal, not malformed JSON ─────────────────
+      const I = await run([['{"tasks":[', 'refusal', { stop_details: { type: 'refusal', category: 'cyber', explanation: 'This request was declined.' } }]]);
+      out.I = { text: I.text, threw: I.threw, requests: I.bodies.length };
+      if (!I.threw) say('Refusal', 'a refused answer came back as an answer (' + JSON.stringify(I.text.slice(0, 40)) + ') — the flow then reports it as bad JSON');
+      else {
+        if (!/declined/i.test(I.threw)) say('Refusal', 'the refusal error does not say the model declined: ' + I.threw);
+        if (!/This request was declined/.test(I.threw)) say('Refusal', 'the refusal error drops the explanation the API gave');
+        if (!/NOTHING was changed/.test(I.threw)) say('Refusal', 'the refusal error does not say nothing was applied');
+      }
+      if (I.bodies.length !== 1) say('Refusal', 'a refusal was retried or resumed (' + I.bodies.length + ' requests)');
+      // category and explanation may both be null — the message must still stand
+      const I2 = await run([['', 'refusal', { stop_details: { type: 'refusal', category: null, explanation: null } }]]);
+      out.I2 = { threw: I2.threw };
+      if (!I2.threw || !/declined/i.test(I2.threw) || /null|undefined/.test(I2.threw)) say('Refusal', 'a refusal with no category or explanation reads: ' + (I2.threw || '(no error)'));
+
+      // ── J. a cut right after a space keeps the space ──────────────────
+      const J = await run([['{"name":"Alpha ', 'max_tokens'], ['task"}', 'end_turn']]);
+      out.J = { text: J.text, threw: J.threw };
+      if (!J.threw && J.text !== '{"name":"Alpha task"}') say('Seam', 'a cut just after a space lost it: ' + JSON.stringify(J.text));
+      const J2 = await run([['{"name":"Alpha ', 'max_tokens'], [' task"}', 'end_turn']]);
+      out.J2 = { text: J2.text, threw: J2.threw };
+      if (!J2.threw && J2.text !== '{"name":"Alpha task"}') say('Seam', 'a continuation that re-sent the space doubled it: ' + JSON.stringify(J2.text));
+      const asst = ((J.bodies[1] || {}).messages || []).filter(m => m.role === 'assistant').map(m => contentText(m.content));
+      if (asst.some(a => /\s$/.test(a))) say('Seam', 'the assistant turn is sent ending in whitespace');
     } finally {
       window.fetch = realFetch;
       key.value = keyWas;

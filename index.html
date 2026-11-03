@@ -5652,7 +5652,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1752</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.1839</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -31352,14 +31352,23 @@ ${uatStylePref() === 'bigbang'
     function continuationAsk(sofar) {
       return 'Your previous response was cut off at the output limit. It ended with:\n<<<\n'
         + String(sofar).slice(-CONTINUE_QUOTE)
-        + '\n>>>\nContinue from exactly the next character. Output ONLY the continuation: do not repeat '
+        + '\n>>>\n' + (/[ \t]$/.test(String(sofar)) ? '(It ended with a space.)\n' : '') + 'Continue from exactly the next character. Output ONLY the continuation: do not repeat '
         + 'any of the text above, do not restart, and add no preamble, explanation or code fence.';
+    }
+    /* stop_details.category and .explanation can both be null (the docs say to
+       supply our own words then), so the message stands without them. */
+    function refusalMessage(d) {
+      d = d || {};
+      return 'The model declined this request' + (d.category ? ' (' + d.category + ')' : '') + (d.explanation ? ': ' + d.explanation : '.')
+        + ' NOTHING was changed. Rewording the request, or another model under ⚙ API Key, may get an answer.';
     }
     function stitchContinuation(sofar, more) {
       sofar = String(sofar || '');
       let s = String(more || '').replace(/^\s*```[a-z]*[ \t]*\n/i, '');
       // a closing fence is the answer's own only when the answer opened with one
       if (!/^\s*```/.test(sofar)) s = s.replace(/\n?```\s*$/, '');
+      // the answer kept its trailing space, so a continuation that re-sends it would double it
+      if (/[ \t]$/.test(sofar)) s = s.replace(/^[ \t]+/, '');
       for (let k = Math.min(CONTINUE_QUOTE, sofar.length, s.length); k >= CONTINUE_MIN_OVERLAP; k--)
         if (sofar.endsWith(s.slice(0, k))) return s.slice(k);
       return s;
@@ -31524,7 +31533,7 @@ Rules:
         }
         // Parse the SSE stream, surfacing deltas as they arrive
         let text = '';
-        let stopReason = null;
+        let stopReason = null, stopDetails = null;
         if (res.body && res.body.getReader) {
           const reader = res.body.getReader();
           const dec = new TextDecoder();
@@ -31560,7 +31569,11 @@ Rules:
                   lastText = Date.now(); gotText = true;
                   if (opts.onDelta) { try { opts.onDelta(ev.delta.text, baseText + text); } catch (e) {} }
                 }
-                if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) stopReason = ev.delta.stop_reason;
+                // stop_details rides beside stop_reason on message_delta (a refusal's category and explanation)
+                if (ev.type === 'message_delta' && ev.delta) {
+                  if (ev.delta.stop_reason) stopReason = ev.delta.stop_reason;
+                  if (ev.delta.stop_details) stopDetails = ev.delta.stop_details;
+                }
                 if (ev.type === 'error') throw new Error(ev.error ? ev.error.message : 'stream error');
               } catch (e) { if (e && e.message && !String(e.message).startsWith('Unexpected')) throw e; }
             }
@@ -31568,8 +31581,9 @@ Rules:
         } else { // very old browsers: fall back to non-streamed JSON
           const data = await res.json();
           text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+          stopReason = data.stop_reason || null; stopDetails = data.stop_details || null;
         }
-        return { text, stopReason };
+        return { text, stopReason, stopDetails };
       };
 
       // Auto-continuation: if the model hits the output ceiling, resend with the
@@ -31604,12 +31618,21 @@ Rules:
              answer now rides as an ordinary assistant turn and a user turn asks
              for the rest. An empty cut (the whole ceiling went on thinking) has
              nothing to continue, so that round is a plain retry. */
+          /* The turn SENT ends without whitespace (the safe form — the old prefill
+             rule); the answer KEPT does not lose it, or a cut just after a space
+             runs two words together at the seam. */
           const tail = round ? full.replace(/\s+$/, '') : '';
-          if (round) full = tail;
           const messages = priorTurns().concat([{ role: 'user', content: userMsg() }],
-            tail ? [{ role: 'assistant', content: tail }, { role: 'user', content: continuationAsk(tail) }] : []);
+            tail ? [{ role: 'assistant', content: tail }, { role: 'user', content: continuationAsk(full) }] : []);
           const r = await once(messages, full);
+          // A refusal is not an answer: said as one, every flow reported it as bad JSON.
+          if (r.stopReason === 'refusal') throw new Error(refusalMessage(r.stopDetails));
           full += tail ? stitchContinuation(full, r.text) : r.text;
+          /* The context window filled. That is a cut like max_tokens, but not one
+             to resume: the next round would resend everything plus this answer
+             into a window that is already full. Mark it, and the strict parser
+             refuses it — nothing is applied. */
+          if (r.stopReason === 'model_context_window_exceeded') return stillOurs(full + '\n/*TRUNCATED*/');
           // Short-output flows (readings, briefings, RAID capture) opt OUT of
           // continuation. They were opted out when it was a guaranteed 400; they
           // stay out because one of their answers reaching the ceiling is a
