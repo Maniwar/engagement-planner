@@ -158,6 +158,19 @@ The gap between stages is clearly wider than the gap inside one, the desktop
 strip stays one row, and after every switch the view shows and the sliding
 pill sits on the active tab.
 
+`dark-mode-sweep.js` checks the dark theme. Every stylesheet colour is a token
+whose light value is the hex it replaced, and the dark theme mirrors each one.
+Inline styles and SVG colour attributes written by script are overridden from
+the stylesheet by their exact text, because that markup leaves the page. So
+the checks follow the build. Auto follows the system, live, and a stored Light
+or Dark wins over it. The Gantt SVG export and the email-ready status report
+are byte-identical in both themes. No text that reads in light (≥ 3:1 against
+what is actually behind it) becomes unreadable in dark, compared per element
+on one DOM so neither theme's weaknesses are blamed on the other. No pale
+neutral surface that was pale in light stays pale in dark, the tell-tale of a
+colour the override never reached. Transitions are switched off while it
+measures: a reading taken mid-fade is neither theme.
+
 `dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
 not just show numbers, they narrate them — "this is not a scope change, all 22
 changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is
