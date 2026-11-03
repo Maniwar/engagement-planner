@@ -135,6 +135,21 @@ coincidental overlap is kept as content, conversations keep their turn order,
 flows that opted out still stop at the first cut, and a run that never ends is
 marked truncated after its eighth round.
 
+`mobile-header-sweep.js` checks the header at phone width (390 and 360) and
+on the desktop (1280 and 1440). On a phone it must leave the screen to the plan
+(≤ 140px; it was 226), show the project name from its first letter with an
+ellipsis at the end (it was cut at the START), keep every control on screen at
+a 40px touch height, and still open each menu fully on screen. On the desktop
+it must stay one row with the title drawn.
+
+`icon-sweep.js` checks that the controls draw ONE icon set. It walks every
+tab and every header menu on the rendered page, not the source, so a label
+built by string concatenation is held to it as well. It fails on an emoji in
+any visible button, summary, heading or icon slot, on a `data-i` that names no
+defined icon (a typo draws nothing), and on an icon-only control with no name
+for a screen reader. Messages, alerts and the email-ready reports keep their
+emoji by design: they are text that leaves the page.
+
 `dynamic-prose-sweep.js` checks that no sentence is FAKING it. The panels do
 not just show numbers, they narrate them — "this is not a scope change, all 22
 changed rows are test cases", "the gap closes Aug 11, 2026", "$18,279 of it is

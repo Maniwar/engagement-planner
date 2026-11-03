@@ -431,8 +431,8 @@ const MUTANTS = [
      miscomputed, so every value-comparing check in the repo is blind to it, and
      a reader sees it instantly. */
   { what: 'form: the watch chip prefixes a question mark to a label that is already a question',
-    find: "        + escapeHtml(tip) + '\"><span aria-hidden=\"true\">👁</span>'",
-    with: "        + escapeHtml(tip) + '\"><span aria-hidden=\"true\">' + (asks ? '?' : '👁') + '</span>'" },
+    find: "        + escapeHtml(tip) + '\">' + icoHtml('eye')",
+    with: "        + escapeHtml(tip) + '\">' + (asks ? '<span aria-hidden=\"true\">?</span>' : icoHtml('eye'))" },
 
   { what: 'catch-up: the crossing date is floored to the midnight before it',
     find: '      return { on: stripTime(new Date(dayAt(hiD))), days: hiD };',
