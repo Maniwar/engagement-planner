@@ -769,12 +769,21 @@
     .tabs:not(:has(.tab-slider)) .tab.active { background: white; box-shadow: 0 1px 3px rgb(0 0 0/.1); }
     /* ---- mobile: tidy header grid + swipeable tabs ---- */
     @media (max-width: 640px) {
-      header { padding: 0.9rem 1rem 1.05rem; gap: 0.55rem; }
-      header h1 { font-size: 1.12rem; }
+      /* TWO ROWS, not five. The controls were a two-column grid of half-width
+         slabs under the app name and the chip — 226px of an 844px screen before
+         the first tab. Now: the mark and the project on one row (the name is
+         what a phone needs to say; the app's own title stays in the document
+         for a screen reader), every control on the next, at a touch height. */
+      header { padding: 0.55rem 0.75rem 0.65rem; gap: 0.5rem; }
+      header h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      /* header-scoped so it outranks the 42vw cap the 760px block sets later */
+      header .proj-chip { flex: 1 1 0; max-width: none; min-height: 40px; }
       #savedIndicator { display: none; }
-      .header-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.45rem; width: 100%; margin-left: 0; }
+      .header-actions { display: flex; flex-wrap: nowrap; gap: 0.4rem; width: 100%; margin-left: 0; }
+      .header-actions > details, .header-actions > button { flex: 1 1 0; min-width: 0; }
+      .header-actions > #undoBtn, .header-actions > #redoBtn { flex: 0 0 44px; }
       .header-actions details { width: 100%; }
-      .header-actions .btn-sm, .header-actions summary.btn-sm, .header-actions label.btn-ghost { width: 100%; padding: 0.52rem 0.3rem; font-size: 0.78rem; justify-content: center; white-space: nowrap; }
+      .header-actions .btn-sm, .header-actions summary.btn-sm, .header-actions label.btn-ghost { width: 100%; min-height: 44px; padding: 0.4rem 0.3rem; font-size: 0.8rem; justify-content: center; white-space: nowrap; }
       .header-actions summary.btn-sm { display: inline-flex; align-items: center; }
       main { padding: 0.8rem; }
       .config-grid { grid-template-columns: 1fr; }
@@ -2503,7 +2512,12 @@
       border-radius: 8px; margin-left: 0.6rem; max-width: min(30vw, 420px);
       white-space: nowrap; overflow: hidden; box-shadow: none; flex: 0 1 auto; min-width: 0; }
     .proj-chip:hover:not(:disabled) { background: rgb(255 255 255 / .16); border-color: rgb(255 255 255 / .26); color: #fff; }
-    .proj-chip b { font-weight: 700; color: #fff; }
+    /* flex-start, not the centring every button inherits: a centred row that
+       overflows spills both ways, so a long name lost its FIRST letters — the
+       ones that say which project this is. Now the name yields at its end. */
+    .proj-chip { justify-content: flex-start; }
+    .proj-chip b { font-weight: 700; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .proj-chip .pc-edit { flex: none; }
     .proj-chip .pc-meta { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
     .proj-chip .pc-edit { opacity: .55; margin-left: 0.15rem; }
     .proj-chip:hover .pc-edit { opacity: 1; }
