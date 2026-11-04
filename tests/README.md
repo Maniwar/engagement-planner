@@ -471,6 +471,84 @@ when a card is missing. The eight checks added with the November features have
 mutants of their own (30 of them), and each was confirmed red against them
 before it was counted.
 
+### One next step per screen, and adding work where it goes (November 2026)
+
+The Stories ▸ Findings room showed five blue buttons at once, two of them
+twice. The counters at the top repeated the boxes below. The brightest button
+on the "not linked" box added an activity per story to the plan and the price,
+and the safe relink beside it was the faint one. The boxes were light-theme
+pastels written into the markup, which dark mode recoloured into heavy slabs.
+None of this was a defect any check could see, because no check asked how many
+main buttons a screen has, or whether an action appears twice.
+
+`action-hierarchy-sweep.js` asks, on every tab and sub-tab, in four states: the
+plan as it is, a troubled plan, a plan with no baseline, and an empty plan.
+
+- **One main button per screen.** At most one per screen, and one per open
+  dialog.
+- **No action twice.** Going somewhere may repeat, such as an activity's chip in
+  several cells; doing something may not.
+- **Bulk changes are never blue.** An action that adds or deletes in bulk is
+  never the main button. The list of such handlers is kept in the check, not
+  read from a marker in the app.
+- **Notices use the shared style.** No notice is a pale box painted inline; a
+  notice is a `.finding` row on the card's own surface with a severity edge, in
+  both themes.
+- **Short labels.** At most 32 characters, with no bracketed explanation.
+- **One ⓘ per heading.**
+- **Findings in working order.** The Findings rows run clean up → link → cover →
+  wording, and the one blue button is the first safe step.
+- **Five items per toolbar.** The rest are one click away behind More.
+
+`wbs-add-sweep.js` covers the other half.
+
+- **Adding from the WBS.** The WBS tab can add work, and every row has a "+".
+- **Placement in the dialog.** The dialog asks where the work goes in its first
+  section, and the code it promises is the code it gets.
+- **Progress is folded.** Progress and actuals stay folded while adding and open
+  while editing.
+- **The ID counters.** Loading a plan never leaves an ID counter at an ID
+  already in use. The shared fixture ships with `nextId` one behind its highest
+  ID, so the first activity added to it took an existing ID, and the dependency
+  walk looped on the collision until the page ran out of stack.
+
+Each rule has a planted defect in the engine (prefixes `next step:` and
+`adding work:`).
+
+The first dry run found one survivor, "editing keeps progress folded". The
+check was opening the editor straight after it had unfolded progress itself, so
+it never saw the panel folded. It now goes from a folded Add dialog straight
+into editing.
+
+`navigation-sweep.js` used to tell the selected SOW history tab from the other
+by its class list. A chosen tab is now *pressed*, not styled as the main
+button, so the check compares what is drawn and the pressed state.
+
+`dialog-sweep.js` found the dependency-loop wizard's buttons by colour, with
+"Nest under" as the blue one. A row is one of several in a dialog whose footer
+holds the main button, so Nest is no longer blue, and the check had quietly
+started reading the wrong button. It now finds each button by its handler.
+
+The same change made the mutant "wizard: the buttons sit beside the text again"
+stale in meaning (see above). The buttons it pushed off the edge were the long
+"Cut A ← B" labels, now "Cut this link", so the side-by-side layout fits a
+desktop dialog. It still runs off a phone's, so the check measures the wizard
+at both widths and the mutant is caught there.
+
+Three more lessons from the dry runs:
+
+- **Brightness misses a dark slab.** Brightness contrast alone passed a deep
+  brown notice on the slate card, at 1.19:1. The dark check now also measures
+  colour distance.
+- **Compare against the card's own colour.** It used to compare against the
+  page's first `.card`, the AI builder, whose gradient reads as transparent.
+  It now reads the card token itself.
+- **Plant the over-allocation.** Once the ID bug was fixed, the troubled plan
+  had no over-allocated person, so Workload drew no conflict cards and a
+  repeated Extend timeline had nowhere to appear. The colliding IDs had been
+  creating the over-allocation. The plan now plants one directly.
+
+
 ## The checks, checked
 
 `harness-meta.js` is the only file here that does not look at the product. It

@@ -97,9 +97,11 @@ const QA = JSON.parse(fs.readFileSync(
         .filter(r => r.querySelector('button'))
         .map(r => ({
           text: (r.textContent || '').replace(/\s+/g, ' ').trim(),
-          nest: (r.querySelector('button.btn-primary') || {getAttribute: () => null}).getAttribute('onclick'),
-          cut: (r.querySelector('button.btn-danger') || {getAttribute: () => null}).getAttribute('onclick'),
-          open: (r.querySelector('button.btn-secondary') || {getAttribute: () => null}).getAttribute('onclick')
+          // each button by what it DOES, not by its colour: a row is one of several
+          // in a dialog whose footer holds the main button, so Nest is no longer blue
+          nest: (r.querySelector('button[onclick^="depFixNestTC("]') || {getAttribute: () => null}).getAttribute('onclick'),
+          cut: (r.querySelector('button[onclick^="depFixRemove("]') || {getAttribute: () => null}).getAttribute('onclick'),
+          open: (r.querySelector('button[onclick*="openEditModal("]') || {getAttribute: () => null}).getAttribute('onclick')
         }));
       const tcW = leafTasks().find(t => isTestCaseTask(t) && !t.isSummary);
       const phW = tasks.find(t => t.isSummary && !isTestCaseTask(t) && leafDescendants(t.id).length);
@@ -152,21 +154,27 @@ const QA = JSON.parse(fs.readFileSync(
              assertion above passes straight through, because the handler is
              wired correctly to an element nobody can hit. */
           const dlg = document.querySelector('#depFixModal .modal');
-          if (dlg) {
+          /* At the desktop's width and again at a phone's: buttons set beside a
+             row's text fit a wide dialog once the labels are short, and run off
+             a narrow one. */
+          for (const [w, at] of [[null, ''], ['358px', ' (at a phone’s width)']]) if (dlg) {
+            const keepW = dlg.style.maxWidth, keepWd = dlg.style.width;
+            if (w) { dlg.style.maxWidth = w; dlg.style.width = w; }
             const box = dlg.getBoundingClientRect();
             [...document.querySelectorAll('#depFixBody button')].forEach(btn => {
               const r = btn.getBoundingClientRect();
               if (r.width < 8 || r.height < 8)
-                say('dependency-fix wizard', 'the button “' + btn.textContent.trim().slice(0, 30)
+                say('dependency-fix wizard' + at, 'the button “' + btn.textContent.trim().slice(0, 30)
                   + '” has no clickable area (' + Math.round(r.width) + '×' + Math.round(r.height) + ')');
               else if (r.right > box.right + 1 || r.left < box.left - 1)
-                say('dependency-fix wizard', 'the button “' + btn.textContent.trim().slice(0, 30)
+                say('dependency-fix wizard' + at, 'the button “' + btn.textContent.trim().slice(0, 30)
                   + '” sticks out past the edge of the dialog, so part of it cannot be clicked');
               else if (document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) !== btn
                        && !btn.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)))
-                say('dependency-fix wizard', 'a click at the centre of “' + btn.textContent.trim().slice(0, 30)
+                say('dependency-fix wizard' + at, 'a click at the centre of “' + btn.textContent.trim().slice(0, 30)
                   + '” lands on something else');
             });
+            if (w) { dlg.style.maxWidth = keepW; dlg.style.width = keepWd; }
           }
           // and the guard holds even when called directly, so no future caller
           // can reach the damage the hidden button used to do

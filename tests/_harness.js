@@ -74,4 +74,16 @@ const APP = 'file://' + path.resolve(process.env.APP_FILE || (() => {
 const FIXTURE = () => JSON.parse(fs.readFileSync(process.env.FIXTURE_FILE
   || path.resolve(__dirname, '..', 'fixtures', 'crm-rollout.json'), 'utf8'));
 
-module.exports = { requirePlaywright, chromePath, APP, FIXTURE };
+/* An EMPTY plan, not a broken one: valid in every field, holding no work. The
+   vacuity probe feeds it to every check; a check that judges empty-page
+   controls loads it directly. */
+const EMPTY_PLAN = {
+  projectName: 'Empty plan (vacuity probe)',
+  projectStart: '2026-01-05',
+  workingDays: 'monfri', holidays: [], unit: 'days',
+  tasks: [], resources: {}, raid: [], reqs: { epics: [], stories: [] },
+  pricing: { model: 'fixed', basis: 'p80', contractPrice: 0 },
+  nextId: 1, nextRaidId: 1
+};
+
+module.exports = { requirePlaywright, chromePath, APP, FIXTURE, EMPTY_PLAN };

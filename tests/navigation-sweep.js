@@ -1154,9 +1154,14 @@ const { chromium } = requirePlaywright();
     if (!/Version|version/.test(b2)) say3('the plan tab shows no version chain');
     // and the active tab is visibly the active one
     setDocHistTab('sow');
-    out.activeClass = tS.className;
-    if (tS.className === tP.className)
+    // what is drawn, not the class list: a chosen tab is PRESSED (its own fill
+    // and weight), and says so to a screen reader; it is no longer the main button
+    const look = el => { const cs = getComputedStyle(el); return [cs.backgroundColor, cs.color, cs.fontWeight].join('|'); };
+    out.activeLook = look(tS);
+    if (look(tS) === look(tP))
       say3('the selected tab looks identical to the unselected one');
+    if (tS.getAttribute('aria-pressed') !== 'true' || tP.getAttribute('aria-pressed') === 'true')
+      say3('the selected tab is not announced as the pressed one');
     // nothing else in the panel opens a second version history
     const stray = [...document.querySelectorAll('#view-raid details summary')]
       .map(x => x.textContent).filter(x => /version/i.test(x));

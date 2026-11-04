@@ -242,6 +242,50 @@
     .btn-danger:hover { background: var(--c-fecaca); }
     .btn-success { background: var(--c-dcfce7); color: var(--c-15803d); }
     .btn-sm { padding: 0.3rem 0.65rem; font-size: var(--t-md); }
+    /* ── A NOTICE IS A ROW ON THE CARD, NOT A SLAB OF COLOUR ───────────────
+       Notices were pale light-theme fills written into the markup, which the
+       dark theme could only recolour by matching the text of the style
+       attribute — into deep red, orange and brown slabs. A .finding is the
+       card's own surface with a coloured edge, so it reads the same in both
+       themes and the edge alone carries the severity. Inside .findings-list
+       the rows are numbered in the order to work them. */
+    /* the Add activity dialog: where it goes, beside the name */
+    .wbs-place { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 0 0.75rem; }
+    @media (max-width: 640px) { .wbs-place { grid-template-columns: minmax(0, 1fr); } }
+    /* Progress and actuals for an activity that does not exist yet are folded
+       to their heading and one button; editing opens them as before. */
+    .pa-panel.pa-folded > :not(.pa-head) { display: none; }
+    .pa-panel.pa-folded #paStatus, .pa-panel.pa-folded #paDoneBtn { display: none; }
+    .pa-panel:not(.pa-folded) #paUnfold { display: none; }
+    /* + on a WBS row: add an activity under it. Quiet until the row is
+       pointed at or the button has focus, and always shown on a touch screen. */
+    .wbs-add { margin-left: 0.35rem; width: 1.35rem; height: 1.35rem; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--card); color: var(--primary); font-weight: 700; line-height: 1; cursor: pointer; opacity: 0;
+      display: inline-grid; place-items: center; padding: 0; flex: none; }
+    tr:hover .wbs-add, .wbs-add:focus-visible { opacity: 1; }
+    @media (hover: none) { .wbs-add { opacity: 1; } }
+    .finding { background: var(--card); color: var(--text); border: 1px solid var(--border);
+      border-left: 3px solid var(--sev, var(--c-94a3b8)); border-radius: 8px;
+      padding: 0.6rem 0.85rem; margin-bottom: 0.6rem; font-size: var(--t-md); line-height: 1.5; }
+    :is(.finding, .finding-cell).is-bad { --sev: var(--c-dc2626); }
+    :is(.finding, .finding-cell).is-warn { --sev: var(--c-d97706); }
+    :is(.finding, .finding-cell).is-info { --sev: var(--c-2563eb); }
+    :is(.finding, .finding-cell).is-ok { --sev: var(--c-16a34a); }
+    /* the same notice as a full-width row of a table */
+    td.finding-cell { background: var(--card); color: var(--text); border-left: 3px solid var(--sev); }
+    .finding-head { display: flex; align-items: center; gap: 0.4rem 0.75rem; flex-wrap: wrap; }
+    .finding-title { font-weight: 600; flex: 1 1 18rem; min-width: 0; }
+    .finding-acts { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-left: auto; }
+    .finding-chips { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+    .finding-hint { margin-top: 0.25rem; color: var(--muted); font-size: var(--t-sm); }
+    .finding-more { margin-top: 0.25rem; }
+    .finding-more > summary { cursor: pointer; color: var(--muted); font-size: var(--t-sm); width: max-content; }
+    .finding-more > div { margin-top: 0.25rem; color: var(--muted); font-size: var(--t-sm); }
+    .findings-list { counter-reset: step; }
+    .findings-list > .finding { counter-increment: step; position: relative; padding-left: 2.6rem; }
+    .findings-list > .finding::before { content: counter(step); position: absolute; left: 0.75rem; top: 0.62rem;
+      width: 1.3rem; height: 1.3rem; border-radius: 50%; display: grid; place-items: center; box-sizing: border-box;
+      font-size: var(--t-xs); font-weight: 700; color: var(--sev); border: 1.5px solid var(--sev); }
     main { max-width: 1800px; margin: 0 auto; padding: 1.25rem; }
     /* row-action buttons stay compact so the activity table fits without clipping */
     td .btn-sm { padding: 0.28rem 0.5rem; }
@@ -373,7 +417,7 @@
     }
     .gantt-weekend-band { position: absolute; top: 0; bottom: 0; background: var(--c-f1f5f9); z-index: 0; }
     .io-flag { background: var(--c-fef3c7); border-bottom: 1px dashed var(--c-b45309); color: var(--c-92400e); padding: 0 3px; border-radius: 3px; cursor: help; }
-    .io-findings { border: 1px solid var(--c-fde68a); background: var(--c-fffbeb); border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; }
+    .io-findings { border: 1px solid var(--border); border-left: 3px solid var(--c-d97706); background: var(--card); border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; }
     .io-findings > summary { cursor: pointer; font-size: 0.85rem; }
     .gantt-milestone { position: absolute; top: 6px; width: 22px; height: 22px; transform: rotate(45deg); background: var(--c-7c3aed); z-index: 3; border-radius: 3px; box-shadow: 0 1px 2px rgb(0 0 0 /.3); }
     .gantt-ms-label { position: absolute; top: 9px; font-size: 0.68rem; font-weight: 600; color: var(--c-6d28d9); white-space: nowrap; z-index: 3; }
@@ -792,7 +836,7 @@
     .co-mt { background: var(--c-e2e8f0); border-radius: 4px; height: 12px; overflow: hidden; }
     .co-mt i { display: block; height: 100%; border-radius: 4px; }
     .co-mv { font-variant-numeric: tabular-nums; font-size: 0.85rem; white-space: nowrap; }
-    .co-gap { font-size: 0.78rem; background: var(--c-fffbeb); border: 1px solid var(--c-fde68a); color: var(--c-92400e);
+    .co-gap { font-size: 0.78rem; background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--c-d97706); color: var(--c-92400e);
       border-radius: 7px; padding: .45rem .6rem; margin-top: .5rem; line-height: 1.5; }
     .co-agree { font-size: 0.78rem; color: var(--success); margin-top: .35rem; }
     @media (max-width: 640px) { .co-mrow { grid-template-columns: 1fr; gap: .15rem; } }
@@ -1026,7 +1070,7 @@
        fine", and alarm colouring argues against that. The technical line is
        present but subordinate — a reader wants the reassurance first and the
        stack second. */
-    .rf-box { background: var(--c-fffbeb); border: 1px solid var(--c-fde68a); border-left: 3px solid var(--c-d97706);
+    .rf-box { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--c-d97706);
       border-radius: 8px; padding: 0.75rem 0.9rem; margin: 0.5rem 0; font-size: var(--t-base);
       line-height: 1.5; color: var(--c-78350f); }
     .rf-what { display: block; margin-top: 0.4rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -3052,6 +3096,11 @@
     .seg button { border-radius: 0; border: none; background: var(--c-ffffff); color: var(--c-334155); box-shadow: none; }
     .seg button + button { border-left: 1px solid var(--border); }
     .seg button:hover { background: var(--c-f1f5f9); }
+    /* A chosen filter is PRESSED, not the main button: a filled blue chip in a
+       row of filters read as the next step, and with + Add entry beside it the
+       tab showed two of them. Same pressed look as the theme switch. */
+    .seg button[aria-pressed="true"],
+    .btn-secondary[aria-pressed="true"] { background: var(--primary-50); color: var(--primary-700); border-color: var(--primary-300); font-weight: 700; }
     /* A result is three taps wide and lives in a table cell, so it is drawn as
        three small toggles rather than a control. The pressed one carries the
        verdict colour; the others stay quiet, because a row of four coloured
@@ -3401,7 +3450,7 @@
     .pa-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
     .pa-title { font-size: var(--t-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary-700); }
     .pa-head #paDoneBtn { margin-left: auto; }
-    .pa-lock { font-size: var(--t-md); color: var(--muted); background: var(--c-eff6ff); border: 1px solid var(--primary-200); border-radius: 8px; padding: 0.4rem 0.6rem; margin-bottom: 0.55rem; }
+    .pa-lock { font-size: var(--t-md); color: var(--muted); background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 8px; padding: 0.4rem 0.6rem; margin-bottom: 0.55rem; }
     .pa-grid { display: grid; gap: 0.6rem; }
     .pa-grid-a { grid-template-columns: 0.75fr 1fr 1fr; }
     .pa-grid-b { grid-template-columns: 1fr 1fr; margin-top: 0.5rem; }
@@ -4521,7 +4570,7 @@
         <div class="card-body" id="aiCardBody">
           <!-- settings (collapsed) -->
           <div id="aiSettings" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem">
-            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.7rem 0.9rem;margin-bottom:0.85rem;font-size:0.83rem">
+            <div class="finding is-info" style="padding:0.7rem 0.9rem;margin-bottom:0.85rem;font-size:0.83rem">
               <strong>Which key goes here?</strong> An <strong>Anthropic API key</strong> — it always starts with <code style="background:#dbeafe;padding:1px 5px;border-radius:4px">sk-ant-</code>.
               <ol style="margin:0.4rem 0 0 1.2rem;padding:0">
                 <li>Go to <strong>console.anthropic.com</strong> → sign in → <strong>API Keys</strong> → <em>Create Key</em>.</li>
@@ -4545,7 +4594,7 @@
                   <option value="claude-haiku-5-5">Haiku 5.5 (fastest, lowest cost)</option>
                 </select>
               </div>
-              <button class="btn-primary" onclick="saveApiKey()">Save Key</button>
+              <button class="btn-secondary" onclick="saveApiKey()">Save Key</button>
               <button class="btn-danger" onclick="clearApiKey()">Clear</button>
             </div>
             <p class="help-text">🔒 Stored only in this browser (localStorage) and sent directly to Anthropic — never to any other server, and never included in project exports or reports.</p>
@@ -4572,7 +4621,7 @@
                 <label>Estimate bank — measured actuals across every project</label><button type="button" class="info-icon" aria-label="About the estimate bank" data-help="The notes above are what you write; this is what the tool measures. Archiving a finished project (header Export ▾ ▸ 🗄 Archive to estimation history) files one record per activity — estimate vs the effort actually logged — and the records accumulate ACROSS projects. Every AI estimate is then calibrated against your real track record: if your UAT test cases habitually run 1.4× estimate, it stops quoting the optimistic number. Export it to carry the record between browsers or share it with your team.">i</button>
                 <div id="bankBadge" class="help-text" style="margin:2px 0 0.4rem">empty — fill it from the header menu: Export ▾ ▸ 🗄 Archive to estimation history</div>
                 <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
-                  <button class="btn-sm btn-secondary" onclick="bankExportCSV()" title="One row per measured activity: estimate, actual effort, ratio, basis, cost"><span class="ico" data-i="download" aria-hidden="true"></span> Bank (.csv)</button>
+                  <button class="btn-sm btn-secondary" onclick="bankExportCSV()" title="One row per measured activity: estimate, actual effort, ratio, basis, cost"><span class="ico" data-i="download" aria-hidden="true"></span> Bank CSV</button>
                   <button class="btn-sm btn-secondary" onclick="bankExportJSON()" title="Full records — the portable form; re-import on another machine"><span class="ico" data-i="download" aria-hidden="true"></span> Bank (.json)</button>
                   <label class="btn-sm btn-secondary" style="cursor:pointer;margin:0" title="Merge another bank export into this one; duplicates are skipped">⬆ Import bank<input type="file" accept="application/json,.json" style="display:none" onchange="bankImportJSON(event)" /></label>
                   <button class="btn-sm btn-secondary" onclick="clearBank()" title="Delete every measured record (export first — this is not covered by undo)"><span class="ico" data-i="trash-2" aria-hidden="true"></span> Clear</button>
@@ -4631,11 +4680,20 @@
                  surfaces never disagree about what is open. -->
             <span class="seg" id="taskCollapseSeg"><button class="btn-sm" onclick="setCollapseLevel(0)" title="Collapse to phases only — every summary shut, top level visible">Phases</button><button class="btn-sm" onclick="setCollapseLevel(1)" title="Phases and work packages — one level down">L2</button><button class="btn-sm" onclick="setCollapseLevel(Infinity)" title="Expand everything — every activity visible">Expand all</button></span>
             <button class="btn-secondary btn-sm" onclick="scanAndRepair()" title="Find gaps — missing estimates, owners, rates, or story links — and fix each one."><span class="ico" data-i="stethoscope" aria-hidden="true"></span> Scan &amp; repair</button>
-            <button class="btn-secondary btn-sm" onclick="copyUpdateRequest()" title="Copy an email-ready status table, one row per owner. Paste the filled reply into the AI box (Update progress) to apply it."><span class="ico" data-i="mail" aria-hidden="true"></span> Copy update request</button>
-            <button class="btn-secondary btn-sm" onclick="copyEstimateRequest()" title="Copy an estimate-review table, one row per owner. Paste the filled reply into the AI box to apply corrections."><span class="ico" data-i="ruler" aria-hidden="true"></span> Copy estimate request</button>
-            <button class="btn-secondary btn-sm" onclick="aiHealDependencies()" title="AI proposes missing predecessor links — for the ticked rows, or for every task that has none when nothing is selected (e.g. test cases whose looping links were dropped during a move). Every suggestion is cycle-checked before it applies; one ↶ undo reverses the batch."><span class="ico" data-i="link" aria-hidden="true"></span> Repair links</button>
+            <!-- Seven things in a row was two too many to read at a glance. The
+                 two copy-for-email requests and the AI link proposal are tools
+                 for a moment, not for every visit, so they sit one click away
+                 behind More — same disclosure the Export menus use. -->
+            <details class="export-menu" id="taskMoreMenu">
+              <summary class="btn-secondary btn-sm" style="list-style:none">More ▾</summary>
+              <div class="export-panel">
+                <button onclick="copyUpdateRequest()" title="Copy an email-ready status table, one row per owner. Paste the filled reply into the AI box (Update progress) to apply it."><span class="ico" data-i="mail" aria-hidden="true"></span> Copy update request</button>
+                <button onclick="copyEstimateRequest()" title="Copy an estimate-review table, one row per owner. Paste the filled reply into the AI box to apply corrections."><span class="ico" data-i="ruler" aria-hidden="true"></span> Copy estimate request</button>
+                <button onclick="aiHealDependencies()" title="AI proposes missing predecessor links — for the ticked rows, or for every task that has none when nothing is selected (e.g. test cases whose looping links were dropped during a move). Every suggestion is cycle-checked before it applies; one ↶ undo reverses the batch."><span class="ico" data-i="link" aria-hidden="true"></span> Repair links</button>
+              </div>
+            </details>
             <button class="btn-secondary btn-sm" onclick="openAddModal(true)">+ Add milestone</button>
-            <button class="btn-primary btn-sm" onclick="openAddModal(false)">+ Add activity</button>
+            <button class="btn-primary btn-sm" id="addActivityBtn" onclick="openAddModal(false)">+ Add activity</button>
           </div>
         </div>
         <div class="card-body">
@@ -4651,7 +4709,7 @@
             </p>
           </details>
 
-          <div id="bulkBar" class="no-print" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.6rem 0.9rem;margin-bottom:0.6rem">
+          <div id="bulkBar" class="finding is-info no-print" style="display:none;padding:0.6rem 0.9rem;margin-bottom:0.6rem">
             <div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:center;font-size:0.8rem">
               <strong id="bulkCount" style="white-space:nowrap"></strong>
               <span style="display:inline-flex;gap:4px;align-items:center" title="Assign one owner to every selected task">Owner <select id="bulkOwner" class="mini-inp" style="width:auto;max-width:150px"></select><button class="btn-sm btn-secondary" onclick="bulkSetOwner()">Set</button></span>
@@ -4704,7 +4762,7 @@
             <h3>Start with your meeting notes</h3>
             <p style="max-width:52ch;margin:0 auto">Paste notes into the AI box above to get a costed plan — 3-point estimates, Monte Carlo pricing, critical path, Gantt. Or build the plan by hand.</p>
             <div style="margin-top:1.25rem;display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap">
-              <button class="btn-primary" onclick="loadSample()">Load sample engagement</button>
+              <button class="btn-secondary" onclick="loadSample()">Load sample engagement</button>
               <button class="btn-secondary" onclick="document.getElementById('aiNotes').focus();window.scrollTo({top:0,behavior:'smooth'})">Start from your notes</button>
             </div>
           </div>
@@ -4718,11 +4776,13 @@
         <div class="card-header">
           <h2>Work Breakdown Structure &amp; Dictionary</h2>
           <div class="toolbar no-print">
-            <button class="btn-secondary btn-sm" onclick="exportWBSDictionaryCSV()">Export dictionary (.csv)</button>
+            <button class="btn-secondary btn-sm" onclick="exportWBSDictionaryCSV()" title="Download the WBS dictionary as a CSV file">Dictionary CSV</button>
+            <button class="btn-secondary btn-sm" onclick="openAddModal(true)">+ Add milestone</button>
+            <button class="btn-primary btn-sm" onclick="openAddModal(false)">+ Add activity</button>
           </div>
         </div>
         <div class="card-body">
-          <p class="help-text" style="margin-bottom:1rem">Group activities under phases/deliverables by setting a WBS parent on each one (in its Edit dialog). Summary rows roll up dates and % complete from their children.</p>
+          <p class="help-text" style="margin-bottom:1rem">Press <b>+</b> on a row to add an activity under it, or <b>+ Add activity</b> for a new top-level element. A row with activities under it becomes a summary that rolls up their dates and % complete.</p>
           <div id="wbsContainer"></div>
         </div>
       </div>
@@ -4732,11 +4792,11 @@
     <div id="view-req" role="tabpanel" class="view">
       <div class="card">
         <div class="card-header">
-          <h2>Requirements &amp; user stories <button type="button" class="info-icon" aria-label="More about this" data-help="Epics → user stories → Given/When/Then acceptance criteria, each traced to a WBS work item. The estimation unit for SOWs: a story that isn't testable can't be accepted or invoiced.&#10;&#10;WHY THIS MATTERS: stories define WHAT a user needs and WHY; acceptance criteria are the boundary lines and the billing checklist. A story with only happy-path criteria is typically estimated at 40-60% of its true cost — error paths and edge cases are where the hours go. Each story links to one WBS activity, so completeness rolls up from the plan automatically.">i</button><button type="button" class="info-icon" aria-label="About the entity marks" data-ek-legend data-help="Every id is preceded by a small capital letter saying what it is.">i</button></h2>
+          <h2>Requirements &amp; user stories <button type="button" class="info-icon" aria-label="More about this" data-ek-legend-append data-help="Epics → user stories → Given/When/Then acceptance criteria, each traced to a WBS work item. The estimation unit for SOWs: a story that isn't testable can't be accepted or invoiced.&#10;&#10;WHY THIS MATTERS: stories define WHAT a user needs and WHY; acceptance criteria are the boundary lines and the billing checklist. A story with only happy-path criteria is typically estimated at 40-60% of its true cost — error paths and edge cases are where the hours go. Each story links to one WBS activity, so completeness rolls up from the plan automatically.">i</button></h2>
           <div class="toolbar no-print">
-            <button class="btn-primary btn-sm" onclick="draftRequirements()" title="AI drafts personas, epics and INVEST user stories with happy/error/edge acceptance criteria for every WBS work item — or fills the gaps if some already exist"><span class="ico" data-i="bot" aria-hidden="true"></span> Draft from WBS</button>
+            <button class="btn-secondary btn-sm" id="reqDraftBtn" onclick="draftRequirements()" title="AI drafts personas, epics and INVEST user stories with happy/error/edge acceptance criteria for every WBS work item — or fills the gaps if some already exist"><span class="ico" data-i="bot" aria-hidden="true"></span> Draft from WBS</button>
             <button class="btn-secondary btn-sm" onclick="openReviseStories()" title="Apply ONE instruction across every story and every acceptance criterion at once — remove a concept the plan invented, correct who the users actually are, drop a feature or region that is out of scope, make vague thresholds measurable. A generated plan that invented something is not a lint finding: the stories are well-formed, they are simply about the wrong thing. Stories the instruction does not touch come back unchanged, and ↶ Undo reverses the lot."><span class="ico" data-i="pencil" aria-hidden="true"></span> Revise all stories…</button>
-            <button class="btn-secondary btn-sm" onclick="openStoryModal(null)" title="Write a story by hand">+ Add story</button>
+            <button class="btn-secondary btn-sm" id="reqAddBtn" onclick="openStoryModal(null)" title="Write a story by hand">+ Add story</button>
             <button class="btn-secondary btn-sm" onclick="generateTestPlan()" title="AI derives test cases from EVERY story's acceptance criteria (batched so nothing truncates): one TC per AC minimum, scheduled as WBS tasks under a Test Execution phase, each depending on the activity it verifies, owned by your QA/UAT resource. Safe to re-run — existing TCs are kept, only gaps are filled."><span class="ico" data-i="flask-conical" aria-hidden="true"></span> Generate test plan</button>
             <!-- Seven downloads behind one word. They were seven equal buttons in
                  a row of thirteen that wrapped to two lines, where the four
@@ -4896,7 +4956,7 @@
             <span style="flex:1 1 auto;min-width:0"><span style="font-weight:600">Include delivery-side stories in the appendix</span>
             <span class="help-text" style="display:block;font-size:0.75rem">Off by default: stories describing how <i>our</i> team works do not belong in a client's contract. Quality attributes, dependencies and assumptions that trace to one cite the <b>activity</b> instead, so nothing points at a story the document does not contain. Turn it on for an internal SOW.</span></span>
           </label>
-          <div id="sowSecWarn" class="help-text" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:0.5rem 0.7rem;margin-top:0.5rem"></div>
+          <div id="sowSecWarn" class="finding is-warn help-text" style="display:none;padding:0.5rem 0.7rem;margin-top:0.5rem"></div>
           <p class="help-text" style="margin:0.5rem 0 0">The choice travels with the project and is recorded on each saved version, so a past document can be read for the shape it actually had. Generate again to apply it.</p>
         </div>
         <div class="modal-footer">
@@ -5208,7 +5268,7 @@ Or say what you want, in your own words:
         <div class="modal-header"><h3 id="depFixTitle"><span class="ico" data-i="link" aria-hidden="true"></span> Dependency fix wizard — the schedule has a loop</h3><button class="btn-ghost" style="color:#64748b;padding:0.25rem 0.5rem" onclick="closeDepFixWizard()" aria-label="Close dialog">✕</button></div>
         <div class="modal-body" id="depFixBody"></div>
         <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:space-between;flex-wrap:wrap">
-          <button class="btn-primary btn-sm" onclick="depFixAI()" title="Removes ONLY the backwards link(s) in the loop (everything else stays), then the AI re-points those tasks at their correct predecessors — each suggestion is cycle-checked before it applies, and ↶ Undo reverses the whole thing"><span class="ico" data-i="bot" aria-hidden="true"></span> Fix loop with AI — re-point the backwards link</button>
+          <button class="btn-primary btn-sm" onclick="depFixAI()" title="Removes ONLY the backwards link(s) in the loop (everything else stays), then the AI re-points those tasks at their correct predecessors — each suggestion is cycle-checked before it applies, and ↶ Undo reverses the whole thing"><span class="ico" data-i="bot" aria-hidden="true"></span> Fix the loop with AI</button>
           <button class="btn-secondary btn-sm" onclick="closeDepFixWizard()">Close — I’ll fix by hand</button>
         </div>
       </div>
@@ -5277,21 +5337,32 @@ Or say what you want, in your own words:
             <span class="seg"><button class="btn-sm" onclick="setCollapseLevel(0)" title="Phases only">L1</button><button class="btn-sm" onclick="setCollapseLevel(1)" title="Phases + work packages">L2</button><button class="btn-sm" onclick="setCollapseLevel(Infinity)" title="Expand everything">All</button></span>
             <span class="seg"><button class="btn-sm" onclick="ganttZoom(-1)" title="Zoom out">−</button><button class="btn-sm" onclick="ganttZoom(1)" title="Zoom in">+</button><button class="btn-sm" onclick="ganttZoom(0)" title="Fit width">Fit</button></span>
             <button class="btn-sm btn-secondary" onclick="toggleReservePanel()" title="Add schedule buffers: contingency (committed to client) and management reserve (held back)"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--warn);display:inline-block"></span> Reserves</button>
-            <button class="btn-sm btn-secondary" onclick="copyChartImage('gantt')" title="Copy chart as image for email/slides"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Copy image</button>
-            <button class="btn-sm btn-secondary" onclick="downloadChartPNG('gantt')">PNG</button>
-            <button class="btn-sm btn-secondary" onclick="downloadChartSVG('gantt')">SVG</button>
-            <button class="btn-sm btn-secondary" onclick="copyStatusReport()" title="Copy a formatted status summary (tables + completeness) for pasting into email"><span class="ico" data-i="file-text" aria-hidden="true"></span> Copy status report</button>
-            <button class="btn-sm btn-secondary" onclick="copyUpdateRequest()" title="Copy an email-ready TABLE of open work per owner with fill-in cells — send it, then paste the filled reply into Tasks ▸ AI ▸ Update progress (blockers auto-log to RAID)"><span class="ico" data-i="mail" aria-hidden="true"></span> Update request</button>
-            <button class="btn-sm btn-secondary no-print" onclick="draftNarrative()" title="AI writes the Progress / Risks / Next-steps narrative included at the top of the report"><span class="ico" data-i="sparkles" aria-hidden="true"></span> Narrative</button>
+            <!-- Nine controls in a row: the chart copies and the report tools are
+                 things you hand to somebody else, so they share one menu, the
+                 way every other tab's Export does. The narrative panel keeps its
+                 own Regenerate beside the text it rewrites. -->
+            <details class="export-menu" id="ganttExportMenu">
+              <summary class="btn-sm btn-secondary" style="list-style:none"><span class="ico" data-i="download" aria-hidden="true"></span> Export ▾</summary>
+              <div class="export-panel">
+                <div class="grp">Chart</div>
+                <button onclick="copyChartImage('gantt')" title="Copy chart as image for email/slides"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Copy image</button>
+                <button onclick="downloadChartPNG('gantt')"><span class="ico" data-i="download" aria-hidden="true"></span> Download PNG</button>
+                <button onclick="downloadChartSVG('gantt')"><span class="ico" data-i="download" aria-hidden="true"></span> Download SVG</button>
+                <div class="grp">Status report</div>
+                <button onclick="copyStatusReport()" title="Copy a formatted status summary (tables + completeness) for pasting into email"><span class="ico" data-i="file-text" aria-hidden="true"></span> Copy status report</button>
+                <button onclick="copyUpdateRequest()" title="Copy an email-ready TABLE of open work per owner with fill-in cells — send it, then paste the filled reply into Tasks ▸ AI ▸ Update progress (blockers auto-log to RAID)"><span class="ico" data-i="mail" aria-hidden="true"></span> Update request</button>
+                <button onclick="draftNarrative()" title="AI writes the Progress / Risks / Next-steps narrative included at the top of the report"><span class="ico" data-i="sparkles" aria-hidden="true"></span> Draft AI narrative</button>
+              </div>
+            </details>
           </div>
         </div>
         <div class="card-body">
-          <div id="reservePanel" style="display:none;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.75rem">
+          <div id="reservePanel" class="finding is-warn" style="display:none;padding:0.85rem 1rem;margin-bottom:0.75rem">
             <strong style="font-size:0.85rem">⏱ Schedule reserves</strong>
             <p class="help-text" style="margin:0.25rem 0 0.5rem">Buffers added AFTER the estimated work, drawn as hatched bars at the end of the Gantt. <b>Contingency</b> = buffer for the known risks in your RAID log — it's inside the date you commit to the client (easiest: click <b>from P80</b> to size it off the P80 finish — the committed date it produces lands on a whole working day, so it carries slightly <em>more</em> than 80%, and the panel prints the figure it actually carries). <b>Management reserve</b> = extra held by leadership for surprises, never promised. Quote the committed date externally.</p>
             <div id="reserveInline" style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:end"></div>
           </div>
-          <div id="narrativePanel" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.75rem">
+          <div id="narrativePanel" class="finding is-info" style="display:none;padding:0.85rem 1rem;margin-bottom:0.75rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
               <strong style="font-size:0.85rem">✨ Status narrative <span class="help-text" id="narrativeMeta" style="font-weight:400"></span></strong>
               <div class="toolbar no-print">
@@ -5339,7 +5410,7 @@ Or say what you want, in your own words:
         <div class="card-header">
           <h2>Plan vs actual — every activity against what was committed</h2>
           <div class="toolbar no-print">
-            <button class="btn-primary btn-sm" onclick="setBaseline()"><span class="ico" data-i="pin" aria-hidden="true"></span> Set / update baseline</button>
+            <button class="btn-primary btn-sm" id="baselineSetBtn" onclick="setBaseline()"><span class="ico" data-i="pin" aria-hidden="true"></span> Set / update baseline</button>
             <button class="btn-secondary btn-sm" onclick="clearBaseline()">Clear baseline</button>
           </div>
         </div>
@@ -5368,9 +5439,9 @@ Or say what you want, in your own words:
         <div class="card-header">
           <h2>RAID log — risks, assumptions, issues, decisions &amp; exclusions</h2>
           <div class="toolbar no-print">
-            <button class="btn-primary btn-sm" onclick="openRaidForm()">+ Add entry</button>
+            <button class="btn-primary btn-sm" id="raidAddBtn" onclick="openRaidForm()">+ Add entry</button>
             <button class="btn-secondary btn-sm" onclick="aiDraftRaid()" title="AI reviews the plan and drafts risks & assumptions"><span class="ico" data-i="sparkles" aria-hidden="true"></span> AI draft RAID</button>
-            <button class="btn-secondary btn-sm" onclick="exportRaidCSV()">Export (.csv)</button>
+            <button class="btn-secondary btn-sm" onclick="exportRaidCSV()" title="Download the log as a CSV file">Export CSV</button>
           </div>
         </div>
         <div class="card-body">
@@ -5379,7 +5450,7 @@ Or say what you want, in your own words:
               <input class="rq-in" id="rqIn" type="text" maxlength="300"
                 placeholder="Say it in a sentence — “the client sandbox is three weeks late and is blocking integration testing”"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();raidFromSentence()}" />
-              <button class="btn-primary btn-sm" id="rqBtn" onclick="raidFromSentence()">Capture</button>
+              <button class="btn-secondary btn-sm" id="rqBtn" onclick="raidFromSentence()">Capture</button>
             </div>
             <p class="rq-hint" id="rqHint"><b>One sentence in, a drafted entry out</b> — typed, scored, and linked to
               the activities, stories, criteria or change orders it actually touches. It fills the form below and
@@ -5500,11 +5571,7 @@ Or say what you want, in your own words:
               <option value="compact">Stories: compact</option>
               <option value="none">Stories: off</option>
             </select>
-            <button class="btn-secondary btn-sm" id="sowSecBtn" onclick="sowOpenSections()" title="Choose which sections this document carries. The rest renumber and every cross-reference re-points, so nothing is left pointing at a section that is not there.">☰ Sections</button>
-            <span class="tb-sep" aria-hidden="true"></span>
-            <button class="btn-secondary btn-sm" onclick="aiDraftExclusions()" title="Fills the Out of Scope section of THIS document — the one section of a contract nobody enjoys writing and everybody regrets skipping. The AI reads what is in scope and proposes the boundaries a client would most likely assume the other way: data migration, licences, other regions, session limits. Each one is also filed on the RAID log as an Exclusion, which is where you edit or delete it; the section here follows whatever the log says."><span class="ico" data-i="ban" aria-hidden="true"></span> Draft Out of Scope</button>
-            <button class="btn-primary btn-sm" onclick="generateSOW()"><span class="ico" data-i="sparkles" aria-hidden="true"></span> Generate SOW draft</button>
-            <span class="tb-sep" aria-hidden="true"></span>
+            <button class="btn-primary btn-sm" id="sowGenBtn" onclick="generateSOW()"><span class="ico" data-i="sparkles" aria-hidden="true"></span> Generate SOW draft</button>
             <button class="btn-secondary btn-sm" id="sowEditBtn" onclick="toggleSowEdit()" title="Edit the draft right here — tweak wording, delete a row, add a clause — then Save. Regenerating replaces manual edits (you'll be asked first)."><span class="ico" data-i="pencil" aria-hidden="true"></span> Edit</button>
             <!-- Beside Edit, because editing is what makes you want it. The
                  panel itself sits below a 560px scrolling document, inside a
@@ -5512,13 +5579,29 @@ Or say what you want, in your own words:
                  hopeless place to find one. The count is on the button so it is
                  visibly populated rather than something you open to discover is
                  empty. -->
-            <button class="btn-secondary btn-sm" id="sowHistBtn" onclick="sowOpenHistory()" title="Every past version of this document — view any of them, restore any of them. Regenerating and editing both keep what they replaced."><span class="ico" data-i="history" aria-hidden="true"></span> History</button>
-            <span class="tb-sep" aria-hidden="true"></span>
-            <button class="btn-secondary btn-sm" onclick="copySOW()"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Copy (rich text)</button>
-            <button class="btn-secondary btn-sm" onclick="downloadSOW()">Download (.html)</button>
-            <span class="tb-sep" aria-hidden="true"></span>
-            <button class="btn-sm" style="background:#fef3c7;color:#b45309" onclick="draftChangeOrder()" title="Diff the current plan against the SOW baseline and draft a change order">Δ Change order</button>
-            <button class="btn-secondary btn-sm" onclick="copyCO()" title="Copy the last change-order draft"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Copy CO</button>
+                        <button class="btn-secondary btn-sm" id="sowHistBtn" onclick="sowOpenHistory()" title="Every past version of this document — view any of them, restore any of them. Regenerating and editing both keep what they replaced."><span class="ico" data-i="history" aria-hidden="true"></span> History</button>
+            <!-- Nine buttons in a row could not be read at a glance. Generate,
+                 Edit and History are what every visit does; sharing the
+                 document, and the setup and change-order tools, are one click
+                 away in two menus. Every one of them is still here. -->
+            <details class="export-menu" id="sowShareMenu">
+              <summary class="btn-secondary btn-sm" style="list-style:none"><span class="ico" data-i="download" aria-hidden="true"></span> Export ▾</summary>
+              <div class="export-panel">
+                <button onclick="copySOW()"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Copy as rich text</button>
+                <button onclick="downloadSOW()">Download as HTML</button>
+              </div>
+            </details>
+            <details class="export-menu" id="sowMoreMenu">
+              <summary class="btn-secondary btn-sm" style="list-style:none">More ▾</summary>
+              <div class="export-panel">
+                <div class="grp">This document</div>
+                <button id="sowSecBtn" onclick="sowOpenSections()" title="Choose which sections this document carries. The rest renumber and every cross-reference re-points, so nothing is left pointing at a section that is not there.">☰ Sections</button>
+                <button onclick="aiDraftExclusions()" title="Fills the Out of Scope section of THIS document — the one section of a contract nobody enjoys writing and everybody regrets skipping. The AI reads what is in scope and proposes the boundaries a client would most likely assume the other way: data migration, licences, other regions, session limits. Each one is also filed on the RAID log as an Exclusion, which is where you edit or delete it; the section here follows whatever the log says."><span class="ico" data-i="ban" aria-hidden="true"></span> Draft Out of Scope</button>
+                <div class="grp">Change order</div>
+                <button onclick="draftChangeOrder()" title="Diff the current plan against the SOW baseline and draft a change order">Δ Draft a change order</button>
+                <button onclick="copyCO()" title="Copy the last change-order draft"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Copy the change order</button>
+              </div>
+            </details>
           </div>
         </div>
         <div class="card-body">
@@ -5683,7 +5766,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.03.2158</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.04.1600</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -5713,7 +5796,22 @@ Or say what you want, in your own words:
           <input id="mMilestone" type="checkbox" onchange="toggleMilestoneFields()" />
           <label for="mMilestone">This is a milestone (zero duration marker)</label>
         </div>
-        <div id="mSummaryHint" class="help-text" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.5rem 0.75rem;margin:-0.25rem 0 1rem">📦 <b>Roll-up (summary) row</b> — estimates, owner, units and % complete are computed from its children and locked here (the fields show the rolled-up values). Edit the child activities to change them.</div>
+        <!-- WHERE IT GOES IN THE WBS, asked with the name rather than after the
+             estimate, progress, actuals and invoicing of work that does not
+             exist yet. The code it will get is said before it is saved. -->
+        <div class="wbs-place" id="mPlaceGroup">
+          <div class="form-group mb-half">
+            <label for="mParent">Under</label>
+            <input id="mParent" placeholder="Top level — or type a phase name or WBS code" autocomplete="off" oninput="refreshWbsPlacement()" onchange="refreshWbsPlacement()" />
+            <datalist id="parentDatalist"></datalist>
+          </div>
+          <div class="form-group mb-half" id="mPositionGroup">
+            <label for="mPosition">Position</label>
+            <select id="mPosition" onchange="refreshWbsPlacement()"></select>
+          </div>
+        </div>
+        <p class="help-text" id="mWbsPreview" aria-live="polite" style="margin:-0.25rem 0 1rem"></p>
+        <div id="mSummaryHint" class="finding is-info help-text" style="display:none;padding:0.5rem 0.75rem;margin:-0.25rem 0 1rem">📦 <b>Roll-up (summary) row</b> — estimates, owner, units and % complete are computed from its children and locked here (the fields show the rolled-up values). Edit the child activities to change them.</div>
         <!-- One caption for all three boxes. Repeating "elapsed span" on each
              label spent three lines saying the same thing and still left the
              question unanswered, so the meaning is stated once, in words, and
@@ -5807,6 +5905,7 @@ Or say what you want, in your own words:
             <button type="button" class="info-icon" aria-label="About progress and actuals" data-help="What actually happened, all in one place. Typing time spent fills in the actual start date; setting 100% fills in the actual finish. Both stay editable — a date you type is never overwritten. The readout underneath compares the estimate against the actuals so you can see at a glance whether you are ahead or over.">i</button>
             <span class="badge badge-notstarted" id="paStatus">Not started</span>
             <button type="button" class="btn-lite" id="paDoneBtn" onclick="paMarkDone()" title="Set 100% and stamp today as the finish date">✓ Mark done</button>
+            <button type="button" class="btn-lite" id="paUnfold" onclick="paUnfold()" title="Already under way? Open progress and actuals to record it">Record progress</button>
           </div>
           <div class="pa-lock" id="paLock" style="display:none"></div>
           <div class="pa-grid pa-grid-a">
@@ -5893,12 +5992,6 @@ Or say what you want, in your own words:
           </div>
           <button class="btn-sm btn-secondary" type="button" onclick="addDepRow()">+ Add dependency</button>
           <p class="help-text" id="mLagHint">FS = Finish→Start (default), SS = Start→Start, FF = Finish→Finish, SF = Start→Finish. Lag in duration units (negative = lead).</p>
-        </div>
-        <div class="form-group">
-          <label for="mParent">WBS parent (group under…)</label>
-          <input id="mParent" placeholder="Type to search… (empty = top level)" autocomplete="off" />
-          <datalist id="parentDatalist"></datalist>
-          <p class="help-text">Type-ahead: start typing a phase name or WBS code (e.g. “2” or “Design”). Parents become summary rows that roll up their children.</p>
         </div>
         </div>
         <datalist id="predDatalist"></datalist>
@@ -9787,7 +9880,7 @@ Or say what you want, in your own words:
       document.getElementById('recoveryBody').innerHTML = `<p style="font-size:0.82rem;margin:0 0 0.6rem">Every surviving copy in this browser, richest first. Restoring <b>never overwrites anything</b> — it creates a NEW project from the copy. From now on every meaningful save also keeps one of the last 15 snapshots per project.</p>`
         + (rows.map((r, i) => `<div style="display:flex;justify-content:space-between;gap:0.5rem;align-items:center;padding:0.35rem 0;border-bottom:1px dashed var(--border);font-size:0.8rem">
             <div style="flex:1"><b>${escapeHtml(r.label)}</b><br/><span class="help-text">${r.tasks} task(s) · ${(r.size / 1024).toFixed(0)} KB</span></div>
-            <button class="btn-sm btn-primary" onclick="recoverRow(${i})" ${r.tasks ? '' : 'disabled title="empty copy — nothing to restore"'}><span class="ico" data-i="archive-restore" aria-hidden="true"></span> Restore as new project</button>
+            <button class="btn-sm btn-secondary" onclick="recoverRow(${i})" ${r.tasks ? '' : 'disabled title="empty copy — nothing to restore"'}><span class="ico" data-i="archive-restore" aria-hidden="true"></span> Restore as new project</button>
           </div>`).join('') || '<p class="help-text">Nothing recoverable found in this browser. If you ever used Export ▸ Download backup (.json) (or 💾 file autosave), use IMPORT with that file.</p>');
       openOverlay(document.getElementById('recoveryModal'));
     }
@@ -10104,7 +10197,7 @@ Or say what you want, in your own words:
           whys: Array.isArray(r.whys) ? r.whys.filter(x => typeof x === 'string') : [],
           rootCause: typeof r.rootCause === 'string' ? r.rootCause : ''
         })) : [];
-      nextRaidId = data.nextRaidId || (Math.max(0, ...raid.map(r => r.id)) + 1);
+      nextRaidId = Math.max(Number(data.nextRaidId) || 0, Math.max(0, ...raid.map(r => r.id)) + 1);
       statusHistory = Array.isArray(data.statusHistory) ? data.statusHistory : [];
       reqsBaseline = (data.reqsBaseline && Array.isArray(data.reqsBaseline.stories))
         ? { at: String(data.reqsBaseline.at || ''),
@@ -10226,7 +10319,11 @@ Or say what you want, in your own words:
       // THIS project, not the one being switched away from
       normalizeRaidLinks();
       collapsedIds = new Set(Array.isArray(data.collapsedIds) ? data.collapsedIds : []);
-      nextId = data.nextId || (Math.max(0, ...tasks.map(t => t.id)) + 1);
+      /* A saved counter is a hint, never a licence to reuse an id. A file whose
+         nextId had fallen behind its highest activity id handed the next new
+         activity an id already taken, and the dependency walk then looped on
+         the collision until the page ran out of stack. */
+      nextId = Math.max(Number(data.nextId) || 0, Math.max(0, ...tasks.map(t => t.id)) + 1);
       /* HEAL A CORRUPT FILE ON THE WAY IN, before anything reads it.
          Duplicate activity ids make every id-keyed structure collide, and the
          first thing that happens downstream is that the schedule solver reports
@@ -11216,8 +11313,76 @@ Or say what you want, in your own words:
       document.getElementById('mParent').value = '';
       ensureModalSuggests();
       toggleMilestoneFields();
+      document.getElementById('paPanel').classList.add('pa-folded');
+      refreshWbsPlacement();
       openOverlay(document.getElementById('modal'));
       document.getElementById('mName').focus();
+    }
+    /* + on a WBS row: a new activity under that row, at the end of its children. */
+    function addUnder(parentId) {
+      const p = tasks.find(t => t.id === parentId);
+      openAddModal(false);
+      if (!p) return;
+      computeWbsCodes();
+      document.getElementById('mParent').value = taskRefLabel(p, 0);
+      refreshWbsPlacement();
+    }
+    function paUnfold() {
+      document.getElementById('paPanel').classList.remove('pa-folded');
+      const f = document.getElementById('mPct'); if (f) f.focus();
+    }
+    /* ═══ WHERE IT GOES, SAID BEFORE IT IS SAVED ═══════════════════════════════
+       The parent the dialog will use, the siblings a new activity can sit
+       after, and the WBS code that placement gives it — numbered the way
+       computeWbsCodes numbers the tree (array order among siblings), so the code
+       the dialog promises is the code the activity gets. Editing keeps its own
+       place: moving within a phase is the row handles' job. */
+    function modalPlacementParent() {
+      const txt = String(document.getElementById('mParent').value || '').trim();
+      if (!txt) return { id: null };
+      const id = resolveTaskRef(txt, modalParentMap) ?? resolveTaskRef(txt, modalRefMap);
+      return id == null ? { bad: txt } : { id };
+    }
+    function wbsSiblingsOf(pid, exceptId) {
+      const roots = t => t.parentId == null || !tasks.some(x => x.id === t.parentId);
+      return tasks.filter(t => t.id !== exceptId && (pid == null ? roots(t) : t.parentId === pid));
+    }
+    function refreshWbsPlacement() {
+      const posG = document.getElementById('mPositionGroup'), pos = document.getElementById('mPosition');
+      const pv = document.getElementById('mWbsPreview');
+      if (!pos || !pv) return;
+      const adding = editingId == null;
+      posG.style.display = adding ? '' : 'none';
+      pv.style.display = adding ? '' : 'none';
+      if (!adding) return;
+      computeWbsCodes();
+      const par = modalPlacementParent();
+      if (par.bad) { pos.innerHTML = '<option value="end">At the end</option>'; pv.textContent = 'No activity matches “' + par.bad + '” — pick one from the list, or leave it empty for the top level.'; return; }
+      const sibs = wbsSiblingsOf(par.id, null);
+      const key = String(par.id);
+      if (pos.dataset.for !== key) {
+        const keep = pos.value;
+        pos.innerHTML = '<option value="end">At the end</option>' + (sibs.length ? '<option value="start">At the start</option>' : '')
+          + sibs.map(t => '<option value="after:' + t.id + '">After ' + escapeHtml((t.wbs ? t.wbs + ' ' : '') + t.name) + '</option>').join('');
+        pos.dataset.for = key;
+        if ([...pos.options].some(o => o.value === keep)) pos.value = keep;
+      }
+      const p = par.id == null ? null : tasks.find(t => t.id === par.id);
+      const v = pos.value || 'end';
+      const at = v === 'start' ? 0 : v === 'end' ? sibs.length : (sibs.findIndex(t => 'after:' + t.id === v) + 1);
+      pv.textContent = 'Will be ' + ((p && p.wbs) ? p.wbs + '.' : '') + (at + 1) + (p ? ', under ' + p.name : ', at the top level') + '.';
+    }
+    /* Put a just-created activity where the dialog said: start, end, or right
+       after a sibling. Only sibling order matters to the numbering, so the
+       array position after that sibling is enough. */
+    function placeNewTask(nt, where) {
+      if (!where || where === 'end') return;
+      tasks.splice(tasks.indexOf(nt), 1);
+      const sibs = wbsSiblingsOf(nt.parentId == null ? null : nt.parentId, nt.id);
+      let at = tasks.length;
+      if (where === 'start') { if (sibs.length) at = tasks.indexOf(sibs[0]); }
+      else { const a = sibs.find(t => 'after:' + t.id === where); if (a) at = tasks.indexOf(a) + 1; }
+      tasks.splice(at, 0, nt);
     }
     // Linked-stories panel inside the activity editor — rebuilt IN PLACE after
     // a story is edited from here (the ✎ buttons open the story editor stacked
@@ -11237,7 +11402,7 @@ Or say what you want, in your own words:
           let acHit = null, stHit = null;
           ((reqs && reqs.stories) || []).forEach(s => (s.ac || []).forEach(a => { if (a.id.toLowerCase() === acId) { acHit = a; stHit = s; } }));
           const steps = tcStepLines(t.description).split('\n').filter(Boolean);
-          tcSpec = `<div style="margin-bottom:1rem;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:0.6rem 0.8rem;font-size:0.8rem;line-height:1.5">
+          tcSpec = `<div class="finding is-ok" style="margin-bottom:1rem;padding:0.6rem 0.8rem;font-size:0.8rem;line-height:1.5">
             <div style="font-weight:700;color:#166534;margin-bottom:0.3rem">🧪 Test case — ${acHit ? 'verifies ' + escapeHtml(acHit.id) + ' (' + (typeIcon[acHit.type] || '') + ' ' + escapeHtml(acHit.type) + ' path)' : (acId ? 'references ' + escapeHtml(acId.toUpperCase()) + ' — criterion not found in Requirements' : 'no AC reference in the name')}</div>
             ${acHit ? `<div style="margin-bottom:0.4rem"><b>Acceptance criterion:</b><br/>${gwtLines(acHit.text).split('\n').map(escapeHtml).join('<br/>')}</div>` : ''}
             ${hasRealSteps(t) ? `<div><b>Steps for the tester:</b><ol style="margin:0.2rem 0 0.45rem;padding-left:1.25rem">${steps.map(sx => `<li>${escapeHtml(sx.replace(/^\d+\.\s*/, ''))}</li>`).join('')}</ol></div>` : `<div style="color:#b45309;margin-bottom:0.35rem">⚠ This test case has no real numbered steps yet${t.description ? ' (only: “' + escapeHtml(t.description.slice(0, 90)) + (t.description.length > 90 ? '…' : '') + '”)' : ''} — run 🧪 Generate test plan on the Requirements tab; it now rewrites shallow test cases in place with executable steps.</div>`}
@@ -11262,7 +11427,7 @@ Or say what you want, in your own words:
            the activity it explains — and from every number that explains. */
         const raidHere = raidForTask(id);
         const raidBlock = raidHere.length
-          ? `<details open style="margin-bottom:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:0.5rem 0.75rem">
+          ? `<details open class="finding is-bad" style="margin-bottom:1rem;padding:0.5rem 0.75rem">
               <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;color:#b91c1c"><span class="ico" data-i="triangle-alert" aria-hidden="true"></span> RAID entries on this activity (${raidHere.length}) — what is known to be affecting it</summary>
               <ul style="list-style:none;margin:0.5rem 0 0.4rem;padding:0;display:grid;gap:0.35rem;font-size:0.8rem;line-height:1.45">
               ${raidHere.map(r => `<li style="display:flex;gap:0.5rem;align-items:flex-start">
@@ -11276,7 +11441,7 @@ Or say what you want, in your own words:
             </details>`
           : '';
         sp.innerHTML = raidBlock + tcSpec + (st.length
-          ? `<details open style="margin-bottom:1rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.5rem 0.75rem">
+          ? `<details open class="finding is-info" style="margin-bottom:1rem;padding:0.5rem 0.75rem">
               <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;color:#1e40af"><span class="ico" data-i="book-open" aria-hidden="true"></span> User stories traced to this activity (${st.length}) — the acceptance criteria that define “done” for billing</summary>
               ${st.map(s => `<div style="margin:0.6rem 0 0.75rem;font-size:0.8rem;line-height:1.45">
                 <div style="display:flex;gap:0.6rem;align-items:flex-start">
@@ -11366,6 +11531,8 @@ Or say what you want, in your own words:
       modalParentMap = buildTaskDatalist('parentDatalist', x => !x.milestone && x.id !== id && !allDescendants(id).some(d => d.id === x.id));
       const curPar = tasks.find(x => x.id === t.parentId);
       document.getElementById('mParent').value = curPar ? ((curPar.wbs ? curPar.wbs + ' · ' : '') + curPar.name) : '';
+      document.getElementById('paPanel').classList.remove('pa-folded');
+      refreshWbsPlacement();
       ensureModalSuggests();
       t.predecessors.forEach(p => addDepRow(p));
       toggleMilestoneFields();
@@ -11408,7 +11575,7 @@ Or say what you want, in your own words:
       const redunBadge = `<span class="badge" style="background:#fef3c7;color:#b45309;margin-left:4px" title="Redundant: the chain between these tasks already gates this — removing the link changes NOTHING in the schedule, it only removes an arrow.">↩ redundant</span>`;
       const total = dependents.length + inherited.length + phaseDependents.length + ownRedun.length;
       if (!total) { ip.innerHTML = ''; return; }
-      ip.innerHTML = `<details style="margin-bottom:1rem;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:.5rem .75rem">
+      ip.innerHTML = `<details class="finding is-info" style="margin-bottom:1rem;padding:.5rem .75rem">
         <summary style="cursor:pointer;font-size:.8rem;font-weight:600;color:#7e22ce"><span class="ico" data-i="network" aria-hidden="true"></span> Dependency impact (${total}) — everything that waits on this task or pulls on it${redun.size && (ownRedun.length || dependents.some(x => redun.has(x.id + ':' + id))) ? ' <span style="color:#b45309">· ↩ redundant links inside</span>' : ''}</summary>
         ${ownRedun.length ? `<div style="font-weight:600;font-size:.75rem;margin:.5rem 0 .15rem;color:#b45309">↩ Redundant predecessors of THIS task (${ownRedun.length}) — already implied through the chain, safe to remove:</div>` + ownRedun.map(p => {
           const pt2 = tasks.find(x => x.id === p.id);
@@ -11940,6 +12107,7 @@ Or say what you want, in your own words:
       if (editingId === null) {
         const nt = makeTask(Object.assign({ id: nextId++ }, fields));
         tasks.push(nt);
+        placeNewTask(nt, (document.getElementById('mPosition') || {}).value);
         applyPctActuals(nt, 0); // a task born at 100% still gets its actual dates stamped
       } else {
         const cur = tasks.find(x => x.id === editingId);
@@ -12292,7 +12460,7 @@ Or say what you want, in your own words:
           + '</button><span class="cr-why">' + m.top.txt
           + (m.all.length > 1 ? ' <span class="ptr-aside">· also ' + m.all.slice(1).map(x => x.txt).join('; ')
               + '</span>' : '') + '</span>'
-          + '<button class="btn-sm btn-primary no-print" onclick="raidLogFor(' + t.id + ", '"
+          + '<button class="btn-sm btn-secondary no-print" onclick="raidLogFor(' + t.id + ", '"
           + ekJs(m.headline) + "', 'completion review', '" + ekJs(m.plain)
           + "')\" title=\"Draft a RAID entry linked to this activity, "
           + "with the miss already written into it\">Say why</button>"
@@ -13122,7 +13290,17 @@ Or say what you want, in your own words:
         + ' aria-label="' + escapeHtml((opt.crit ? 'Critical path. ' : '') + label) + '">'
         + escapeHtml(label) + '</span>';
     }
+    /* The Tasks tab's one main button. On an empty plan it is the AI builder's
+       Generate plan, because there is nothing to add an activity to yet; once
+       there is a plan it is + Add activity, and Generate plan becomes the tool
+       for describing a change. */
+    function syncPlanMainButton() {
+      const has = tasks.length > 0;
+      const gen = document.getElementById('aiGenerateBtn');
+      if (gen) { gen.classList.toggle('btn-primary', !has); gen.classList.toggle('btn-secondary', has); }
+    }
     function renderTaskTable() {
+      syncPlanMainButton();
       const tbody = document.getElementById('taskBody');
       const empty = document.getElementById('tasksEmpty');
       const tb2 = document.getElementById('taskToolbar');
@@ -13189,18 +13367,18 @@ Or say what you want, in your own words:
       // zero-estimate work packages are silently $0 / 0 days — alarm at the top
       // of the table, not just inside the health check
       const noEstLeaves = leafTasks().filter(t => !t.milestone && !(t.p > 0));
-      const alarmRow = noEstLeaves.length ? `<tr class="no-print"><td colspan="99" style="background:#fef2f2;border-left:4px solid var(--critical);font-size:0.8rem;padding:0.5rem 0.75rem">
+      const alarmRow = noEstLeaves.length ? `<tr class="no-print"><td colspan="99" class="finding-cell is-bad" style="font-size:0.8rem;padding:0.5rem 0.75rem">
         <strong style="color:var(--critical)">⚠ ${noEstLeaves.length} work package(s) have NO estimate</strong> — O/M/P are zero, so they add nothing to the schedule, the critical path or the price:
         ${noEstLeaves.slice(0, 5).map(t => ekTask(t, { name: true, max: 40, onclick: `openEditModal(${t.id}, true)`, tip: 'Click to open and estimate' }) + '<span class="badge badge-critical">no estimate</span>').join(' ')}${noEstLeaves.length > 5 ? ' +' + (noEstLeaves.length - 5) + ' more' : ''}
         — click one to estimate it, or make it a milestone if it is a zero-duration checkpoint.</td></tr>` : '';
       const tcChain = tcChainedList();
-      const tcRow = tcChain.length ? `<tr class="no-print"><td colspan="99" style="background:#f5f3ff;border-left:4px solid #7c3aed;font-size:0.8rem;padding:0.4rem 0.75rem">
+      const tcRow = tcChain.length ? `<tr class="no-print"><td colspan="99" class="finding-cell is-info" style="font-size:0.8rem;padding:0.4rem 0.75rem">
         🧪 <strong>${tcChain.length} test case(s) depend on ANOTHER TEST CASE</strong> — that models acceptance testing as one serial queue: every case sits on the critical path, and a failure blocks everything behind it. A case waits for the activity that DELIVERS what it verifies, not for the case before it; where the features are sequenced, those activities already carry the order.
-        <button class="btn-sm btn-secondary" onclick="unchainTestCases()" title="Removes every test-case-to-test-case link and re-points each case at the activity delivering its criterion's story. Testing usually gets SHORTER because the pack stops being a queue. ↶ Undo restores.">Unchain ${tcChain.length} case(s)</button></td></tr>` : '';
+        <button class="btn-sm btn-secondary" onclick="unchainTestCases()" title="Removes every test-case-to-test-case link and re-points each case at the activity delivering its criterion's story. Testing usually gets SHORTER because the pack stops being a queue. ↶ Undo restores.">Unchain ${tcChain.length}</button></td></tr>` : '';
       const redun = redundantLinkList();
-      const redunRow = redun.length ? `<tr class="no-print"><td colspan="99" style="background:#eff6ff;border-left:4px solid var(--primary);font-size:0.8rem;padding:0.4rem 0.75rem">
+      const redunRow = redun.length ? `<tr class="no-print"><td colspan="99" class="finding-cell is-info" style="font-size:0.8rem;padding:0.4rem 0.75rem">
         🧹 <strong>${redun.length} redundant dependency link(s)</strong> — already implied through the chain (e.g. ${escapeHtml(redun[0].predName)} → ${escapeHtml(redun[0].task.name)}: the tasks between them gate it anyway). The Gantt no longer draws these.
-        <button class="btn-sm btn-secondary" onclick="cleanupRedundantLinks()" title="Removes only the redundant links — the schedule is IDENTICAL (the chain already gates them); the charts and exports get cleaner. ↶ Undo restores.">Remove ${redun.length} link(s)</button></td></tr>` : '';
+        <button class="btn-sm btn-secondary" onclick="cleanupRedundantLinks()" title="Removes only the redundant links — the schedule is IDENTICAL (the chain already gates them); the charts and exports get cleaner. ↶ Undo restores.">Remove ${redun.length} link${redun.length === 1 ? '' : 's'}</button></td></tr>` : '';
       tbody.innerHTML = totalRow + alarmRow + tcRow + redunRow + visibleWbsOrder().map(({ task: t, depth }) => {
         const summary = t.isSummary;
         /* The diamond explains itself on hover instead of being a symbol you
@@ -13860,7 +14038,7 @@ Or say what you want, in your own words:
            wrapping sentence do not fit 640px: the first attempt pushed ✎ Open
            clean off the right edge of the dialog, where it could not be clicked
            at all. Below the text they have the full width. */
-        rows += `<div style="padding:0.5rem 0.65rem;border:1px solid var(--border);border-radius:8px;margin-bottom:0.45rem;background:${onPhase || predIsPhase ? '#fffbeb' : '#fff'}">
+        rows += `<div class="finding ${onPhase || predIsPhase ? 'is-warn' : ''}" style="padding:0.5rem 0.65rem;margin-bottom:0.45rem">
           <div style="font-size:0.84rem;line-height:1.5">${nm(id)}
             <span style="color:var(--muted)">waits for</span> ${nm(nxt)}
             ${!link ? '<div class="help-text" style="margin-top:3px">inherited link — open the task to inspect</div>'
@@ -13871,8 +14049,8 @@ Or say what you want, in your own words:
               : `<div class="help-text" style="margin-top:3px">the predecessor entry behind it sits on ${nm(holder.id)} and points at ${nm(link.pred.id)}${onPhase ? ' — ⚠ a PHASE above “' + shortName(tasks.find(x => x.id === id), 26) + '”, so cutting it affects every task inside' : ''}${predIsPhase && !onPhase ? ' — ⚠ it waits for a whole PHASE, not that one activity' : ''}</div>`}
           </div>
           <div style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;margin-top:0.4rem">
-            ${canNest ? `<button class="btn-sm btn-primary" onclick="depFixNestTC(${holder.id}, ${predT.id})" title="The usual RIGHT fix for a test case: move “${escapeHtml(holder.name)}” under “${escapeHtml(predT.name)}”, the activity it verifies (WBS decomposition) — the link becomes unnecessary, nothing is cut, and all other sequencing stays."><span class="ico" data-i="git-fork" aria-hidden="true"></span> Nest under ${shortName(predT, 18)}</button>` : ''}
-            ${link ? `<button class="btn-sm btn-danger" onclick="depFixRemove(${holder.id}, ${link.pred.id})" title="Delete “${escapeHtml(holder.name)}” ← “${escapeHtml((predT || {name:'?'}).name)}”. Cutting ONE link breaks the loop — usually the one pointing backwards (waiting for something that happens later in the plan)."><span class="ico" data-i="trash-2" aria-hidden="true"></span> Cut ${shortName(holder, 16)} ← ${shortName(predT, 16)}</button>` : ''}
+            ${canNest ? `<button class="btn-sm btn-secondary" onclick="depFixNestTC(${holder.id}, ${predT.id})" title="The usual RIGHT fix for a test case: move “${escapeHtml(holder.name)}” under “${escapeHtml(predT.name)}”, the activity it verifies (WBS decomposition) — the link becomes unnecessary, nothing is cut, and all other sequencing stays."><span class="ico" data-i="git-fork" aria-hidden="true"></span> Nest under ${shortName(predT, 18)}</button>` : ''}
+            ${link ? `<button class="btn-sm btn-danger" onclick="depFixRemove(${holder.id}, ${link.pred.id})" title="Delete “${escapeHtml(holder.name)}” ← “${escapeHtml((predT || {name:'?'}).name)}”. Cutting ONE link breaks the loop — usually the one pointing backwards (waiting for something that happens later in the plan)."><span class="ico" data-i="trash-2" aria-hidden="true"></span> Cut this link</button>` : ''}
             <button class="btn-sm btn-secondary" onclick="closeDepFixWizard();openEditModal(${openId}, true)" title="Open ${escapeHtml((openT || {name:'?'}).name)} — the one whose Dependencies list actually holds this link — and edit it by hand"><span class="ico" data-i="pencil" aria-hidden="true"></span> Open ${shortName(openT, 18)}</button>
           </div></div>`;
       });
@@ -15102,7 +15280,7 @@ Or say what you want, in your own words:
           </tbody></table>
           <div class="toolbar" style="margin-top:0.5rem">
             <button class="btn-sm btn-secondary" onclick="rcAddRole()">+ Role</button>
-            <button class="btn-sm btn-primary" onclick="rcSaveEditor()">Save card</button>
+            <button class="btn-sm btn-secondary" onclick="rcSaveEditor()">Save card</button>
             <button class="btn-sm btn-secondary" onclick="rcEditingId=null;renderResources()">Close</button>
             <button class="btn-sm btn-secondary" onclick="setDefaultRateCard('${rcEditingId}')" title="Auto-selected in every project">★ Make default</button>
             <button class="btn-sm btn-danger" onclick="deleteRateCard('${rcEditingId}')">Delete card</button>
@@ -15112,7 +15290,7 @@ Or say what you want, in your own words:
       if (rcApplyingId && rc[rcApplyingId]) {
         const c = rc[rcApplyingId];
         renderRateCardPanel._applyNames = names.slice(); // same order as the selects below
-        applier = `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.9rem;margin-top:0.6rem">
+        applier = `<div class="finding is-info" style="padding:0.9rem;margin-top:0.6rem">
           <div style="font-weight:700;margin-bottom:0.4rem">Apply "${escapeHtml(c.name)}" — map each resource to a role${c.discountPct ? ' (bill rates get −' + c.discountPct + '%)' : ''}</div>
           ${names.map((n, ni) => {
             const pre = rcMatchRole(n, c.roles);
@@ -15124,7 +15302,7 @@ Or say what you want, in your own words:
               </select></div>`;
           }).join('')}
           <div class="toolbar" style="margin-top:0.5rem">
-            <button class="btn-sm btn-primary" onclick="rcConfirmApply()">Apply rates</button>
+            <button class="btn-sm btn-secondary" onclick="rcConfirmApply()">Apply rates</button>
             <button class="btn-sm btn-secondary" onclick="rcApplyingId=null;renderResources()">Cancel</button>
           </div></div>`;
       }
@@ -15132,7 +15310,7 @@ Or say what you want, in your own words:
           <h3 style="font-size:0.95rem"><span class="ico" data-i="credit-card" aria-hidden="true"></span> Rate cards <span class="help-text" style="font-weight:400">(shared across all projects)</span></h3>
           <div class="toolbar no-print">
             <select id="rcSelect" class="mini-inp" style="width:auto;min-width:150px">${options || '<option value="">— none saved —</option>'}</select>
-            <button class="btn-sm btn-primary" onclick="rcStartApply()" ${ids.length ? '' : 'disabled'}>Apply to project…</button>
+            <button class="btn-sm btn-secondary" onclick="rcStartApply()" ${ids.length ? '' : 'disabled'}>Apply to project…</button>
             <button class="btn-sm btn-secondary" onclick="rcStartEdit()" ${ids.length ? '' : 'disabled'}>Edit</button>
             <button class="btn-sm btn-secondary" onclick="newRateCard()">New card</button>
             <button class="btn-sm btn-secondary" onclick="saveCurrentRatesAsCard()" title="Turn this project's rates into a reusable card">Save rates as card</button>
@@ -16038,7 +16216,7 @@ Or say what you want, in your own words:
       const pv = priceVsRateCard();
       if (!pv || !(pv.rateCard > 0)) return '';
       const same = Math.abs(pv.gap) <= 0.5;
-      return `<p class="help-text" style="margin-top:0.45rem;background:#f8fafc;border-left:3px solid var(--primary);border-radius:0 6px 6px 0;padding:0.5rem 0.7rem">
+      return `<p class="help-text finding is-info" style="margin-top:0.45rem;padding:0.5rem 0.7rem">
         <b>Σ Billed above is the rate-card sum: ${fmtMoney(pv.rateCard)}.</b> The <b>fee</b> quoted everywhere downstream — payment
         schedule, retainer, SOW — is <b>${fmtMoney(pv.fee)}</b>${same ? ', the same number' : `, ${fmtMoney(Math.abs(pv.gap))} ${pv.gap > 0 ? 'more' : 'less'}`}.
         ${escapeHtml(pv.why)}</p>`;
@@ -16052,7 +16230,7 @@ Or say what you want, in your own words:
           ? '<span class="badge badge-done" title="Internal: effort × rates flows into cost, price, margin and the SOW.">💰 billed</span>'
           : '<span class="badge badge-critical" title="Internal person with NO rates — their effort silently prices at $0, understating cost and the SOW. Set rates in the roster above or apply a rate card.">⚠ internal, no rate → $0</span>';
       return `<h3 style="font-size:0.95rem;margin:1.25rem 0 0.25rem"><span class="ico" data-i="circle-dollar-sign" aria-hidden="true"></span> Billing &amp; cost breakdown <span class="help-text" style="font-weight:400">(what is billed right now, what is not, and why)</span>
-        <button class="btn-sm btn-secondary no-print" style="margin-left:8px" onclick="exportBillingCSV()" title="One row per person: kind, rates, effort, cost and billed totals — for finance review or the SOW appendix"><span class="ico" data-i="download" aria-hidden="true"></span> Billing (.csv)</button><button class="btn-sm btn-secondary no-print" style="margin-left:6px" onclick="exportReceivablesCSV()" title="One row per activity: what was invoiced, what came back, what is outstanding and for how long — the file you take to a credit-control conversation"><span class="ico" data-i="download" aria-hidden="true"></span> Receivables (.csv)</button></h3>
+        <button class="btn-sm btn-secondary no-print" style="margin-left:8px" onclick="exportBillingCSV()" title="One row per person: kind, rates, effort, cost and billed totals — for finance review or the SOW appendix"><span class="ico" data-i="download" aria-hidden="true"></span> Billing CSV</button><button class="btn-sm btn-secondary no-print" style="margin-left:6px" onclick="exportReceivablesCSV()" title="One row per activity: what was invoiced, what came back, what is outstanding and for how long — the file you take to a credit-control conversation"><span class="ico" data-i="download" aria-hidden="true"></span> Receivables CSV</button></h3>
         <div class="table-wrap"><table>
           <thead><tr><th>Person / role</th><th>Status</th><th title="Σ expected effort across their tasks: TE × units% (attendee shares included)">Effort (days)</th><th title="Tasks they participate in (test cases counted separately)">Tasks</th><th title="Internal cost/day × effort — your delivery cost">Cost $</th><th title="Bill rate/day × effort — what the client is charged; margin = bill − cost">Billed $</th></tr></thead>
           <tbody>
@@ -17089,7 +17267,7 @@ Or say what you want, in your own words:
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
         row.style.transition = 'background 0.4s';
         const orig = row.style.background;
-        row.style.background = '#fef9c3';
+        row.style.background = 'var(--c-fef9c3)';
         setTimeout(() => { row.style.background = orig; }, 2200);
       }
     }
@@ -17108,7 +17286,7 @@ Or say what you want, in your own words:
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
         row.style.transition = 'background 0.4s';
         const orig = row.style.background;
-        row.style.background = '#fef9c3';
+        row.style.background = 'var(--c-fef9c3)';
         setTimeout(() => { row.style.background = orig; }, 2200);
       }
     }
@@ -17840,6 +18018,44 @@ Or say what you want, in your own words:
     /* single source of truth: the markup carries data-ek-legend, the text
        lives here. The <script> opens at 1882, after this markup is parsed. */
     document.querySelectorAll('[data-ek-legend]').forEach(el => { el.dataset.help = EK_LEGEND; });
+    /* A heading gets one ⓘ. Where the marks need explaining beside a heading
+       that already explains itself, the legend joins that one note rather
+       than standing beside it as a second, identical-looking icon. */
+    document.querySelectorAll('[data-ek-legend-append]').forEach(el => { el.dataset.help = el.dataset.help + '\n\n' + EK_LEGEND; });
+
+    /* ═══ ONE SHAPE FOR EVERY NOTICE ═════════════════════════════════════════
+       o = { id, kind, sev: 'bad'|'warn'|'info'|'ok', title (html), chips (html),
+             hint (html), more (html, folded under "Why this matters"),
+             acts: [{ label, onclick, title, icon, disabled, why, risk: 'bulk'|'delete', primary }] }
+       A step that deletes is red; one that adds or replaces in bulk is never
+       the main button; a disabled one says why in its tooltip. */
+    function findingRow(o) {
+      const acts = (o.acts || []).map(a => {
+        const cls = a.primary ? 'btn-primary' : a.risk === 'delete' ? 'btn-danger' : 'btn-secondary';
+        return '<button type="button" class="btn-sm ' + cls + '"' + (a.disabled ? ' disabled' : '')
+          + (a.onclick ? ' onclick="' + a.onclick + '"' : '')
+          + ' title="' + escapeHtml((a.disabled && a.why) ? a.why : (a.title || '')) + '">'
+          + (a.icon ? '<span class="ico" data-i="' + a.icon + '" aria-hidden="true"></span> ' : '')
+          + escapeHtml(a.label) + '</button>';
+      }).join('');
+      return '<div' + (o.id ? ' id="' + o.id + '"' : '') + ' class="finding is-' + (o.sev || 'info') + '"'
+        + (o.kind ? ' data-kind="' + o.kind + '"' : '') + '>'
+        + '<div class="finding-head"><div class="finding-title">' + o.title + '</div>'
+        + (acts ? '<div class="finding-acts">' + acts + '</div>' : '') + '</div>'
+        + (o.chips ? '<div class="finding-chips">' + o.chips + '</div>' : '')
+        + (o.hint ? '<div class="finding-hint">' + o.hint + '</div>' : '')
+        + (o.more ? '<details class="finding-more"><summary>Why this matters</summary><div>' + o.more + '</div></details>' : '')
+        + '</div>';
+    }
+    /* The rows go in the order to work them, and the first safe, enabled
+       action in that reading order is the one main button — the next step.
+       Nothing else is lit, so a list of six problems no longer reads as six
+       emergencies with no first one. */
+    function findingsList(rows) {
+      let lit = false;
+      rows.forEach(r => (r.acts || []).forEach(a => { if (!lit && !a.disabled && !a.risk) { a.primary = true; lit = true; } }));
+      return rows.length ? '<div class="findings-list">' + rows.map(findingRow).join('') + '</div>' : '';
+    }
 
     // ===== PLAIN-ENGLISH GLOSSARY =====
     // Earned-value shorthand is standard on a PMP course and opaque everywhere
@@ -18005,7 +18221,7 @@ Or say what you want, in your own words:
           sch.why = 'No baseline is saved, so the forecast has nothing to move against — it just quietly '
             + 'drifts. Today it lands on ' + escapeHtml(fmtNice(curFin)) + '. Freeze that and every later '
             + 'move becomes a number instead of a memory.';
-          sch.cta = { label: '📌 Set baseline (today)', act: 'setBaseline();renderAnalytics()' };
+          sch.cta = { label: '📌 Set baseline today', act: 'setBaseline();renderAnalytics()' };
           return;
         }
         const baseFin = new Date(Math.max.apply(null, bF));
@@ -18415,7 +18631,7 @@ Or say what you want, in your own words:
           scp.why = 'No baseline is saved, so there is no committed scope to measure growth against. The plan '
             + 'holds <b>' + (Math.round(planTe * 10) / 10) + ' ' + escapeHtml(u) + '</b> of effort across <b>'
             + leaves.length + '</b> ' + ptrPl(leaves.length, 'activity', 'activities') + ' right now.';
-          scp.cta = { label: '📌 Set baseline (today)', act: 'setBaseline();renderAnalytics()' };
+          scp.cta = { label: '📌 Set baseline today', act: 'setBaseline();renderAnalytics()' };
           return;
         }
         const baseTe = leaves.reduce((s, t) => s + (t.baseTe == null ? 0 : plannedEffortUnit(t, true)), 0);
@@ -20694,6 +20910,10 @@ Or say what you want, in your own words:
       paintAnTabs();
       if (!calculated) return;
       const leaves = leafTasks();
+      /* The activities the risk banner's drivers table already offers to fix.
+         The criticality table below lists many of the same ones, and gave each
+         a second Decompose and Edit — the same action twice on one screen. */
+      const driverIds = new Set();
       const projectDuration = Math.max(0, ...leaves.map(t => t.ef), 0);
       const criticalTasks = leaves.filter(t => t.isCritical && !t.milestone);
       const totalVar = criticalTasks.reduce((s, t) => s + t.variance, 0);
@@ -20840,6 +21060,7 @@ Or say what you want, in your own words:
         const drivers = leaves.filter(t => !t.milestone && (t.variance || 0) > 0)
           .map(t => ({ t, score: (t.variance || 0) * Math.max(0.05, t.criticality || 0) }))
           .sort((a, b) => b.score - a.score).slice(0, 5).filter(d => d.score > 0);
+        drivers.forEach(d => driverIds.add(d.t.id));
         const totVar = leaves.reduce((s, t) => s + (t.variance || 0) * Math.max(0.05, t.criticality || 0), 0) || 1;
         const reasons = [];
         reasons.push(`The gap between the coin-flip finish (P50 = ${mcResult.p50.toFixed(1)} ${u}) and the safe finish (P90 = ${mcResult.p90.toFixed(1)} ${u}) is <b>${spreadAbs.toFixed(1)} ${u} (${spreadPct.toFixed(0)}%)</b> — ${spreadPct >= 30 ? 'your estimates carry a lot of uncertainty, so any committed date is either risky or far out.' : spreadPct >= 15 ? 'a normal amount of estimating uncertainty.' : 'your estimates are tight; the schedule is predictable.'}`);
@@ -20860,7 +21081,7 @@ Or say what you want, in your own words:
             </td></tr>`;
         }).join('');
         histBlock += `
-          <div style="background:${lvl[2]};border:1px solid ${lvl[3]};border-radius:10px;padding:1rem 1.25rem;margin-top:1.25rem">
+          <div class="finding is-${lvl[0] === 'HIGH' ? 'bad' : lvl[0] === 'MODERATE' ? 'warn' : 'ok'}" style="padding:1rem 1.25rem;margin-top:1.25rem">
             <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
               <span class="risk-tag" style="background:${lvl[3]};color:${lvl[1]};font-size:0.8rem">Schedule risk: ${lvl[0]}</span>
               <span class="help-text" style="margin:0">measured as the P50→P90 spread of the simulation — hover any number above for what it means</span>
@@ -20877,7 +21098,7 @@ Or say what you want, in your own words:
                 <th></th>
               </tr></thead><tbody>${driverRows}</tbody></table></div>` : ''}
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
-              ${covered < 78 ? `<button class="btn-sm btn-primary" onclick="setContingencyFromP80();renderAnalytics()" title="Sizes the contingency reserve so your committed date = the P80 finish"><span class="ico" data-i="circle-check" aria-hidden="true"></span> Set contingency from P80</button>` : ''}
+              ${covered < 78 ? `<button class="btn-sm btn-secondary" onclick="setContingencyFromP80();renderAnalytics()" title="Sizes the contingency reserve so your committed date = the P80 finish"><span class="ico" data-i="circle-check" aria-hidden="true"></span> Set contingency from P80</button>` : ''}
               ${drivers.length ? `<button class="btn-sm btn-secondary" onclick="mcFixWithAI()" title="Pre-fills an AI change request that decomposes the top uncertainty drivers into smaller, tighter tasks — you review it before it runs"><span class="ico" data-i="bot" aria-hidden="true"></span> AI: decompose the top drivers</button>` : ''}
               <button class="btn-sm btn-secondary" onclick="switchTab('raid')" title="Log the underlying risks so contingency is backed by a register, not a hunch"><span class="ico" data-i="clipboard-copy" aria-hidden="true"></span> Log these in the RAID register</button>
             </div>
@@ -20904,7 +21125,7 @@ Or say what you want, in your own words:
       const highCritN = mcResult ? risky.filter(t => (t.criticality || 0) >= 0.8).length : 0;
       const spreadIsCalm = mcResult && mcResult.p50 > 0 && ((mcResult.p90 - mcResult.p50) / mcResult.p50 * 100) < 15;
       const reconcileNote = (mcResult && spreadIsCalm && highCritN >= 3) ? `
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.6rem 0.9rem;margin:0 0 0.6rem;font-size:0.82rem">
+        <div class="finding is-info" style="padding:0.6rem 0.9rem;margin:0 0 0.6rem;font-size:0.82rem">
           ℹ️ <b>“Schedule risk: LOW” and lots of “High” rows are NOT a contradiction — they answer different questions.</b>
           The banner measures how <b>uncertain the finish date</b> is (P50→P90 spread — small here, because estimates are tight).
           Criticality measures <b>which tasks move the date if they slip</b> — ${highCritN} task(s) sit on the critical path in ≥80% of simulations, meaning the plan runs largely <b>in series with zero slack</b>: predictable, but with no buffer if any single estimate proves wrong.
@@ -20930,13 +21151,13 @@ Or say what you want, in your own words:
               <td>${Math.abs(t.slack) < 0.05 ? '0.0' : t.slack.toFixed(1)}</td>
               <td>${t.variance.toFixed(2)}</td>
               <td><span class="risk-tag" style="background:${risk[1]};color:${risk[2]};cursor:help" title="${escapeHtml(critWhy(t))}">${risk[0]}</span></td>
-              <td class="no-print" style="white-space:nowrap">${ci >= 30 ? `<button class="btn-sm btn-secondary" onclick="aiDecompose(${t.id})" title="AI splits it into smaller, tighter sub-tasks — best when the variance is high">⑂</button>
+              <td class="no-print" style="white-space:nowrap">${ci >= 30 && driverIds.has(t.id) ? '<span class="help-text" title="Decompose and Edit are on its row in the drivers table above">↑ above</span>' : ci >= 30 ? `<button class="btn-sm btn-secondary" onclick="aiDecompose(${t.id})" title="AI splits it into smaller, tighter sub-tasks — best when the variance is high">⑂</button>
                 <button class="btn-sm btn-secondary" onclick="openEditModal(${t.id})" title="Re-estimate, reassign or re-sequence by hand"><span class="ico" data-i="pencil" aria-hidden="true"></span></button>` : ''}</td>
             </tr>`;
           }).join('')}</tbody>
         </table></div>
         ${anyHighCrit ? `<div class="toolbar no-print" style="margin-top:0.5rem">
-          <button class="btn-sm btn-primary" onclick="critFixWithAI()" title="Builds a reviewable AI change request with a TAILORED treatment per high-risk activity — decompose the wide ones, parallelize/re-sequence the chained ones. Nothing runs until you press Generate."><span class="ico" data-i="bot" aria-hidden="true"></span> AI: propose fixes for the high-risk activities</button>
+          <button class="btn-sm btn-secondary" onclick="critFixWithAI()" title="Builds a reviewable AI change request with a TAILORED treatment per high-risk activity — decompose the wide ones, parallelize/re-sequence the chained ones. Nothing runs until you press Generate."><span class="ico" data-i="bot" aria-hidden="true"></span> Propose fixes with AI</button>
           <span class="help-text">wide estimates get decomposed, tight-but-chained ones get re-sequenced for parallelism — you review before it runs</span>
         </div>` : ''}` : '';
 
@@ -20947,7 +21168,7 @@ Or say what you want, in your own words:
         <option value="units" ${sel === 'units' ? 'selected' : ''}>${u}</option>`;
       const reservesBlock = `
         <h3 style="margin:1.25rem 0 0.5rem;font-size:1rem">Reserves &amp; Buffers</h3>
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.7rem 0.9rem;margin-bottom:0.75rem;font-size:0.83rem">
+        <div class="finding is-info" style="padding:0.7rem 0.9rem;margin-bottom:0.75rem;font-size:0.83rem">
           Schedule buffers you add ON TOP of the estimated plan, shown as hatched bars at the end of the Gantt:
           <ul style="margin:0.35rem 0 0.35rem 1.2rem;padding:0">
             <li><strong>Contingency reserve</strong> covers <em>known</em> risks (the ones in your RAID log). It is part of the date you <strong>commit to the client</strong>. Enter it as days or % of the schedule — or click <strong>from P80</strong> to size it off the P80 Monte-Carlo finish. A date is a whole working day and a duration is not, so the committed date absorbs a little more of the distribution than the percentile it was sized from — the panel prints the confidence that date actually carries rather than the one it was cut from.</li>
@@ -21149,7 +21370,7 @@ Or say what you want, in your own words:
         </details>
         ${targetBlock}
         <h3 style="margin-bottom:0.5rem;font-size:1rem">Critical Path</h3>
-        <p style="background:#fef2f2;padding:0.75rem 1rem;border-radius:8px;border-left:4px solid #dc2626;margin-bottom:0.5rem;font-size:0.9rem">${escapeHtml(pathNames) || 'None identified'}</p>
+        <p class="finding is-bad" style="padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:0.9rem">${escapeHtml(pathNames) || 'None identified'}</p>
         <ul style="padding-left:1.25rem;font-size:0.9rem;margin-bottom:0.5rem">
           ${/* TWO NUMBERS THAT DO NOT RECONCILE UNLESS YOU KNOW THE CONVENTION.
                 durationToDate() adds one working day when the last thing in the
@@ -22519,16 +22740,15 @@ Or say what you want, in your own words:
             ? `This peak is <strong>${tcContrib.length} test cases piled onto one tester</strong> — roughly ${tcContrib.reduce((s2, t) => s2 + (t.te || 0), 0).toFixed(1)} ${u} of execution squeezed into the same window. Real UAT spreads cases across several testers (client testers are unbilled): use <strong>⚖ Spread test cases</strong> below, or 📅 extend the timeline to see the honest single-tester span.`
             : movable.length
               ? `Move a non-critical task within its slack — e.g. delay <strong>${escapeHtml(movable[0].name)}</strong> (has ${movable[0].slack.toFixed(1)} ${u} of float). Try <em>Level within slack</em> above.`
-              : `The overlapping tasks have little or no float. Mend it by <strong>adding capacity</strong> (buttons below), <strong>reducing Units %</strong>, <strong>reassigning</strong> a task, or <strong>Level &amp; extend timeline</strong> to accept a later finish.`;
+              : `The overlapping tasks have little or no float. Mend it by <strong>adding capacity</strong> (buttons below), <strong>reducing Units %</strong>, <strong>reassigning</strong> a task, or <strong>Level &amp; extend timeline</strong> (above) to accept a later finish.`;
           summary += `<div class="conflict-card" id="rlconf-${names.indexOf(name)}" style="transition:box-shadow 0.3s">
             <div style="font-weight:700;margin-bottom:0.25rem">${escapeHtml(name)} — peak ${Math.round(R.peak)}% vs ${R.capacity}% capacity <span class="help-text" style="font-weight:400">(over on: ${ranges})</span></div>
             <div class="table-wrap"><table><thead><tr><th>Overlapping task</th><th title="Expected work (TE) — the number that actually adds up to the overload. Slack is how far a task can slip, NOT how big it is.">Effort</th><th>Units</th><th>Window</th><th>Slack</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
             <p class="help-text" style="margin-top:0.5rem">💡 ${advice}</p>
             <div class="toolbar no-print" style="margin-top:0.5rem">
-              <button class="btn-sm btn-success" data-mend-add="${names.indexOf(name)}" title="Raise ${escapeHtml(name)}'s capacity by one full-time person"><span class="ico" data-i="plus" aria-hidden="true"></span> Add 1 person to ${escapeHtml(name)}</button>
+              <button class="btn-sm btn-success" data-mend-add="${names.indexOf(name)}" title="Raise ${escapeHtml(name)}'s capacity by one full-time person"><span class="ico" data-i="plus" aria-hidden="true"></span> Add 1 person</button>
               <button class="btn-sm btn-secondary" data-mend-peak="${names.indexOf(name)}" title="Raise capacity to exactly cover the peak load">⤒ Raise capacity to peak (${Math.round(R.peak)}%)</button>
-              ${tcContrib.length >= 3 ? `<button class="btn-sm btn-primary" onclick="spreadTestCases('${ekJs(name)}')" title="Round-robin the test cases owned by ${escapeHtml(name)} across several testers — you pick the names (client-side testers are unbilled). One ↶ undo reverses."><span class="ico" data-i="scale" aria-hidden="true"></span> Spread test cases across testers</button>` : ''}
-              <button class="btn-sm" style="background:#fef3c7;color:#b45309" onclick="autoLevelExtend()" title="Push conflicting work later, extending the finish date"><span class="ico" data-i="calendar" aria-hidden="true"></span> Extend timeline instead</button>
+              ${tcContrib.length >= 3 ? `<button class="btn-sm btn-secondary" onclick="spreadTestCases('${ekJs(name)}')" title="Round-robin the test cases owned by ${escapeHtml(name)} across several testers — you pick the names (client-side testers are unbilled). One ↶ undo reverses."><span class="ico" data-i="scale" aria-hidden="true"></span> Spread test cases across testers</button>` : ''}
             </div>
           </div>`;
         });
@@ -22542,9 +22762,9 @@ Or say what you want, in your own words:
         const extNote = (levelMode === 'extend' && ext > 0.01)
           ? `<span style="color:var(--warn);font-weight:700"> Finish extended by ${ext.toFixed(1)} ${u} vs the un-leveled plan</span> — if the client accepts the new dates, <button class="btn-sm btn-secondary" onclick="setBaseline()">re-baseline</button>.`
           : ' (project end unchanged).';
-        levelBanner = `<div class="conflict-card" style="border-left-color:${levelMode === 'extend' ? 'var(--warn)' : 'var(--primary)'};margin-top:0;margin-bottom:0.75rem;background:${levelMode === 'extend' ? '#fffbeb' : '#eff6ff'}">
+        levelBanner = `<div class="finding ${levelMode === 'extend' ? 'is-warn' : 'is-info'}" style="margin-top:0;margin-bottom:0.75rem">
              ✅ <strong>Resource leveling is APPLIED</strong> — mode: <b>${levelMode === 'extend' ? '📅 extend timeline' : '⚖ within slack'}</b>. This is a receipt, not a pending action: you already ran it, ${leveledCount} task${leveledCount>1?'s carry':' carries'} a start-no-earlier-than shift, and it stays applied on every recalculation until cleared.${extNote}
-             <span class="help-text" style="display:block;margin-top:0.25rem">Re-clicking a Level button just re-runs it against the latest plan (safe). <button class="btn-sm btn-secondary" onclick="clearLeveling()">↺ Clear leveling</button> undoes the shifts.</span>
+             <span class="help-text" style="display:block;margin-top:0.25rem">Re-clicking a Level button just re-runs it against the latest plan (safe); <b>↺ Clear leveling</b>, above, puts every task back. undoes the shifts.</span>
            </div>`;
       }
       /* THE COUNTS ON THE TABS. Only numbers somebody has to act on, and only
@@ -22635,7 +22855,7 @@ Or say what you want, in your own words:
         // nothing rather than throwing inside a click handler
         const el = document.getElementById('rlDrill');
         if (!el) return;
-        el.innerHTML = `<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:.6rem .8rem;margin:.4rem 0 .6rem;font-size:.8rem">
+        el.innerHTML = `<div class="finding is-info" style="padding:.6rem .8rem;margin:.4rem 0 .6rem;font-size:.8rem">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
             <strong>📅 ${escapeHtml(name)} — ${escapeHtml(fmtNice(dd))}: ${Math.round(day.load)}% of ${R.capacity}% capacity${isOver ? ' <span style="color:var(--critical);font-weight:700">⚠ over</span>' : settled ? ' <span style="color:var(--muted);font-weight:600">— finished work</span>' : ''}</strong>
             <button class="btn-sm btn-secondary" onclick="document.getElementById('rlDrill').innerHTML=''" aria-label="Close drill-down">✕</button>
@@ -22775,7 +22995,7 @@ Or say what you want, in your own words:
           : '<span class="wbs-twisty-spacer"></span>';
         return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
           <td style="white-space:nowrap">${ekTask(t)}</td>
-          <td class="${msReachW ? 'wbs-ms-name' : ''}" style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}</span>${msReachW}</td>
+          <td class="${msReachW ? 'wbs-ms-name' : ''}" style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}${t.milestone ? '' : `<button type="button" class="wbs-add no-print" onclick="event.stopPropagation();addUnder(${t.id})" aria-label="Add an activity under ${escapeHtml(t.name)}" title="Add an activity under ${escapeHtml(t.name)}">+</button>`}</span>${msReachW}</td>
           ${/* Capped. personCell already truncates its own role and company
                 sub-line, so 222px was reserving room the cell does not use —
                 and this is the widest table in the app, where every reserved
@@ -22858,7 +23078,7 @@ Or say what you want, in your own words:
                  nothing about them, which on a forty-activity plan is a list
                  nobody works through by hand. -->
             <div class="toolbar no-print" style="margin:0.4rem 0 0.2rem">
-              <button class="btn-sm btn-primary" onclick="aiFixIoChain()" title="Reads the plan — activity names, descriptions, the deliverables that already exist and what each activity waits for — and fills the BLANKS: a named deliverable where there is none, and a stated input where nothing feeds the activity. It never overwrites anything you wrote, and nothing is applied until you have seen what it proposes."><span class="ico" data-i="sparkles" aria-hidden="true"></span> Fill the gaps with AI</button>
+              <button class="btn-sm btn-secondary" onclick="aiFixIoChain()" title="Reads the plan — activity names, descriptions, the deliverables that already exist and what each activity waits for — and fills the BLANKS: a named deliverable where there is none, and a stated input where nothing feeds the activity. It never overwrites anything you wrote, and nothing is applied until you have seen what it proposes."><span class="ico" data-i="sparkles" aria-hidden="true"></span> Fill the gaps with AI</button>
             </div>
             ${order.filter(k => byKind[k]).map(k => `<div style="margin:0.35rem 0 0">
               <span class="badge badge-warn">${escapeHtml(ioFindingLabel(k))} · ${byKind[k].length}</span>
@@ -23130,11 +23350,16 @@ Or say what you want, in your own words:
         </div>`;
       };
 
+      /* With no baseline, the notice below carries "Set baseline today" as the
+         next step, so the toolbar's copy of the same action waits until there
+         is a baseline to update. */
+      const bsb = document.getElementById('baselineSetBtn');
+      if (bsb) bsb.style.display = hb ? '' : 'none';
       const banner = hb ? '' : `
         <div class="pa-lock" style="margin-bottom:1rem">
           📌 <b>No baseline saved.</b> The actuals below are live and editable — a baseline adds the
           <b>committed</b> figures to compare them against, so variance becomes a number instead of a memory.
-          <button class="btn-sm btn-primary" style="margin-left:0.5rem" onclick="setBaseline()">Set baseline (today)</button>
+          <button class="btn-sm btn-primary" style="margin-left:0.5rem" onclick="setBaseline()">Set baseline today</button>
         </div>`;
 
       // Consumption, not a signed delta. Half a budget spent at 10% complete and at
@@ -23749,6 +23974,8 @@ Or say what you want, in your own words:
          with no pointer and no hover removes the affordance instead of
          inventing a destination for it — the lint tile used to stay clickable
          when there was nothing to click to. */
+      /* A counter REPORTS and points at its finding. It used to perform the
+         finding's action too, so the same AI call sat on the screen twice. */
       const gauge = (cls, val, lbl, tip, action, actionLbl) => action
         ? '<button type="button" class="rq-g ' + cls + '" onclick="' + action + '" title="' + escapeHtml(tip) + '">'
             + '<b>' + val + '</b> <span>' + escapeHtml(lbl) + '</span> '
@@ -23774,10 +24001,10 @@ Or say what you want, in your own words:
           + gauge((gap ? 'is-warn' : '') + ' rq-cov" style="--p:'
                 + (d.leaves.length ? (covered / d.leaves.length).toFixed(3) : 0) + '',
               covered + '/' + d.leaves.length, 'client-facing covered',
-              covTip + covExtra, gap ? 'draftMissingStories()' : '', 'Draft the ' + gap + ' missing')
+              covTip + covExtra, gap ? "reqGoto('findings','covBanner')" : '', 'Show')
           + gauge(d.allWarns ? 'is-bad' : '', d.allWarns ? String(d.allWarns) : '✓',
               d.allWarns ? 'lint finding' + (d.allWarns === 1 ? '' : 's') : 'lint clean',
-              lintTip, d.allWarns ? 'aiFixStoryLints()' : '', 'Fix with AI')
+              lintTip, d.allWarns ? "reqGoto('findings','lintBanner')" : '', 'Show')
         + '</div></div>';
     }
     /* How many things are waiting in the Findings room. Counted from the same
@@ -23821,6 +24048,14 @@ Or say what you want, in your own words:
       const cont = document.getElementById('reqContainer');
       if (!cont) return;
       computeWbsCodes();
+      /* Draft from WBS is the main button only on an empty page, and there the
+         empty state carries it — so the toolbar copy hides until stories exist,
+         and then it is one tool among the others, not the next step. */
+      const hasStories = !!(reqs && Array.isArray(reqs.stories) && reqs.stories.length);
+      // + Add story hides only where the empty state offers its own (a plan with
+      // activities); with no activities the toolbar is the only way to write one
+      ['reqDraftBtn', 'reqAddBtn'].forEach(id => { const b = document.getElementById(id);
+        if (b) b.style.display = (hasStories || (id === 'reqAddBtn' && !tasks.length)) ? '' : 'none'; });
       if (!reqs || !Array.isArray(reqs.stories) || !reqs.stories.length) {
         cont.innerHTML = `<div class="empty-state"><h3>No requirements yet</h3>
           <p>Draft personas, epics and user stories with Given/When/Then acceptance criteria from your WBS — every story traced to a plan activity.</p>
@@ -23856,7 +24091,7 @@ Or say what you want, in your own words:
       const fsReq = featureScope();
       const fsBanner = !fsReq.hb
         ? `<p class="help-text" style="margin:-0.5rem 0 1rem">No feature set is committed yet — <b>📌 Set baseline</b> on Plan vs actual freezes the current ${stories.length} stor${stories.length === 1 ? 'y' : 'ies'} and ${acCount} criteri${acCount === 1 ? 'on' : 'a'} as the agreed scope, and everything added after that becomes visible as a change instead of a memory.</p>`
-        : `<div class="${fsReq.netAcs > 0 ? 'pa-lock' : ''}" style="margin:-0.5rem 0 1rem;font-size:var(--t-sm);line-height:1.55;${fsReq.netAcs > 0 ? '' : 'color:var(--muted)'}">${fsReq.netAcs > 0 ? '⚑ ' : ''}${featureScopeLine(fsReq)}${fsReq.netAcs > 0 && !(Array.isArray(coLog) && coLog.length) ? ' <button class="btn-sm btn-secondary no-print" onclick="switchTab(\'sow\')" title="Price the added criteria as a change order">Raise a change order</button>' : ''}</div>`;
+        : `<div class="${fsReq.netAcs > 0 ? 'pa-lock' : ''}" style="margin:-0.5rem 0 1rem;font-size:var(--t-sm);line-height:1.55;${fsReq.netAcs > 0 ? '' : 'color:var(--muted)'}">${fsReq.netAcs > 0 ? '⚑ ' : ''}${featureScopeLine(fsReq)}${fsReq.netAcs > 0 && !(Array.isArray(coLog) && coLog.length) ? ' <button class="btn-sm btn-secondary no-print" onclick="switchTab(\'raid\');setCsTab(\'sow\')" title="Price the added criteria as a change order">Raise a change order</button>' : ''}</div>`;
       let rowPersonas = '';
       if (reqs.personas && (reqs.personas.length || (reqs.stories || []).length)) {
         // glossary hygiene: personas must be who USES/ACCEPTS the capability —
@@ -23885,7 +24120,7 @@ Or say what you want, in your own words:
             <span class="refx-chev" aria-hidden="true">›</span>
           </summary>
           <div class="refx-body">
-          ${suspects.length ? `<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:0.6rem 0.8rem;margin-top:0.5rem;font-size:0.82rem">
+          ${suspects.length ? `<div class="finding is-warn" style="padding:0.6rem 0.8rem;margin-top:0.5rem;font-size:0.82rem">
             <strong>⚠ ${suspects.length} glossary entr${suspects.length === 1 ? 'y is' : 'ies are'} delivery-team role${suspects.length === 1 ? '' : 's'}</strong> (${suspects.map(p => escapeHtml(p.name)).join(', ')}) — these are the people <em>building</em> the solution, from the resources roster, not the users who accept it. Stories written “as a developer” cannot be accepted by the client.
             <button class="btn-sm btn-primary no-print" style="margin-left:0.5rem" onclick="rederivePersonas()" title="AI rewrites the glossary with real client-side personas (keeping any that are already right) and reassigns every affected story to the persona who actually accepts that capability"><span class="ico" data-i="bot" aria-hidden="true"></span> Re-derive personas</button>
           </div>` : ''}
@@ -23906,62 +24141,78 @@ Or say what you want, in your own words:
          a screen further down than a clean one did. They are collected here
          instead and shown in their own room, where the tab badge says how many
          are waiting and the room itself is bounded. */
-      let findings = '';
-      if (allWarns) {
-        const flaggedN = stories.filter(s => storyLint(s).length).length;
-        findings += `<div id="lintBanner" style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem;font-size:0.83rem">
-          <strong>⚠ ${allWarns} lint finding${allWarns === 1 ? '' : 's'} across ${flaggedN} stor${flaggedN === 1 ? 'y' : 'ies'}</strong> — as written they are untestable, unbillable, or untraceable (each card lists its findings).
-          <div style="margin-top:0.4rem;display:flex;gap:0.5rem;flex-wrap:wrap">
-            <button class="btn-sm btn-primary" onclick="aiFixStoryLints()" title="Sends ONLY the flagged stories with their exact findings; the AI rewrites ACs into Given/When/Then, adds missing error/edge paths, swaps vague words for measurable thresholds, names real personas, and suggests WBS links. Clean stories are untouched; you review the result."><span class="ico" data-i="wrench" aria-hidden="true"></span> Fix lint findings with AI</button>
-            <span class="help-text" style="align-self:center">or click ✎ on a flagged card to fix by hand — thresholds the AI invents are proposals to review, not facts</span>
-          </div></div>`;
-      }
-      const unlinkedList = stories.filter(s => s.wbsId == null || !idToTask[s.wbsId]);
-      if (unlinkedList.length) {
-        findings += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem;font-size:0.83rem">
-          <strong>⚠ ${unlinkedList.length} stor${unlinkedList.length === 1 ? 'y is' : 'ies are'} not linked to any WBS activity:</strong>
-          ${unlinkedList.slice(0, 8).map(s => ekTok('us', s.id, '', { xs: true, onclick: `openReqStory('${ekJs(s.id)}')` })).join(' ')}${unlinkedList.length > 8 ? '…' : ''} —
-          scope that is written down but <b>not in the plan or the price</b>. Either the activity was renamed/deleted, or the AI found a genuine scope gap.
-          <div style="margin-top:0.4rem;display:flex;gap:0.5rem;flex-wrap:wrap">
-            <button class="btn-sm btn-secondary" onclick="repairOrphanStories()" title="Re-attach by remembered task name (case/punctuation-insensitive)"><span class="ico" data-i="link" aria-hidden="true"></span> Auto-relink</button>
-            <button class="btn-sm btn-primary" onclick="createTasksFromUnlinked()" title="One new WBS activity per unlinked story, dictionary pre-filled, then a pre-filled AI request to estimate them"><span class="ico" data-i="plus" aria-hidden="true"></span> Create WBS activities for the rest</button>
-          </div></div>`;
-      }
+      /* ═══ THE FINDINGS ARE A NUMBERED LIST, IN THE ORDER TO WORK THEM ══════
+         Six boxes, each with its own blue button, read as six emergencies with
+         no first one — and the brightest button on the "not linked" box added
+         an activity per story to the plan and the price, while the safe relink
+         beside it was the faint one. The rows now run in the order the work
+         goes: clear out what earlier bugs left behind, put the stories back on
+         the plan, cover the activities nobody wrote for, then fix the wording.
+         A relink can close a coverage gap, and rewording a story that is about
+         to be relinked or replaced is work done twice. The one blue button is
+         the first safe step (findingsList); a step that deletes, or adds in
+         bulk, keeps its own style even when it comes first. */
+      const fRows = [];
+      const usChips = list => list.slice(0, 8).map(s => ekTok('us', s.id, '', { xs: true, onclick: `openReqStory('${ekJs(s.id)}')` })).join(' ') + (list.length > 8 ? ' …' : '');
       // duplicate "(Parallel Track)" clones from the old risk-fix: they inflate
       // effort/price and would otherwise nag for stories their originals own
       const clones = parallelCloneTasks();
-      if (clones.length) {
-        findings += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem;font-size:0.83rem">
-          <strong>⚠ ${clones.length} duplicate “(Parallel Track)” task(s) detected:</strong>
-          ${clones.slice(0, 6).map(t => escapeHtml(t.name)).join(' • ')}${clones.length > 6 ? ' …' : ''} —
-          clones created by an earlier AI risk-fix that duplicated work instead of splitting it (fixed since). They inflate effort and price; their originals already carry the stories, so they are excluded from coverage here.
-          <div style="margin-top:0.4rem"><button class="btn-sm btn-danger" onclick="cleanupParallelClones()" title="Deletes only the clone tasks; originals, stories and links untouched. One ↶ undo reverses."><span class="ico" data-i="brush" aria-hidden="true"></span> Remove the duplicates</button></div></div>`;
-      }
+      if (clones.length) fRows.push({ kind: 'cleanup', sev: 'bad',
+        title: `${clones.length} duplicate “(Parallel Track)” task${clones.length === 1 ? ' inflates' : 's inflate'} effort and price`,
+        chips: clones.slice(0, 6).map(t => escapeHtml(t.name)).join(' • ') + (clones.length > 6 ? ' …' : ''),
+        more: 'Clones created by an earlier AI risk fix that duplicated work instead of splitting it (fixed since). Their originals already carry the stories, so they are excluded from coverage here.',
+        acts: [{ label: 'Remove the duplicates', icon: 'brush', risk: 'delete', onclick: 'cleanupParallelClones()', title: 'Deletes only the clone tasks; originals, stories and links untouched. One ↶ undo reverses.' }] });
       // leftovers from the fixed story↔TC cycle bug: stories drafted FOR test
       // cases. Stories describe scope; test cases verify it — these are noise.
       const tcTaskIds = new Set(tasks.filter(isTestCaseTask).map(t => t.id));
       const tcStories = stories.filter(s => s.wbsId != null && tcTaskIds.has(s.wbsId));
-      if (tcStories.length) {
-        findings += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem;font-size:0.83rem">
-          <strong>🧹 ${tcStories.length} stor${tcStories.length === 1 ? 'y traces' : 'ies trace'} to TEST CASES:</strong>
-          ${tcStories.slice(0, 8).map(s => ekTok('us', s.id, '', { xs: true, onclick: `openReqStory('${ekJs(s.id)}')` })).join(' ')}${tcStories.length > 8 ? '…' : ''} —
-          these were drafted when test cases wrongly counted as uncovered scope (a fixed bug). A story describes scope; a test case verifies it — a "story about a test case" (and any test cases generated for <i>its</i> criteria) is double-counted noise in coverage, the matrix and the SOW.
-          <div style="margin-top:0.4rem"><button class="btn-sm btn-danger" onclick="cleanupTestCaseStories()" title="Deletes these stories AND the test-case tasks generated from their criteria (tests of tests). One ↶ undo reverses all of it."><span class="ico" data-i="brush" aria-hidden="true"></span> Remove them (and their derived test cases)</button></div></div>`;
-      }
+      if (tcStories.length) fRows.push({ kind: 'cleanup', sev: 'bad',
+        title: `${tcStories.length} stor${tcStories.length === 1 ? 'y traces' : 'ies trace'} to test cases`,
+        chips: usChips(tcStories),
+        more: 'Drafted when test cases wrongly counted as uncovered scope (a fixed bug). A story describes scope and a test case verifies it, so a "story about a test case", and any test cases generated for <i>its</i> criteria, is double-counted in coverage, the matrix and the SOW.',
+        acts: [{ label: 'Remove them', icon: 'brush', risk: 'delete', onclick: 'cleanupTestCaseStories()', title: 'Deletes these stories AND the test-case tasks generated from their criteria (tests of tests). One ↶ undo reverses all of it.' }] });
       // TCs generated for artifact-verified criteria before the classifier existed
       const procTcs = processTcList();
-      if (procTcs.length) {
-        findings += `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem;font-size:0.83rem">
-          <strong>📋 ${procTcs.length} test case(s) attached to PROCESS criteria</strong> (kickoff/meetings, requirements gathering, documentation, training, QA/UAT execution) — those criteria are accepted via their artifact (notes, sign-off, log), not by a scheduled test task; these add noise to the schedule and the PERT network.
-          <div style="margin-top:0.4rem"><button class="btn-sm btn-primary" onclick="cleanupProcessTCs()" title="Removes only the test-case tasks; the stories and acceptance criteria stay — they define how those deliverables get accepted and billed. ↶ Undo reverses."><span class="ico" data-i="brush" aria-hidden="true"></span> Remove process test cases (keeps the criteria)</button></div></div>`;
+      if (procTcs.length) fRows.push({ kind: 'cleanup', sev: 'warn',
+        title: `${procTcs.length} test case${procTcs.length === 1 ? ' is' : 's are'} attached to process criteria`,
+        more: 'Kickoff and meetings, requirements gathering, documentation, training and QA/UAT execution are accepted through their artifact (notes, a sign-off, a log), not by a scheduled test task, so these add noise to the schedule and the PERT network. The criteria themselves stay.',
+        acts: [{ label: 'Remove these test cases', icon: 'brush', risk: 'delete', onclick: 'cleanupProcessTCs()', title: 'Removes only the test-case tasks; the stories and acceptance criteria stay — they define how those deliverables get accepted and billed. ↶ Undo reverses.' }] });
+      const unlinkedList = stories.filter(s => s.wbsId == null || !idToTask[s.wbsId]);
+      if (unlinkedList.length) {
+        // what a relink can actually fix: a story whose remembered activity name
+        // still names an activity in this plan (repairOrphanStories' own rule)
+        const relinkN = unlinkedList.filter(s => taskByLooseName(s.wbsName)).length;
+        const restN = unlinkedList.length - relinkN;
+        fRows.push({ kind: 'link', sev: 'bad',
+          title: `${unlinkedList.length} stor${unlinkedList.length === 1 ? 'y is' : 'ies are'} not linked to any WBS activity`,
+          chips: usChips(unlinkedList),
+          hint: relinkN
+            ? `${relinkN} still name${relinkN === 1 ? 's' : ''} an activity in this plan and can be relinked by that name${restN ? '; the other ' + restN + (restN === 1 ? ' needs' : ' need') + ' an activity picked or added' : ''}.`
+            : 'None of them names an activity in this plan, so none can be relinked by name — open a story and pick its activity, or add activities for them.',
+          more: 'Scope that is written down but <b>not in the plan or the price</b>. Either the activity was renamed or deleted, or the AI found a genuine scope gap.',
+          acts: [
+            { label: 'Relink ' + relinkN + ' by name', icon: 'link', onclick: 'repairOrphanStories()', disabled: !relinkN,
+              title: 'Re-attach by remembered task name (case/punctuation-insensitive)', why: 'No unlinked story names an activity that is in this plan.' },
+            { label: 'Add ' + restN + ' activit' + (restN === 1 ? 'y' : 'ies'), icon: 'plus', risk: 'bulk', onclick: 'createTasksFromUnlinked()', disabled: !restN,
+              title: 'One new WBS activity per story that cannot be relinked, dictionary pre-filled, then a pre-filled AI request to estimate them. Adds to the plan and the price, so it asks first.',
+              why: 'Every unlinked story can be relinked by name — relink them instead.' }] });
       }
-      if (uncovered.length) {
-        findings += `<div id="covBanner" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem;font-size:0.83rem">
-          <strong>⚠ ${uncovered.length} client-facing activit${uncovered.length === 1 ? 'y has' : 'ies have'} no story:</strong>
-          ${uncovered.slice(0, 12).map(t => ekTask(t, { name: true, max: 26, xs: true, onclick: `openEditModal(${t.id}, true)` })).join(' ')}${uncovered.length > 12 ? ' …' : ''}
-          <div class="help-text" style="margin-top:0.25rem">Internal / delivery-side activities are excluded — tag an activity's audience in its editor to move it either way.</div>
-          <div style="margin-top:0.4rem"><button class="btn-sm btn-primary" onclick="draftMissingStories()" title="Sends ONLY these uncovered activities (in small batches with a progress tracker); every one must come back with a story, and you get an explicit report if any are still uncovered afterwards. Existing stories are never touched."><span class="ico" data-i="bot" aria-hidden="true"></span> Draft the missing stories (targeted — keeps existing ones)</button></div></div>`;
+      if (uncovered.length) fRows.push({ id: 'covBanner', kind: 'cover', sev: 'warn',
+        title: `${uncovered.length} client-facing activit${uncovered.length === 1 ? 'y has' : 'ies have'} no story`,
+        chips: uncovered.slice(0, 12).map(t => ekTask(t, { name: true, max: 26, xs: true, onclick: `openEditModal(${t.id}, true)` })).join(' ') + (uncovered.length > 12 ? ' …' : ''),
+        hint: 'Internal and delivery-side activities are left out — set an activity’s audience in its editor to move it either way.',
+        acts: [{ label: 'Draft ' + uncovered.length + ' missing stor' + (uncovered.length === 1 ? 'y' : 'ies'), icon: 'bot', onclick: 'draftMissingStories()',
+          title: 'Sends ONLY these uncovered activities (in small batches with a progress tracker); every one must come back with a story, and you get an explicit report if any are still uncovered afterwards. Existing stories are never touched.' }] });
+      if (allWarns) {
+        const flaggedN = stories.filter(s => storyLint(s).length).length;
+        fRows.push({ id: 'lintBanner', kind: 'wording', sev: 'warn',
+          title: `${allWarns} lint finding${allWarns === 1 ? '' : 's'} across ${flaggedN} stor${flaggedN === 1 ? 'y' : 'ies'}`,
+          hint: 'Each card lists its own. Or click ✎ on a flagged card to fix it by hand — thresholds the AI invents are proposals to review, not facts.',
+          more: 'As written they are untestable, unbillable, or untraceable.',
+          acts: [{ label: 'Fix with AI', icon: 'wrench', onclick: 'aiFixStoryLints()',
+            title: 'Sends ONLY the flagged stories with their exact findings; the AI rewrites ACs into Given/When/Then, adds missing error/edge paths, swaps vague words for measurable thresholds, names real personas, and suggests WBS links. Clean stories are untouched; you review the result.' }] });
       }
+      const findings = findingsList(fRows);
       const typeIcon = { happy: '✅', error: '⚠️', edge: '🧪', perf: '📏' };
       const typeTip = { happy: 'Happy path — everything works', error: 'Error path — invalid input or failure handled gracefully', edge: 'Edge case — boundaries, empty states, concurrency, timeouts', perf: 'Measured performance threshold' };
       // on-screen traceability matrix — the audit view (CSV export matches it)
@@ -23994,7 +24245,7 @@ Or say what you want, in your own words:
       uncovered.forEach(t => {
         matrixRows.push(`<tr style="background:#fffbeb">
           <td style="font-size:0.75rem;color:#b45309">—</td><td style="font-size:0.75rem;color:#b45309">—</td>
-          <td style="font-size:0.78rem;color:#b45309;min-width:220px">⚠ <b>No story yet</b> — scoped &amp; priced work with no agreed acceptance criteria. Use “🤖 Draft the missing stories” in the coverage banner.</td>
+          <td style="font-size:0.78rem;color:#b45309;min-width:220px">⚠ <b>No story yet</b> — scoped &amp; priced work with no agreed acceptance criteria. Use “Draft missing stories” on the Findings tab.</td>
           <td style="font-size:0.75rem;color:#b45309">—</td><td></td><td style="font-size:0.78rem;color:#b45309"><i>none</i></td><td></td>
           <td style="font-size:0.75rem;white-space:nowrap;cursor:pointer;color:var(--primary)" onclick="openEditModal(${t.id}, true)" title="Open ${escapeHtml(t.wbs + ' ' + t.name)}">${ekTask(t, { name: true, max: 24, xs: true })}</td>
           <td style="font-size:0.75rem">${escapeHtml(t.owner || '—') + roleSub(t.owner)}</td>
@@ -24111,12 +24362,22 @@ Or say what you want, in your own words:
             <button class="btn-sm aud-filter" data-aud="internal" onclick="setStoryAudienceFilter('internal')" title="Internal / delivery tests only"><span class="ico" data-i="wrench" aria-hidden="true"></span> Internal</button>
           </span>
         </div>
-        ${fatTcs.length ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:0.5rem 0.75rem;margin-top:0.5rem;font-size:0.8rem">
-          <strong>⏱ ${fatTcs.length} test case(s) look oversized</strong> — each estimated above ~1 hour of execution. A scripted UAT case is a 5–30 minute walkthrough; oversizing inflates the UAT window, the resource peaks and the price.
-          <div style="margin-top:0.4rem"><button class="btn-sm btn-primary" onclick="rightSizeTestCases()" title="Sets each oversized test case's O/M/P to ≈10 min likely / ~1 h worst case. Steps, pass criteria, owners and links stay. ↶ Undo reverses."><span class="ico" data-i="timer" aria-hidden="true"></span> Right-size ${fatTcs.length} test case(s)</button></div></div>` : ''}
-        ${legacyN ? `<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:0.5rem 0.75rem;margin-top:0.5rem;font-size:0.8rem">
-          <strong>✍ ${legacyN} test case(s) need a rewrite</strong> — topic-style name (no action → outcome), flat O=M=P estimate, or missing executable steps. E.g. “attribute agent meeting ownership-duration threshold” describes the FEATURE; the test is “classify a case with multiple sequential agents → only the agent meeting the threshold is attributed”.
-          <div style="margin-top:0.4rem"><button class="btn-sm btn-primary" onclick="generateTestPlan()" title="Heals each one IN PLACE from its acceptance criterion: action → outcome name, numbered steps, pass criterion, real O<M<P spread. Same task, schedule position and links — nothing is duplicated."><span class="ico" data-i="flask-conical" aria-hidden="true"></span> Rewrite ${legacyN} in place (AI)</button></div></div>` : ''}
+        ${/* Two notices, one list, quick local fix first: right-sizing gives an
+             oversized case a real O<M<P spread, which the rewrite then leaves
+             alone. The rewrite is the toolbar's own Generate test plan (it only
+             fills gaps and heals in place), so this row points at it rather
+             than putting a second copy of the same AI call on the screen. */
+          findingsList([
+            fatTcs.length ? { kind: 'size', sev: 'warn',
+              title: `${fatTcs.length} test case${fatTcs.length === 1 ? ' looks' : 's look'} oversized`,
+              hint: 'Each is estimated above about an hour of execution. A scripted UAT case is a 5–30 minute walkthrough; oversizing inflates the UAT window, the resource peaks and the price.',
+              acts: [{ label: 'Right-size ' + fatTcs.length, icon: 'timer', onclick: 'rightSizeTestCases()',
+                title: "Sets each oversized test case's O/M/P to ≈10 min likely / ~1 h worst case. Steps, pass criteria, owners and links stay. ↶ Undo reverses." }] } : null,
+            legacyN ? { kind: 'rewrite', sev: 'info',
+              title: `${legacyN} test case${legacyN === 1 ? ' needs' : 's need'} a rewrite`,
+              hint: '<b>Generate test plan</b>, in the toolbar above, heals each one in place from its acceptance criterion: an action → outcome name, numbered steps, a pass criterion and a real O&lt;M&lt;P spread. Same task, schedule position and links — nothing is duplicated.',
+              more: 'A topic-style name (no action → outcome), a flat O=M=P estimate, or no executable steps. E.g. “attribute agent meeting ownership-duration threshold” describes the FEATURE; the test is “classify a case with multiple sequential agents → only the agent meeting the threshold is attributed”.' } : null
+          ].filter(Boolean))}
         <p class="req-scrollhint">Wide execution sheet — scroll sideways.</p>
         ${tcAll.length
           ? `<div id="tcListPanel" class="req-audit"><table>
@@ -24257,7 +24518,7 @@ Or say what you want, in your own words:
               <span class="sl-go">
                 <button class="btn-sm btn-secondary" onclick="event.preventDefault();event.stopPropagation();openEditModal(${lt.id}, true)" title="Open the activity editor — estimate, owner, dependencies, dictionary"><span class="ico" data-i="pencil" aria-hidden="true"></span> Edit</button>
                 <button class="btn-sm btn-secondary" onclick="event.preventDefault();event.stopPropagation();showActivityInPlan(${lt.id})" title="Show this activity in the WBS, expanded and highlighted">→ In plan</button>
-                ${(() => { const f = aiDraftFit(lt); return `<button class="btn-sm ${lt.aiDoc ? 'btn-primary' : 'btn-secondary'}" style="${f.fit === 'unlikely' ? 'opacity:.55' : ''}" onclick="event.preventDefault();event.stopPropagation();openDraftChat(${lt.id}, ${ekJs2(s.id)}, true)" title="${escapeHtml((lt.aiDoc ? 'A draft is saved on this activity — open the conversation to revise it. ' : 'Draft this deliverable with the AI, using this story, its acceptance criteria and the activity\u2019s inputs as the brief. ') + f.why)}">${icoHtml(lt.aiDoc ? 'file-text' : f.fit === 'suggested' ? 'sparkles' : 'bot')} Draft</button>`; })()}
+                ${(() => { const f = aiDraftFit(lt); return `<button class="btn-sm btn-secondary" style="${f.fit === 'unlikely' ? 'opacity:.55' : ''}" onclick="event.preventDefault();event.stopPropagation();openDraftChat(${lt.id}, ${ekJs2(s.id)}, true)" title="${escapeHtml((lt.aiDoc ? 'A draft is saved on this activity — open the conversation to revise it. ' : 'Draft this deliverable with the AI, using this story, its acceptance criteria and the activity\u2019s inputs as the brief. ') + f.why)}">${icoHtml(lt.aiDoc ? 'file-text' : f.fit === 'suggested' ? 'sparkles' : 'bot')} ${lt.aiDoc ? 'Open draft' : 'Draft'}</button>`; })()}
               </span>
             </div>`; }).join('')}
           </div>` : ''}
@@ -25231,7 +25492,7 @@ Or say what you want, in your own words:
       const d = t.aiDoc;
       el.innerHTML = d
         ? `<span class="fg-head"><label>Drafted document</label></span>
-           <div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;padding:.55rem .7rem">
+           <div class="finding is-ok" style="padding:.55rem .7rem">
              <div style="font-weight:600;font-size:.85rem">📄 ${escapeHtml(d.title || '(untitled)')}</div>
              <div class="help-text" style="margin:.15rem 0 .35rem">saved ${escapeHtml(d.at ? fmtDoc(new Date(d.at)) : 'earlier')}${d.model ? ' · ' + escapeHtml(d.model) : ''} · ${d.body.length.toLocaleString()} characters</div>
              <div class="help-text" style="white-space:pre-wrap;max-height:5rem;overflow:hidden">${escapeHtml(d.body.slice(0, 320))}…</div>
@@ -25306,7 +25567,7 @@ Or say what you want, in your own words:
           const bar = document.createElement('div');
           bar.style.cssText = 'margin-top:.45rem;display:flex;gap:.35rem;align-items:center';
           const save = document.createElement('button');
-          save.className = 'btn-sm btn-primary';
+          save.className = 'btn-sm btn-secondary';
           save.textContent = '💾 Save to activity';
           save.onclick = () => adSaveDoc(i);
           bar.appendChild(save);
@@ -26784,8 +27045,8 @@ Write the test cases for the criteria above, following the contract exactly. Ret
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         const orig = el.style.background;
         el.style.transition = 'background 0.5s';
-        el.style.background = '#fef9c3';
-        setTimeout(() => { el.style.background = orig || '#fff'; }, 1800);
+        el.style.background = 'var(--c-fef9c3)';
+        setTimeout(() => { el.style.background = orig || ''; }, 1800);
       }, 60);
     }
     // ---- structured story-editor rows: type dropdowns instead of [happy] /
@@ -30221,7 +30482,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       const rows = loadResLib().slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
       const inHere = n => !!resources[n];
       const bar = '<div class="rl-bar no-print">'
-        + '<button class="btn-sm btn-primary" onclick="resLibSaveRoster()" title="Copy this project’s roster into the library — names, kinds, roles, capacities and both rates">Save this roster to the library</button>'
+        + '<button class="btn-sm btn-secondary" onclick="resLibSaveRoster()" title="Copy this project’s roster into the library — names, kinds, roles, capacities and both rates">Save this roster to the library</button>'
         + (rows.some(x => !inHere(x.name)) ? '<button class="btn-sm btn-secondary" onclick="resLibAddAll()">Add everyone missing</button>' : '')
         + '<button class="btn-sm btn-secondary" onclick="resLibExport()"><span class="ico" data-i="download" aria-hidden="true"></span> .json</button>'
         + '<label class="btn-sm btn-secondary" style="cursor:pointer;margin:0">⬆ Import<input type="file" accept="application/json,.json" style="display:none" onchange="resLibImport(event)" /></label>'
@@ -34390,6 +34651,7 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
       raidFillPicker(); raidRenderDraft();
       raidScoreSync();
       document.getElementById('raidForm').style.display = 'block';
+      raidFormMain(true);
       document.getElementById('rTitle').focus();
     }
     /* The outcome question only exists for the two types that have one, and the
@@ -34520,7 +34782,7 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
         + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();raidWhyNext();}">'
         + '<div class="why-acts">'
         + (whyState.step > 0 ? '<button type="button" class="btn-sm btn-secondary" onclick="raidWhyBack()">← Back</button>' : '')
-        + (atMax ? '' : '<button type="button" class="btn-sm btn-primary" onclick="raidWhyNext()">Ask why again →</button>')
+        + (atMax ? '' : '<button type="button" class="btn-sm btn-secondary" onclick="raidWhyNext()">Ask why again →</button>')
         + '<button type="button" class="btn-sm btn-secondary" onclick="raidWhyFinish()">This is the root cause ✓</button>'
         + '</div>'
         + '<p class="help-text" style="margin:0.35rem 0 0">'
@@ -34726,7 +34988,13 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
                   + 'linked to, and it keeps doing so after you close it.')
             : 'Still being <b>watched</b>, not blamed. It stays out of the way of the numbers.');
     }
-    function closeRaidForm() { document.getElementById('raidForm').style.display = 'none'; editingRaidId = null; }
+    function closeRaidForm() { document.getElementById('raidForm').style.display = 'none'; editingRaidId = null; raidFormMain(false); }
+    /* While an entry is open, its Save is the tab's one main button; + Add entry
+       steps back until the form closes. */
+    function raidFormMain(open) {
+      const b = document.getElementById('raidAddBtn');
+      if (b) { b.classList.toggle('btn-primary', !open); b.classList.toggle('btn-secondary', open); }
+    }
     function saveRaidEntry() {
       const title = document.getElementById('rTitle').value.trim();
       if (!title) { alert('Title is required.'); return; }
@@ -35371,10 +35639,10 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
                     ['Decision', 'Decisions'], ['Exclusion', 'Exclusions']];
       const countOf = k => k === 'all' ? raid.length : raid.filter(r => r.type === k).length;
       const tabStrip = TABS.filter(([k]) => k === 'all' || countOf(k)).map(([k, lbl]) =>
-        `<button class="btn-sm ${raidTab === k ? 'btn-primary' : 'btn-secondary'}" onclick="setRaidTab('${k}')">${lbl} <span style="opacity:0.7">${countOf(k)}</span></button>`).join('');
+        `<button class="btn-sm" aria-pressed="${raidTab === k}" onclick="setRaidTab('${k}')">${lbl} <span style="opacity:0.7">${countOf(k)}</span></button>`).join('');
       const allVisSelected = vis.length > 0 && vis.every(r => raidSel.has(r.id));
       cont.innerHTML = `<div class="toolbar no-print" style="gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap">
-          ${tabStrip}
+          <span class="seg" role="group" aria-label="Show">${tabStrip}</span>
           <span class="tb-sep" aria-hidden="true"></span>
           <input class="mini-inp" style="width:200px" placeholder="Filter by text…" value="${escapeHtml(raidQ)}" oninput="setRaidQuery(this.value)" aria-label="Filter RAID entries" />
           <label class="help-text" style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;white-space:nowrap"><input type="checkbox" ${raidOpenOnly ? 'checked' : ''} onchange="setRaidOpenOnly(this.checked)" />open only</label>
@@ -35385,7 +35653,7 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
                already has one is an invitation to a no-op; this says how much
                work there is, which is also the finding. */
             const n = raidNeedsPlan().length;
-            return n ? `<button class="btn-sm btn-primary" onclick="aiBrainstormMitigations()" title="${escapeHtml(
+            return n ? `<button class="btn-sm btn-secondary" onclick="aiBrainstormMitigations()" title="${escapeHtml(
               n + ' open ' + (n === 1 ? 'entry has' : 'entries have') + ' no response written on them. Drafts one for each — '
               + 'what will be done, which lever it pulls, and the signal that tells you it is happening while there is still '
               + 'time to act. Fills BLANKS ONLY: a response you wrote is never replaced, and one Undo reverses the pass.')}">`
@@ -35393,7 +35661,7 @@ ${unit === 'days' ? '- THINK IN HOURS at this level of detail: estimate each fin
           })()}
           <button class="btn-sm btn-secondary" onclick="openReviseRaid()" title="Rewrite the whole log from one instruction — tighten the wording, drop anything about a topic, make every exclusion a limit rather than a promise. Nothing is changed until you review the result."><span class="ico" data-i="sparkles" aria-hidden="true"></span> Revise the log</button>
         </div>
-        <div id="raidBulk" class="toolbar no-print" style="display:none;gap:0.35rem;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.4rem 0.6rem;margin-bottom:0.5rem">
+        <div id="raidBulk" class="finding is-info toolbar no-print" style="display:none;gap:0.35rem;align-items:center;padding:0.4rem 0.6rem;margin-bottom:0.5rem">
           <b id="raidBulkCount" style="font-size:0.82rem">0 selected</b>
           <span class="tb-sep" aria-hidden="true"></span>
           <select class="mini-inp" style="width:auto" onchange="raidBulkSet('type', this.value); this.value=''" aria-label="Set type on selected"><option value="">Set type…</option>${['Risk','Assumption','Issue','Decision','Exclusion'].map(x => `<option>${x}</option>`).join('')}</select>
@@ -37364,11 +37632,13 @@ Do not write payment terms or exclusions — both are generated from the project
       if (sowEditing) {
         btn.textContent = '💾 Save edits';
         btn.classList.remove('btn-secondary'); btn.classList.add('btn-primary');
+        const gen = document.getElementById('sowGenBtn'); if (gen) { gen.classList.remove('btn-primary'); gen.classList.add('btn-secondary'); }
         flashSaved('✎ Editing the SOW — click anywhere in the document and type; 💾 Save edits when done');
         cont.focus();
       } else {
         btn.textContent = '✎ Edit';
         btn.classList.remove('btn-primary'); btn.classList.add('btn-secondary');
+        const gen = document.getElementById('sowGenBtn'); if (gen) { gen.classList.remove('btn-secondary'); gen.classList.add('btn-primary'); }
         sowPushVersion('before this edit');
         sowDraft = cont.innerHTML;
         sowUserEdited = true;
@@ -37442,10 +37712,10 @@ Do not write payment terms or exclusions — both are generated from the project
       const p = draftChangeOrder._pending;
       if (!p) return '';
       const n = (p.hidePrice || []).length;
-      return `<div class="no-print" style="margin-top:0.75rem;padding:0.7rem 0.9rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+      return `<div class="finding is-ok no-print" style="margin-top:0.75rem;padding:0.7rem 0.9rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
           <button class="btn-sm btn-secondary" onclick="issueChangeOrder()" title="Log ${p.no} as SENT and awaiting signature. Nothing is agreed and the baseline does not roll — this is how the log tells apart what you have asked for from what you have been given."><span class="ico" data-i="send" aria-hidden="true"></span> Mark ${p.no} issued</button>
-          <button class="btn-sm btn-success" onclick="approveChangeOrder()" title="Logs ${p.no} in the change history and rolls the contract baseline to today's plan — the NEXT change order will diff only changes made after this one"><span class="ico" data-i="circle-check" aria-hidden="true"></span> Mark ${p.no} accepted &amp; roll baseline</button>
-          <button class="btn-sm btn-secondary" onclick="coOpen('__draft__')" title="Open every line of ${p.no} and choose which ones show their price on the document. The totals never move.">$ Line pricing${n ? ' (' + n + ' withheld)' : ''}</button>
+          <button class="btn-sm btn-success" onclick="approveChangeOrder()" title="Logs ${p.no} in the change history and rolls the contract baseline to today's plan — the NEXT change order will diff only changes made after this one"><span class="ico" data-i="circle-check" aria-hidden="true"></span> Mark ${p.no} accepted</button>
+          <button class="btn-sm btn-secondary" onclick="coOpen('__draft__')" title="Open every line of ${p.no} and choose which ones show their price on the document. The totals never move.">$ Line pricing${n ? ' · ' + n + ' withheld' : ''}</button>
           <span class="help-text" style="margin:0">issue it when you send it, accept it when they sign — an issued change order is a request, and counting one as revenue is how a forecast goes wrong quietly</span>
         </div>`;
     }
@@ -37454,7 +37724,7 @@ Do not write payment terms or exclusions — both are generated from the project
         + '<b>Viewing SOW version ' + v.n + '</b> — ' + escapeHtml(v.label || 'saved') + ', '
         + escapeHtml(v.at) + ' ' + escapeHtml(v.ts) + '. This is a past document, not the live draft. '
         + '<button class="btn-sm btn-secondary" onclick="setDocView(\'sow\')">Back to the current draft</button> '
-        + '<button class="btn-sm btn-primary" onclick="sowRestoreVersion(' + v.n + ')">Restore this version</button>'
+        + '<button class="btn-sm btn-secondary" onclick="sowRestoreVersion(' + v.n + ')">Restore this version</button>'
         + '</div>';
     }
     let sowVersions = [];
@@ -38024,7 +38294,7 @@ Do not write payment terms or exclusions — both are generated from the project
       const paint = (el, on, label, n) => {
         if (!el) return;
         el.textContent = label + (n ? ' (' + n + ')' : '');
-        el.className = 'btn-sm ' + (on ? 'btn-primary' : 'btn-secondary');
+        el.className = 'btn-sm btn-secondary'; el.setAttribute('aria-pressed', on ? 'true' : 'false');
       };
       paint(tS, docHistTab === 'sow', '📄 This document', sowVersions.length);
       paint(tP, docHistTab === 'plan', '📌 Plan versions', planVersions.length);
@@ -38917,8 +39187,9 @@ Do not write payment terms or exclusions — both are generated from the project
     function openSyncGuide() {
       const c = syncCapability();
       const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-      const box = (bg, br, html) => '<div style="background:' + bg + ';border:1px solid ' + br
-        + ';border-radius:8px;padding:0.7rem 0.9rem;margin:0 0 0.8rem;font-size:0.85rem;line-height:1.5">' + html + '</div>';
+      // the colour names the severity; the surface is the card's own (see .finding)
+      const box = (bg, br, html) => '<div class="finding is-' + ({ '#fffbeb': 'warn', '#f0fdf4': 'ok', '#eff6ff': 'info', '#fef2f2': 'bad' }[bg] || 'info')
+        + '" style="padding:0.7rem 0.9rem;margin:0 0 0.8rem;font-size:0.85rem;line-height:1.5">' + html + '</div>';
       const el = document.getElementById('syncGuideBody');
       if (!el) return;
       el.innerHTML =
@@ -39294,9 +39565,9 @@ Do not write payment terms or exclusions — both are generated from the project
         <div style="border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;margin-bottom:0.4rem">
           <div style="font-weight:600;font-size:0.85rem">${kindChip(c)}${esc(c.name)} <span class="help-text">· ${esc(c.label)}</span></div>
           <div style="display:flex;gap:0.5rem;margin-top:0.35rem;flex-wrap:wrap">
-            <button class="btn-sm ${c.take === 'mine' ? 'btn-primary' : 'btn-secondary'}" style="flex:1 1 45%;text-align:left;white-space:normal" onclick="mergeSetTake(${i},'mine')">
+            <button class="btn-sm btn-secondary" aria-pressed="${c.take === 'mine'}" style="flex:1 1 45%;text-align:left;white-space:normal" onclick="mergeSetTake(${i},'mine')">
               <b>Yours</b><br><span style="font-weight:400">${esc(showVal(c, c.mine))}</span></button>
-            <button class="btn-sm ${c.take === 'theirs' ? 'btn-primary' : 'btn-secondary'}" style="flex:1 1 45%;text-align:left;white-space:normal" onclick="mergeSetTake(${i},'theirs')">
+            <button class="btn-sm btn-secondary" aria-pressed="${c.take === 'theirs'}" style="flex:1 1 45%;text-align:left;white-space:normal" onclick="mergeSetTake(${i},'theirs')">
               <b>Theirs</b><br><span style="font-weight:400">${esc(showVal(c, c.theirs))}</span></button>
           </div>
         </div>`).join('');
@@ -39320,7 +39591,7 @@ Do not write payment terms or exclusions — both are generated from the project
         + grp('Yours, untouched by them · ' + r.myAdds.length, 'Nothing to decide.',
               r.myAdds.map(x => '<div style="font-size:0.82rem;padding:0.15rem 0">' + esc(x.name) + '</div>').join(''))
         + (r.collisions.length
-            ? '<div class="help-text" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:0.5rem 0.7rem;margin-top:0.4rem">'
+            ? '<div class="finding is-warn help-text" style="padding:0.5rem 0.7rem;margin-top:0.4rem">'
               + '<b>' + r.collisions.length + ' activity number' + (r.collisions.length === 1 ? '' : 's') + ' used twice.</b> '
               + 'You each added an activity after the shared version and both drew the same number. Theirs are '
               + 'renumbered on the way in, so nothing is lost and nothing is overwritten.</div>'
@@ -40587,7 +40858,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
          table that prints that total. */
       const laps = coOverlaps();
       const lapHtml = laps.length
-        ? '<div class="conflict-card" style="border-left-color:var(--warn);background:#fffbeb;'
+        ? '<div class="finding is-warn" style="'
           + 'margin:0 0 .6rem;font-size:0.83rem">'
           + '<b>⚠ ' + laps.length + ' pair' + (laps.length === 1 ? '' : 's') + ' of accepted change orders '
           + 'price the same work twice.</b> The cumulative impact above adds both, so that money is counted '
@@ -40608,7 +40879,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
               + '<button class="btn-sm btn-secondary no-print" onclick="setCoState(\'' + ekJs(l.earlier.no)
                 + '\',\'superseded\')" title="' + escapeHtml('Mark ' + l.earlier.no + ' as replaced by '
                   + l.later.no + '. It stops counting toward the cumulative total; nothing in the plan moves.')
-                + '">' + escapeHtml(l.earlier.no) + ' was superseded by ' + escapeHtml(l.later.no) + '</button>'
+                + '">Mark ' + escapeHtml(l.earlier.no) + ' superseded</button>'
               + '</div></div>').join('')
           + '<p class="help-text" style="margin:.45rem 0 0">Which one supersedes the other is a judgement '
           + 'about what was agreed, so nothing here decides it for you. Overlap is not always double '
@@ -40749,7 +41020,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
                     + 'onclick="coReverseNow(\'' + ekJs(c.no) + '\')" title="'
                     + escapeHtml('Put the scope back the way it was before this change order. The same '
                       + 'reversal that was offered when it was rejected — declining it then did not make it '
-                      + 'unavailable now.') + '"><span class="ico" data-i="undo-2" aria-hidden="true"></span> Take the scope back out of the plan</button>'
+                      + 'unavailable now.') + '"><span class="ico" data-i="undo-2" aria-hidden="true"></span> Take the scope back out</button>'
                     + '<button class="btn-sm btn-secondary no-print" style="margin-left:.4rem" '
                     + 'onclick="setCoState(\'' + ekJs(c.no) + '\',\'accepted\')" title="'
                     + escapeHtml('The client re-agreed it. The scope stays and is paid for again.')
@@ -42134,7 +42405,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         + 'spread evenly across each activity\u2019s working days, because the plan knows the totals and the dates '
         + 'and does not know which day anybody actually sat down.</p>'
         + '<div class="toolbar no-print" style="margin-bottom:0.5rem"><button class="btn-sm btn-secondary" '
-        + 'onclick="exportTimesheetCSV()">\u2b07 Timesheet (.csv)</button></div>'
+        + 'onclick="exportTimesheetCSV()">\u2b07 Timesheet CSV</button></div>'
         + summary + weekTable;
     }
     function exportTimesheetCSV() {
@@ -42522,7 +42793,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
         + '<input id="lgQ" class="mini-inp" type="search" style="width:100%" placeholder="activity, phase, person, company…" value="'
         + esc(s.q) + '" oninput="ledgerSet(\'q\',this.value)"></label>'
         + '<div style="display:flex;gap:0.35rem;align-items:center">'
-        + '<button class="btn-sm btn-secondary" onclick="exportLedgerCSV()" title="Exports exactly the table on screen — same rows, same columns, same filters"><span class="ico" data-i="download" aria-hidden="true"></span> This view (.csv)</button>'
+        + '<button class="btn-sm btn-secondary" onclick="exportLedgerCSV()" title="Exports exactly the table on screen — same rows, same columns, same filters"><span class="ico" data-i="download" aria-hidden="true"></span> This view as CSV</button>'
         + '<button class="btn-sm btn-secondary" onclick="ledgerReset()"' + (ledgerFiltersOn() || s.row !== 'person' || s.period !== 'week' ? '' : ' disabled') + '>Reset</button></div>'
         + (orgs.length > 1 ? '<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:0.3rem;align-items:center">'
             + '<span class="help-text" style="min-width:5rem">Company</span>'
@@ -43454,7 +43725,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
                 + 'than unbilled — the tool cannot tell those apart'),
             recommendation: rec.anyRecord
               ? 'Record what was invoiced against each finished activity (Invoiced $ in the editor), or raise '
-                + 'the invoices. Receivables (.csv) on the Resources tab is the working list.'
+                + 'the invoices. Receivables CSV on the Resources tab is the working list.'
               : 'If you bill outside this tool that is fine — but nothing here can then tell finished-and-billed '
                 + 'from finished-and-forgotten. Recording even the totals makes the gap visible.'
           });
@@ -43485,7 +43756,7 @@ Return ONLY JSON {"rationale":"..."} — factual, no invented causes.`, { onDelt
           findings.push({ severity: 'medium', area: 'Outstanding receipts',
             finding: fmtMoney(rec.billedUnpaid) + ' invoiced and not received across ' + rec.billedUnpaidN
               + ' activit' + (rec.billedUnpaidN === 1 ? 'y' : 'ies'),
-            recommendation: 'Receivables (.csv) lists each one with the days it has been outstanding.' });
+            recommendation: 'Receivables CSV lists each one with the days it has been outstanding.' });
         }
       })();
       leaves.forEach(t => {
@@ -43801,7 +44072,7 @@ IMPORTANT: rows marked [ROLL-UP] are WBS summary rows — the tool schedules and
          A pass deserves to be stated. */
       if (!healthFindings.findings.length) {
         cont.innerHTML = trend + `<h3 style="font-size:0.95rem;margin:1rem 0 0.5rem">Health check — ${escapeHtml(healthFindings.date)}</h3>`
-          + '<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;border-radius:8px;padding:0.75rem 1rem;margin:0;font-size:0.9rem">'
+          + '<p class="finding is-ok" style="padding:0.75rem 1rem;margin:0;font-size:0.9rem">'
           + '<b>Nothing to flag.</b> Every check passed: estimate ranges are wide enough to be honest, no activity is too big to track, '
           + 'scope traces to stories, and the schedule drivers look deliberate. This is the plan as it stands right now — re-run it after any '
           + 'significant change.</p>';
@@ -43809,7 +44080,7 @@ IMPORTANT: rows marked [ROLL-UP] are WBS summary rows — the tool schedules and
       }
       cont.innerHTML = trend + `<h3 style="font-size:0.95rem;margin:1rem 0 0.5rem">Health check — ${escapeHtml(healthFindings.date)} (${healthFindings.findings.length} finding${healthFindings.findings.length === 1 ? '' : 's'})</h3>
         ${healthFindings.findings.length ? `<div class="table-wrap"><table><thead><tr><th></th><th>Area</th><th>Finding</th><th>Recommendation</th><th class="no-print"></th></tr></thead><tbody>${rows}</tbody></table></div>
-        ${fixable.length ? `<div class="toolbar no-print" style="margin-top:0.6rem"><button class="btn-primary btn-sm" onclick="aiFixFindings()" title="The AI edits the plan to address every fixable finding — you review the result"><span class="ico" data-i="wrench" aria-hidden="true"></span> Fix all with AI (${fixable.length})</button><span class="help-text">applies the recommendations as a plan update — every change stays editable</span></div>` : ''}`
+        ${fixable.length ? `<div class="toolbar no-print" style="margin-top:0.6rem"><button class="btn-secondary btn-sm" onclick="aiFixFindings()" title="The AI edits the plan to address every fixable finding — you review the result"><span class="ico" data-i="wrench" aria-hidden="true"></span> Fix all ${fixable.length} with AI</button><span class="help-text">applies the recommendations as a plan update — every change stays editable</span></div>` : ''}`
         : '<div class="conflict-card ok"><strong style="color:var(--success)">✓ No issues found.</strong> Estimates, structure and resourcing all look sound.</div>'}`;
     }
     // 🩺 One-stop scan: recompute, run every deterministic gap check (+ AI review

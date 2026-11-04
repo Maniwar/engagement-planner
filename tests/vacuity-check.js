@@ -72,14 +72,7 @@ const ONLY = process.argv.slice(2).filter(a => !a.startsWith('-'));
    is the input under which a check has nothing to look at, so any check that
    reports the same thing on it as on a full plan is reporting something it did
    not measure. */
-const EMPTY = {
-  projectName: 'Empty plan (vacuity probe)',
-  projectStart: '2026-01-05',
-  workingDays: 'monfri', holidays: [], unit: 'days',
-  tasks: [], resources: {}, raid: [], reqs: { epics: [], stories: [] },
-  pricing: { model: 'fixed', basis: 'p80', contractPrice: 0 },
-  nextId: 1, nextRaidId: 1
-};
+const EMPTY = require('./_harness').EMPTY_PLAN;
 
 const SWEEPS = fs.readdirSync(__dirname)
   .filter(f => /sweep.*\.js$/.test(f) || f === 'golden-reference.js')

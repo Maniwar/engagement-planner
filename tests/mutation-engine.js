@@ -606,9 +606,9 @@ const MUTANTS = [
      the text only overflows once they also stop wrapping, and a mutant that
      survives for being too small reads as a hole in the sweep that is not one. */
   { what: 'wizard: the buttons sit beside the text again and run off the dialog',
-    find: ['rows += `<div style="padding:0.5rem 0.65rem;border:1px solid',
+    find: ['rows += `<div class="finding ${onPhase || predIsPhase ? \'is-warn\' : \'\'}" style="padding:0.5rem 0.65rem;margin-bottom:0.45rem">',
            '<div style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;margin-top:0.4rem">'],
-    with: ['rows += `<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.5rem 0.65rem;border:1px solid',
+    with: ['rows += `<div class="finding ${onPhase || predIsPhase ? \'is-warn\' : \'\'}" style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.5rem 0.65rem;margin-bottom:0.45rem">',
            '<div style="display:flex;gap:0.35rem;flex-shrink:0;flex-wrap:nowrap;justify-content:flex-end">'] },
 
   /* ── prose that only pretends to read the plan ────────────────────────────
@@ -1490,8 +1490,8 @@ const MUTANTS = [
     with: "          host.innerHTML = sowHistoryHtml();" },
 
   { what: 'SOW panel: the selected history tab looks like the unselected one',
-    find: "        el.className = 'btn-sm ' + (on ? 'btn-primary' : 'btn-secondary');",
-    with: "        el.className = 'btn-sm btn-secondary';" },
+    find: "        el.className = 'btn-sm btn-secondary'; el.setAttribute('aria-pressed', on ? 'true' : 'false');",
+    with: "        el.className = 'btn-sm btn-secondary'; el.setAttribute('aria-pressed', 'false');" },
 
   { what: 'SOW panel: the document is read through a letterbox again',
     find: "color:#1e293b;max-width:1080px;margin:0 auto\">",
@@ -2821,6 +2821,129 @@ const MUTANTS = [
     find: "const AI_IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];",
     with: "const AI_IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/tiff'];" },
 
+
+  /* ═══ ONE NEXT STEP PER SCREEN, AND ADDING WORK WHERE IT GOES ═══════════════
+     The Findings room showed five blue buttons, two of them twice, with the
+     bulk "create an activity per story" as the brightest; the rest of the app
+     had the same pattern. Adding an activity asked where it went last, never
+     where among its siblings, and not at all from the WBS tab — and a saved id
+     counter that had fallen behind handed out an id already in use. Each
+     mutant below breaks one sentence from the top of action-hierarchy-sweep.js
+     or wbs-add-sweep.js. */
+
+  { what: 'next step: the findings light every safe step blue, so a list of problems has no first one',
+    find: "rows.forEach(r => (r.acts || []).forEach(a => { if (!lit && !a.disabled && !a.risk) { a.primary = true; lit = true; } }));",
+    with: "rows.forEach(r => (r.acts || []).forEach(a => { if (!a.disabled && !a.risk) { a.primary = true; lit = true; } }));" },
+
+  { what: 'next step: a step that adds or deletes in bulk can be lit as the main button',
+    find: "if (!lit && !a.disabled && !a.risk) { a.primary = true; lit = true; }",
+    with: "if (!lit && !a.disabled) { a.primary = true; lit = true; }" },
+
+  { what: 'next step: Add N activities is lit as the main button beside Relink',
+    find: "icon: 'plus', risk: 'bulk', onclick: 'createTasksFromUnlinked()'",
+    with: "icon: 'plus', primary: true, onclick: 'createTasksFromUnlinked()'" },
+
+  { what: 'next step: the findings run backwards, wording first and clean-up last',
+    find: "      const findings = findingsList(fRows);",
+    with: "      const findings = findingsList(fRows.slice().reverse());" },
+
+  { what: 'next step: Relink no longer says how many stories it can fix',
+    find: "{ label: 'Relink ' + relinkN + ' by name'",
+    with: "{ label: 'Auto-relink'" },
+
+  { what: 'next step: the counters at the top of Stories run the AI fix themselves again',
+    find: "lintTip, d.allWarns ? \"reqGoto('findings','lintBanner')\" : '', 'Show')",
+    with: "lintTip, d.allWarns ? 'aiFixStoryLints()' : '', 'Fix with AI')" },
+
+  { what: 'next step: a finding is a pale box painted inline again',
+    find: "      return '<div' + (o.id ? ' id=\"' + o.id + '\"' : '') + ' class=\"finding is-' + (o.sev || 'info') + '\"'",
+    with: "      return '<div' + (o.id ? ' id=\"' + o.id + '\"' : '') + ' style=\"background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:0.7rem 0.9rem\" class=\"is-' + (o.sev || 'info') + '\"'" },
+
+  { what: 'next step: a finding row loses its severity edge, so in the dark nothing says how bad it is',
+    find: "border-left: 3px solid var(--sev, var(--c-94a3b8)); border-radius: 8px;",
+    with: "border-left: 1px solid var(--border); border-radius: 8px;" },
+
+  { what: 'next step: a button label grows back into a sentence with its explanation in brackets',
+    find: "{ label: 'Draft ' + uncovered.length + ' missing stor' + (uncovered.length === 1 ? 'y' : 'ies')",
+    with: "{ label: 'Draft the missing stories (targeted — keeps existing ones)'" },
+
+  { what: 'next step: the Stories heading carries two identical ⓘ again',
+    find: '<button type="button" class="info-icon" aria-label="More about this" data-ek-legend-append data-help="Epics',
+    with: '<button type="button" class="info-icon" aria-label="About the entity marks" data-ek-legend data-help="marks">i</button><button type="button" class="info-icon" aria-label="More about this" data-ek-legend-append data-help="Epics' },
+
+  { what: 'next step: the Tasks tab lights Generate plan and + Add activity together',
+    find: "if (gen) { gen.classList.toggle('btn-primary', !has); gen.classList.toggle('btn-secondary', has); }",
+    with: "if (gen) { gen.classList.add('btn-primary'); gen.classList.remove('btn-secondary'); }" },
+
+  { what: 'next step: the Tasks toolbar spreads its tools in a row of nine again',
+    find: ['            <details class="export-menu" id="taskMoreMenu">\n              <summary class="btn-secondary btn-sm" style="list-style:none">More ▾</summary>\n              <div class="export-panel">',
+           '              </div>\n            </details>\n            <button class="btn-secondary btn-sm" onclick="openAddModal(true)">+ Add milestone</button>\n            <button class="btn-primary btn-sm" id="addActivityBtn"'],
+    with: ['            <span hidden></span>',
+           '            <button class="btn-secondary btn-sm" onclick="openAddModal(true)">+ Add milestone</button>\n            <button class="btn-primary btn-sm" id="addActivityBtn"'] },
+
+  { what: 'next step: the chosen RAID filter is painted as the main button again',
+    find: "`<button class=\"btn-sm\" aria-pressed=\"${raidTab === k}\" onclick=\"setRaidTab('${k}')\">",
+    with: "`<button class=\"btn-sm ${raidTab === k ? 'btn-primary' : 'btn-secondary'}\" onclick=\"setRaidTab('${k}')\">" },
+
+  { what: 'next step: Workload repeats Extend timeline on every conflict card',
+    find: "${tcContrib.length >= 3 ? `<button class=\"btn-sm btn-secondary\" onclick=\"spreadTestCases(",
+    with: "<button class=\"btn-sm btn-secondary\" onclick=\"autoLevelExtend()\">Extend timeline</button>${tcContrib.length >= 3 ? `<button class=\"btn-sm btn-secondary\" onclick=\"spreadTestCases(" },
+
+  { what: 'next step: Forecast offers the same Decompose twice for a risk driver, once in each table',
+    find: "${ci >= 30 && driverIds.has(t.id) ? '<span class=\"help-text\" title=\"Decompose and Edit are on its row in the drivers table above\">↑ above</span>' : ci >= 30 ?",
+    with: "${ci >= 30 ?" },
+
+  { what: 'next step: with no baseline, Set baseline is offered in the toolbar and the notice at once',
+    find: "      if (bsb) bsb.style.display = hb ? '' : 'none';",
+    with: "      if (bsb) bsb.style.display = '';" },
+
+  { what: 'next step: the WBS input/output notice goes back to a pale fill, a brown slab in the dark',
+    find: ".io-findings { border: 1px solid var(--border); border-left: 3px solid var(--c-d97706); background: var(--card);",
+    with: ".io-findings { border: 1px solid var(--c-fde68a); background: var(--c-fffbeb);" },
+
+  { what: 'next step: Propose fixes with AI is lit beside Re-run simulation',
+    find: "<button class=\"btn-sm btn-secondary\" onclick=\"critFixWithAI()\"",
+    with: "<button class=\"btn-sm btn-primary\" onclick=\"critFixWithAI()\"" },
+
+  { what: 'adding work: a saved id counter behind the highest id is trusted again',
+    find: "      nextId = Math.max(Number(data.nextId) || 0, Math.max(0, ...tasks.map(t => t.id)) + 1);",
+    with: "      nextId = data.nextId || (Math.max(0, ...tasks.map(t => t.id)) + 1);" },
+
+  { what: 'adding work: a saved RAID id counter behind the highest id is trusted again',
+    find: "      nextRaidId = Math.max(Number(data.nextRaidId) || 0, Math.max(0, ...raid.map(r => r.id)) + 1);",
+    with: "      nextRaidId = data.nextRaidId || (Math.max(0, ...raid.map(r => r.id)) + 1);" },
+
+  { what: 'adding work: the new activity always lands last, whatever position was chosen',
+    find: "        placeNewTask(nt, (document.getElementById('mPosition') || {}).value);\n",
+    with: "" },
+
+  { what: 'adding work: the preview counts from zero, so it promises a code one short',
+    find: "pv.textContent = 'Will be ' + ((p && p.wbs) ? p.wbs + '.' : '') + (at + 1)",
+    with: "pv.textContent = 'Will be ' + ((p && p.wbs) ? p.wbs + '.' : '') + (at)" },
+
+  { what: 'adding work: a WBS row has no + to add under it',
+    find: "${t.milestone ? '' : `<button type=\"button\" class=\"wbs-add no-print\"",
+    with: "${true ? '' : `<button type=\"button\" class=\"wbs-add no-print\"" },
+
+  { what: 'adding work: + on a phase opens the dialog with no parent',
+    find: "      document.getElementById('mParent').value = taskRefLabel(p, 0);",
+    with: "" },
+
+  { what: 'adding work: progress and actuals are open while adding work that has not started',
+    find: "      document.getElementById('paPanel').classList.add('pa-folded');",
+    with: "" },
+
+  { what: 'adding work: editing an activity keeps its progress folded',
+    find: "      document.getElementById('paPanel').classList.remove('pa-folded');\n      refreshWbsPlacement();",
+    with: "      refreshWbsPlacement();" },
+
+  { what: 'adding work: the WBS tab loses its + Add activity',
+    find: "            <button class=\"btn-primary btn-sm\" onclick=\"openAddModal(false)\">+ Add activity</button>",
+    with: "" },
+
+  { what: 'adding work: the positions are not redrawn when the parent changes',
+    find: "      if (pos.dataset.for !== key) {",
+    with: "      if (!pos.dataset.for) {" },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -2997,7 +3120,8 @@ const LIKELY = {
   'model list:': 'ai-model-sweep.js', 'continuation:': 'continuation-sweep.js',
   'phone header:': 'mobile-header-sweep.js', 'icons:': 'icon-sweep.js', 'tab groups:': 'tab-groups-sweep.js',
   'dark mode:': 'dark-mode-sweep.js', 'quiet working:': 'calm-prose-sweep.js', 'schedule import:': 'schedule-import-sweep.js',
-  'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js'
+  'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js',
+  'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is
