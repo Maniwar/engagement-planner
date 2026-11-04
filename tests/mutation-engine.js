@@ -2944,6 +2944,58 @@ const MUTANTS = [
   { what: 'adding work: the positions are not redrawn when the parent changes',
     find: "      if (pos.dataset.for !== key) {",
     with: "      if (!pos.dataset.for) {" },
+
+  /* ═══ EDITING THE WBS WHERE IT IS DRAWN ═════════════════════════════════════
+     The WBS table opened the full dialog for every cell, and + opened it too.
+     Each mutant below breaks one sentence from the top of wbs-inline-sweep.js. */
+
+  { what: 'in place: clicking a name in the WBS opens the full dialog again',
+    find: "<td class=\"${msReachW ? 'wbs-ms-name' : ''}\" ${wbsEd(t.id, 'name')} style=",
+    with: "<td class=\"${msReachW ? 'wbs-ms-name' : ''}\" style=" },
+
+  { what: 'in place: Shift+Enter saves the text instead of starting a new line',
+    find: "if (e.key === 'Enter' && !(e.shiftKey && inp.tagName === 'TEXTAREA')) { e.preventDefault(); commitCellEdit(td, inp, onCommit, false); }",
+    with: "if (e.key === 'Enter') { e.preventDefault(); commitCellEdit(td, inp, onCommit, false); }" },
+
+  { what: 'in place: the dictionary text is edited on a single line',
+    find: "beginCellEdit(td, `<textarea rows=\"3\" class=\"wbs-ed-area\" placeholder=\"${escapeHtml(hint)}\" title=\"Enter saves · Shift+Enter starts a new line · Esc puts it back\">${escapeHtml(t[prop] || '')}</textarea>`, v => {",
+    with: "beginCellEdit(td, `<input type=\"text\" value=\"${escapeHtml(t[prop] || '')}\" />`, v => {" },
+
+  { what: 'in place: a summary row offers its rolled-up owner for editing',
+    find: "<td class=\"wbs-own\" ${t.isSummary ? '' : wbsEd(t.id, 'owner')} style=",
+    with: "<td class=\"wbs-own\" ${wbsEd(t.id, 'owner')} style=" },
+
+  { what: 'in place: an editable cell cannot be opened from the keyboard',
+    find: "if (ev.key === 'Enter' || ev.key === 'F2') { ev.preventDefault(); wbsEdit(null, td, id, f); }",
+    with: "" },
+
+  { what: 'in place: Esc saves the typed text instead of putting it back',
+    find: "else if (e.key === 'Escape') { e.preventDefault(); endCellEdit(true); }",
+    with: "else if (e.key === 'Escape') { e.preventDefault(); commitCellEdit(td, inp, onCommit, false); }" },
+
+  { what: 'in place: a cell that does not edit in place no longer opens the full editor',
+    find: "data-wbsrow=\"${t.id}\" style=\"cursor:pointer\" onclick=\"openEditModal(${t.id}, true)\" title=\"Click a name",
+    with: "data-wbsrow=\"${t.id}\" style=\"cursor:pointer\" title=\"Click a name" },
+
+  { what: 'in place: + on a WBS row opens the full dialog again',
+    find: "onclick=\"event.stopPropagation();addUnderInline(${t.id})\"",
+    with: "onclick=\"event.stopPropagation();addUnder(${t.id})\"" },
+
+  { what: 'in place: an empty blank row adds a nameless activity',
+    find: "        if (!name) { flashSaved('Type a name first — or press Esc to close the row'); return; }\n",
+    with: "" },
+
+  { what: 'in place: the blank row closes after one, so a phase is typed out one + at a time',
+    find: "        refreshAll();                 // the redraw puts a fresh blank row back under the element",
+    with: "        wbsDraftParent = null; refreshAll();" },
+
+  { what: 'in place: More options… leaves the typed name behind',
+    find: "        if (name) document.getElementById('mName').value = name;",
+    with: "" },
+
+  { what: 'in place: the blank row opens at the bottom of the table, not under its element',
+    find: "      const last = rows[rows.length - 1]; if (!last) return;",
+    with: "      const last = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')].pop(); if (!last) return;" },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -3121,7 +3173,8 @@ const LIKELY = {
   'phone header:': 'mobile-header-sweep.js', 'icons:': 'icon-sweep.js', 'tab groups:': 'tab-groups-sweep.js',
   'dark mode:': 'dark-mode-sweep.js', 'quiet working:': 'calm-prose-sweep.js', 'schedule import:': 'schedule-import-sweep.js',
   'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js',
-  'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js'
+  'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js',
+  'in place:': 'wbs-inline-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is

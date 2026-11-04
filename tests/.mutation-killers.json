@@ -564,5 +564,17 @@
  "adding work: editing an activity keeps its progress folded": "wbs-add-sweep.js",
  "adding work: the WBS tab loses its + Add activity": "wbs-add-sweep.js",
  "adding work: the positions are not redrawn when the parent changes": "wbs-add-sweep.js",
- "next step: the WBS input/output notice goes back to a pale fill, a brown slab in the dark": "action-hierarchy-sweep.js"
+ "next step: the WBS input/output notice goes back to a pale fill, a brown slab in the dark": "action-hierarchy-sweep.js",
+ "in place: Shift+Enter saves the text instead of starting a new line": "wbs-inline-sweep.js",
+ "in place: the dictionary text is edited on a single line": "wbs-inline-sweep.js",
+ "in place: a summary row offers its rolled-up owner for editing": "wbs-inline-sweep.js",
+ "in place: an editable cell cannot be opened from the keyboard": "wbs-inline-sweep.js",
+ "in place: + on a WBS row opens the full dialog again": "wbs-inline-sweep.js",
+ "in place: a cell that does not edit in place no longer opens the full editor": "wbs-inline-sweep.js",
+ "in place: Esc saves the typed text instead of putting it back": "wbs-inline-sweep.js",
+ "in place: an empty blank row adds a nameless activity": "wbs-inline-sweep.js",
+ "in place: the blank row closes after one, so a phase is typed out one + at a time": "wbs-inline-sweep.js",
+ "in place: More options… leaves the typed name behind": "wbs-inline-sweep.js",
+ "in place: the blank row opens at the bottom of the table, not under its element": "wbs-inline-sweep.js",
+ "in place: clicking a name in the WBS opens the full dialog again": "wbs-inline-sweep.js"
 }

@@ -82,7 +82,10 @@ const DATA = FIXTURE();
   });
   if (!P) { say('WBS tab', 'the plan has no phase with two children'); }
   else {
+    // + opens a row in place (wbs-inline-sweep.js); the full dialog is its More options…
     await page.evaluate(id => document.querySelector('#wbsContainer tr[data-wbsrow="' + id + '"] .wbs-add').click(), P.id).catch(e => say('WBS tab', 'the phase row\'s "+" could not be pressed: ' + e.message.split('\n')[0]));
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { const m = document.querySelector('#wbsContainer tr.wbs-draft .wbs-draft-more'); if (m) m.click(); });
     await page.waitForTimeout(300);
     const D = await page.evaluate(pid => {
       const vis = e => !!e && e.getClientRects().length > 0;
@@ -98,7 +101,7 @@ const DATA = FIXTURE();
     }, P.id);
     R.addUnder = D;
     const at = 'add under ' + P.wbs;
-    if (!D.open) say(at, 'the row\'s "+" did not open the Add activity dialog');
+    if (!D.open) say(at, 'the row\'s "+" and More options… did not open the Add activity dialog');
     if (!D.parentResolves) say(at, 'the dialog does not start with the phase as its parent (it reads "' + D.parentText + '")');
     if (!D.parentInFirst || !D.parentBeforeEstimate) say(at, 'where the activity goes is not asked in the dialog\'s first section, before the estimate');
     if (!D.pos || !D.posShown) say(at, 'there is no position to choose');
@@ -161,10 +164,12 @@ const DATA = FIXTURE();
   await page.evaluate(() => { calculate(); refreshAll(); switchTab('wbs'); }); await page.waitForTimeout(300);
   const L = await page.evaluate(() => { const l = tasks.find(t => !t.milestone && !isSummaryId(t.id) && !isTestCaseTask(t)); return l && l.id; });
   if (L) {
-    const LR = await page.evaluate(id => {
-      const btn = document.querySelector('#wbsContainer tr[data-wbsrow="' + id + '"] .wbs-add');
-      if (!btn) return { missing: true };
-      btn.click();
+    const missing = await page.evaluate(id => { const btn = document.querySelector('#wbsContainer tr[data-wbsrow="' + id + '"] .wbs-add'); if (btn) btn.click(); return !btn; }, L);
+    await page.waitForTimeout(150);
+    const LR = missing ? { missing: true } : await page.evaluate(id => {
+      const more = document.querySelector('#wbsContainer tr.wbs-draft .wbs-draft-more');
+      if (!more) return { missing: true };
+      more.click();
       document.getElementById('mName').value = 'Prepare the workshop pack';
       document.getElementById('mO').value = '1'; document.getElementById('mM').value = '1'; document.getElementById('mP').value = '2';
       saveActivity();

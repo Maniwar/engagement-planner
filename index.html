@@ -264,6 +264,14 @@
       display: inline-grid; place-items: center; padding: 0; flex: none; }
     tr:hover .wbs-add, .wbs-add:focus-visible { opacity: 1; }
     @media (hover: none) { .wbs-add { opacity: 1; } }
+    /* WBS cells that edit in place say so on hover and on focus */
+    #wbsContainer td[data-ed] { cursor: text; }
+    #wbsContainer td[data-ed]:hover { box-shadow: inset 0 0 0 1px var(--border); }
+    #wbsContainer td[data-ed]:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .wbs-ed-area { width: 100%; min-width: 200px; padding: 0.3rem 0.45rem; font-size: 0.8rem; line-height: 1.45; resize: vertical; }
+    .wbs-draft td { background: var(--card); }
+    .wbs-draft-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .wbs-draft-name { width: min(420px, 100%); padding: 0.3rem 0.45rem; font-size: 0.85rem; }
     .finding { background: var(--card); color: var(--text); border: 1px solid var(--border);
       border-left: 3px solid var(--sev, var(--c-94a3b8)); border-radius: 8px;
       padding: 0.6rem 0.85rem; margin-bottom: 0.6rem; font-size: var(--t-md); line-height: 1.5; }
@@ -4782,7 +4790,7 @@
           </div>
         </div>
         <div class="card-body">
-          <p class="help-text" style="margin-bottom:1rem">Press <b>+</b> on a row to add an activity under it, or <b>+ Add activity</b> for a new top-level element. A row with activities under it becomes a summary that rolls up their dates and % complete.</p>
+          <p class="help-text" style="margin-bottom:1rem">Click a name, owner, deliverable, scope, acceptance or inputs to edit it in place — Enter saves, Esc puts it back. Press <b>+</b> on a row to type new activities under it, one per line, or <b>+ Add activity</b> for a new top-level element. A row with activities under it becomes a summary that rolls up their dates and % complete.</p>
           <div id="wbsContainer"></div>
         </div>
       </div>
@@ -5766,7 +5774,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.04.1600</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.04.1718</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -11318,6 +11326,92 @@ Or say what you want, in your own words:
       openOverlay(document.getElementById('modal'));
       document.getElementById('mName').focus();
     }
+    /* ═══ EDITING THE WBS WHERE IT IS DRAWN ═══════════════════════════════════
+       The activity list edits in place; the WBS table opened the full dialog
+       for every cell, so renaming an element or writing the deliverable, scope
+       and acceptance the dictionary exists to hold was a dialog per cell. The
+       name, an activity's owner and the dictionary text now edit where they
+       are drawn, with the activity list's own editors; every other cell still
+       opens the full editor. */
+    const WBS_TEXT = { deliverable: 'deliverable', description: 'description', acceptance: 'acceptance', inputs: 'inputs' };
+    function wbsEd(id, f) {
+      return 'data-ed="' + f + '" tabindex="0" onclick="wbsEdit(event, this, ' + id + ', \'' + f + '\')" onkeydown="wbsEditKey(event, this, ' + id + ', \'' + f + '\')"';
+    }
+    function wbsEdit(ev, td, id, f) {
+      if (ev) {
+        // the twisty, the +, a story badge and an open editor keep their own clicks
+        if (ev.target && ev.target.closest && ev.target.closest('button, a, input, textarea, .badge, .chip-ed')) return;
+        ev.stopPropagation(); ev.preventDefault();
+      }
+      const t = tasks.find(x => x.id === id); if (!t) return;
+      if (f === 'name') return beginNameEdit(id, td);
+      if (f === 'owner') return beginOwnerEdit(id, td);
+      const prop = WBS_TEXT[f]; if (!prop) return;
+      const hint = { deliverable: 'What it produces — e.g. a signed design document', description: 'What this element covers',
+        acceptance: 'Definition of done', inputs: 'What it needs, one per line — e.g. 12 months of ticket export (client)' }[f];
+      beginCellEdit(td, `<textarea rows="3" class="wbs-ed-area" placeholder="${escapeHtml(hint)}" title="Enter saves · Shift+Enter starts a new line · Esc puts it back">${escapeHtml(t[prop] || '')}</textarea>`, v => {
+        if (v !== String(t[prop] || '').trim()) t[prop] = v;
+        return '';
+      });
+    }
+    function wbsEditKey(ev, td, id, f) {
+      if (ev.target !== td) return;
+      if (ev.key === 'Enter' || ev.key === 'F2') { ev.preventDefault(); wbsEdit(null, td, id, f); }
+    }
+
+    /* + on a WBS row opens a blank row in place, directly under the last row of
+       what it adds to. Enter adds the activity at the end of that element and
+       opens the next blank row, so a phase's work can be typed out line by
+       line; Esc closes it; More options… carries the name and the parent into
+       the full dialog. */
+    let wbsDraftParent = null;
+    function addUnderInline(parentId) {
+      if (!tasks.some(t => t.id === parentId)) return;
+      wbsDraftParent = parentId;
+      if (collapsedIds.has(parentId)) collapsedIds.delete(parentId);
+      renderWBS();
+    }
+    function wbsDraftClose() { wbsDraftParent = null; const d = document.querySelector('#wbsContainer tr.wbs-draft'); if (d) d.remove(); }
+    function wbsDraftMount() {
+      const old = document.querySelector('#wbsContainer tr.wbs-draft'); if (old) old.remove();
+      if (wbsDraftParent == null) return;
+      const p = tasks.find(t => t.id === wbsDraftParent);
+      if (!p) { wbsDraftParent = null; return; }
+      const desc = new Set([p.id]);
+      const walk = id => childrenOf(id).forEach(c => { desc.add(c.id); walk(c.id); }); walk(p.id);
+      const rows = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')].filter(r => desc.has(+r.dataset.wbsrow));
+      const last = rows[rows.length - 1]; if (!last) return;
+      const depth = (tasksInWbsOrder().find(o => o.task.id === p.id) || { depth: 0 }).depth + 1;
+      last.insertAdjacentHTML('afterend', `<tr class="wbs-draft no-print" data-parent="${p.id}"><td></td>
+        <td colspan="99" style="padding-left:${8 + depth * 18}px">
+          <div class="wbs-draft-row"><input class="wbs-draft-name" type="text" autocomplete="off" placeholder="New activity under ${escapeHtml(p.name)}" aria-label="Name of a new activity under ${escapeHtml(p.name)}" />
+          <span class="help-text">Enter adds it · Esc closes</span>
+          <button type="button" class="btn-lite wbs-draft-more">More options…</button></div></td></tr>`);
+      const d = document.querySelector('#wbsContainer tr.wbs-draft');
+      const inp = d.querySelector('input'), more = d.querySelector('.wbs-draft-more');
+      d.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { e.preventDefault(); wbsDraftClose(); return; }
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const name = inp.value.trim();
+        if (!name) { flashSaved('Type a name first — or press Esc to close the row'); return; }
+        const nt = makeTask({ id: nextId++, name, parentId: p.id });
+        tasks.push(nt);               // the end of the element's children is the end of its siblings in array order
+        saveLocal();
+        refreshAll();                 // the redraw puts a fresh blank row back under the element
+        flashSaved('➕ ' + name + ' added under ' + p.name);
+      });
+      // a blank row nobody is typing into closes when the focus leaves it — but not on its way to More options…
+      inp.addEventListener('blur', e => { if (!inp.value.trim() && e.relatedTarget !== more) setTimeout(() => { if (document.activeElement !== inp) wbsDraftClose(); }, 0); });
+      more.addEventListener('click', () => {
+        const name = inp.value.trim(), pid = p.id;
+        wbsDraftClose();
+        addUnder(pid);
+        if (name) document.getElementById('mName').value = name;
+      });
+      inp.focus();
+    }
     /* + on a WBS row: a new activity under that row, at the end of its children. */
     function addUnder(parentId) {
       const p = tasks.find(t => t.id === parentId);
@@ -12887,12 +12981,13 @@ Or say what you want, in your own words:
       cellEditTd = td;
       td.dataset.prevCell = td.innerHTML;
       td.innerHTML = inputHtml;
-      const inp = td.querySelector('input');
+      // a textarea for text that runs to several lines: Shift+Enter is a new line, Enter saves
+      const inp = td.querySelector('input, textarea');
       inp.focus();
-      if (inp.type === 'text' || inp.type === 'number') { try { inp.select(); } catch (e) {} }
+      if (inp.type === 'text' || inp.type === 'number' || inp.tagName === 'TEXTAREA') { try { inp.select(); } catch (e) {} }
       inp.addEventListener('click', e => e.stopPropagation());
       inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); commitCellEdit(td, inp, onCommit, false); }
+        if (e.key === 'Enter' && !(e.shiftKey && inp.tagName === 'TEXTAREA')) { e.preventDefault(); commitCellEdit(td, inp, onCommit, false); }
         else if (e.key === 'Escape') { e.preventDefault(); endCellEdit(true); }
       });
       inp.addEventListener('blur', () => { if (cellEditTd === td) commitCellEdit(td, inp, onCommit, true); });
@@ -22993,14 +23088,14 @@ Or say what you want, in your own words:
         const twisty = t.isSummary
           ? `<button class="wbs-twisty" onclick="event.stopPropagation();toggleCollapse(${t.id})" title="${collapsedIds.has(t.id) ? 'Expand' : 'Collapse'}">${collapsedIds.has(t.id) ? '▸' : '▾'}</button>`
           : '<span class="wbs-twisty-spacer"></span>';
-        return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click to edit — deliverable, scope, acceptance, owner, estimate">
+        return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click a name, owner, deliverable, scope, acceptance or inputs to edit it here — anywhere else opens the full editor">
           <td style="white-space:nowrap">${ekTask(t)}</td>
-          <td class="${msReachW ? 'wbs-ms-name' : ''}" style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}${t.milestone ? '' : `<button type="button" class="wbs-add no-print" onclick="event.stopPropagation();addUnder(${t.id})" aria-label="Add an activity under ${escapeHtml(t.name)}" title="Add an activity under ${escapeHtml(t.name)}">+</button>`}</span>${msReachW}</td>
+          <td class="${msReachW ? 'wbs-ms-name' : ''}" ${wbsEd(t.id, 'name')} style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}<span class="wbs-name">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}${t.milestone ? '' : `<button type="button" class="wbs-add no-print" onclick="event.stopPropagation();addUnderInline(${t.id})" aria-label="Add an activity under ${escapeHtml(t.name)}" title="Add an activity under ${escapeHtml(t.name)}">+</button>`}</span>${msReachW}</td>
           ${/* Capped. personCell already truncates its own role and company
                 sub-line, so 222px was reserving room the cell does not use —
                 and this is the widest table in the app, where every reserved
                 pixel pushes the last column past the edge. */''}
-          <td class="wbs-own" style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : personCell(t.owner)}</td>
+          <td class="wbs-own" ${t.isSummary ? '' : wbsEd(t.id, 'owner')} style="font-size:0.8rem">${t.isSummary ? summaryOwnerCell(t) : personCell(t.owner)}</td>
           <td class="num">${dur}</td>
           <td class="num" title="${escapeHtml(workCellTip(t))}">${(() => {
             if (t.isSummary) { const e = leafDescendants(t.id).reduce((a, x) => a + plannedEffortDays(x), 0);
@@ -23012,7 +23107,7 @@ Or say what you want, in your own words:
           <td style="font-size:0.8rem;white-space:nowrap">${calculated ? fmtNice(t.finishDate) : '—'}</td>
           <td class="num">${calculated ? (t.percentComplete || 0) + '%' : '—'}</td>
           ${anyCost ? `<td class="num" style="font-size:0.8rem${t.milestone ? ';cursor:help' : ''}"${t.milestone ? ` title="${escapeHtml('A milestone spends nothing — the money behind the gate is on the activities that spend it.' + (calculated ? '\n\n' + milestoneReachTip(t) : ''))}"` : ''}>${fmtMoney(taskCost(t))}</td>` : ''}
-          <td style="font-size:0.78rem;max-width:260px;min-width:170px">${(() => {
+          <td ${t.isSummary ? '' : wbsEd(t.id, 'inputs')} style="font-size:0.78rem;max-width:260px;min-width:170px">${(() => {
             const ins = t.isSummary ? [] : taskInputs(t);
             if (!ins.length) return t.isSummary || t.milestone ? '<span class="help-text">—</span>'
               : '<span class="io-flag" title="Nothing feeds this activity — no predecessor, no client dependency and no stated input">nothing stated</span>';
@@ -23045,20 +23140,21 @@ Or say what you want, in your own words:
             }).join('')
               + (ins.length > 4 ? `<div class="help-text" style="font-size:0.68rem">+${ins.length - 4} more</div>` : '');
           })()}</td>
-          <td style="font-size:0.8rem">${t.aiDoc ? `<span title="${escapeHtml('A drafted document is saved on this activity: ' + (t.aiDoc.title || '') )}" style="cursor:help">📄 </span>` : ''}${(() => {
+          <td ${wbsEd(t.id, 'deliverable')} style="font-size:0.8rem">${t.aiDoc ? `<span title="${escapeHtml('A drafted document is saved on this activity: ' + (t.aiDoc.title || '') )}" style="cursor:help">📄 </span>` : ''}${(() => {
             const fit = deliverableFit(t);
             const d = escapeHtml(t.deliverable || '');
             if (fit.level === 'ok' || fit.level === 'na') return d || '<span class="help-text">—</span>';
             return `<span class="io-flag" title="${escapeHtml(fit.why)}">${d || 'not named'}</span>`;
           })()}</td>
-          <td class="dict-prose"${t.description ? ` title="${escapeHtml(t.description)}"` : ''}><div class="wbs-prose">${escapeHtml(t.description || '')}</div></td>
-          <td class="dict-prose"${t.acceptance ? ` title="${escapeHtml(t.acceptance)}"` : ''}><div class="wbs-prose">${escapeHtml(t.acceptance || '')}</div></td>
+          <td class="dict-prose" ${wbsEd(t.id, 'description')}${t.description ? ` title="${escapeHtml(t.description)}"` : ''}><div class="wbs-prose">${escapeHtml(t.description || '')}</div></td>
+          <td class="dict-prose" ${wbsEd(t.id, 'acceptance')}${t.acceptance ? ` title="${escapeHtml(t.acceptance)}"` : ''}><div class="wbs-prose">${escapeHtml(t.acceptance || '')}</div></td>
           <td style="font-size:0.72rem;color:var(--muted)">${linksCell}</td>
           <td style="font-size:0.75rem;white-space:nowrap">${(() => { const st = storiesForTask(t.id); return st.length
             ? st.map(s => `<span class="badge badge-info" style="cursor:pointer" onclick="event.stopPropagation();openReqStory('${ekJs(s.id)}')" title="${escapeHtml(storySentence(s) + ' — ' + (s.ac || []).length + ' acceptance criteria. Click to jump to this story.')}">${escapeHtml(s.id)}</span>`).join(' ')
             : '<span class="help-text">—</span>'; })()}</td>
         </tr>`;
       }).join('');
+      setTimeout(wbsDraftMount, 0);
       cont.innerHTML = `
         <div class="toolbar no-print" style="margin-bottom:0.6rem">
           <button class="btn-sm btn-secondary" onclick="setCollapseLevel(0)">L1 · Phases</button>

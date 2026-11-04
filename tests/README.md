@@ -549,6 +549,27 @@ Three more lessons from the dry runs:
   creating the over-allocation. The plan now plants one directly.
 
 
+### Editing the WBS where it is drawn (November 2026)
+
+The activity list on Tasks edited in place, but the WBS table opened the full
+dialog for every cell, and + opened it too. `wbs-inline-sweep.js` holds the
+table to the activity list's standard.
+
+- **Text cells.** The name, an activity's owner, and the dictionary text
+  (deliverable, description, acceptance, inputs) edit in place: Enter saves, Esc
+  puts it back, an empty name is refused, Shift+Enter is a new line in the text
+  fields, and a focused cell opens with Enter. A summary's owner rolls up, so it
+  is not offered.
+- **Other cells.** Every other cell still opens the full editor.
+- **The + button.** It opens a blank row directly under the last row of what it
+  adds to. Enter adds the activity at the end of that element and opens the next
+  blank row, Esc closes it, an empty Enter adds nothing, and More options… carries
+  the name and the parent into the dialog.
+
+`wbs-add-sweep.js` now reaches the dialog through More options… and checks the
+same placement rules there. The engine has a planted defect for each rule
+(prefix `in place:`), and all twelve were caught on their first run.
+
 ## The checks, checked
 
 `harness-meta.js` is the only file here that does not look at the product. It
