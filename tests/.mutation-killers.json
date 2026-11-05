@@ -588,5 +588,10 @@
  "in place: Enter carries the typed name into the next blank row": "wbs-inline-sweep.js",
  "in place: on a phone the blank row runs off the screen": "wbs-inline-sweep.js",
  "in place: a redraw loses what was typed in the blank row": "wbs-inline-sweep.js",
- "in place: an empty blank row closes on a redraw": "wbs-inline-sweep.js"
+ "in place: an empty blank row closes on a redraw": "wbs-inline-sweep.js",
+ "row actions: a touch screen draws the whole cluster over the row again": "row-actions-sweep.js",
+ "row actions: on a narrow screen the cluster floats out of its rail again": "row-actions-sweep.js",
+ "row actions: the narrow rail is one line of five, wide enough to bury the frozen name": "row-actions-sweep.js",
+ "row actions: delete sits beside decompose, where the pointer rests": "row-actions-sweep.js",
+ "row actions: decompose jumps a row when a narrow row is pointed at": "row-actions-sweep.js"
 }

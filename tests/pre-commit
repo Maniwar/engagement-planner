@@ -15,8 +15,9 @@
 #
 #   2. Refuse the commit if any check is red. Every commit to this file lands
 #      on a public demo, so a red suite is a shipped defect. The hand-derived
-#      plan, thirty-three sweeps and the drawing mutation check take roughly
-#      eight to ten minutes (one measured run on 2026-11-03: about 7½) — the
+#      plan, thirty-seven sweeps and the drawing mutation check take roughly
+#      eight to ten minutes (measured: about 7½ on 2026-11-03; about 10 on
+#      2026-11-05, with other sessions' runs sharing the machine) — the
 #      price of this one file being the release. The
 #      engine mutation check is another 26-70 minutes and is opt-in via FULL=1;
 #      run it before anything the user will look at.
@@ -258,7 +259,7 @@ rm -rf "$DEMO_TMP"; rm -f /tmp/ptr-d.$$
 # must change. A report that is identical whether the plan holds twenty-nine
 # activities or none is not reading the plan, and no amount of prose in the file
 # changes that. Root cause behind four defects fixed one at a time before it
-# existed. ~7m, so it rides with FULL.
+# existed. ~7-9m, so it rides with FULL.
 if [ -n "$FULL" ]; then
   if node tests/vacuity-check.js > /tmp/ptr-v.$$ 2>&1; then
     echo "  ✓ vacuity              every check reads its input"
@@ -268,7 +269,7 @@ if [ -n "$FULL" ]; then
   fi
   rm -f /tmp/ptr-v.$$
 else
-  echo "  · vacuity              skipped (FULL=1 to run it, ~7m)"
+  echo "  · vacuity              skipped (FULL=1 to run it, ~7-9m)"
 fi
 
 # The OTHER other half. The mutants change what the panels say and require a
@@ -279,7 +280,8 @@ fi
 # packaging: a position, a style value, an exact class string. That is the
 # second root cause in this directory, nine-plus instances, all of them in the
 # checks rather than in the product, and until this file it was caught by
-# reading and by screenshot rather than by machinery. ~9m, so it rides with FULL.
+# reading and by screenshot rather than by machinery. ~9-27m (27 on a machine
+# shared with other sessions' runs, 2026-11-05), so it rides with FULL.
 if [ -n "$FULL" ]; then
   if node tests/anchor-check.js > /tmp/ptr-a.$$ 2>&1; then
     echo "  ✓ anchoring            every check reads the property, not the packaging"
@@ -289,7 +291,7 @@ if [ -n "$FULL" ]; then
   fi
   rm -f /tmp/ptr-a.$$
 else
-  echo "  · anchoring            skipped (FULL=1 to run it, ~9m)"
+  echo "  · anchoring            skipped (FULL=1 to run it, ~9-27m)"
 fi
 
 if [ -n "$FULL" ]; then

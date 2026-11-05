@@ -2895,6 +2895,29 @@
     .row-acts .btn-sm { padding: 0.2rem 0.4rem; margin: 0; }
     #taskTable tr:hover .row-acts, #taskTable tr:focus-within .row-acts {
       background: var(--card); border-color: var(--border); box-shadow: var(--sh-2); }
+    /* NOWHERE TO FLOAT ON A NARROW SCREEN. The cluster spreads over the far end
+       of the row, which on a wide screen is the status column. At 768px and
+       under it is the owner and the frozen name column: pointing at a row
+       spread the cluster over the owner's name, and narrower still over the
+       row's "+". A touch screen has no hover to wait for, so there all five
+       were drawn at rest, over the name, the "+" and the owner of every row.
+
+       So on a narrow or touch screen the rail is as wide as its buttons and the
+       cluster sits inside it: nothing floats, nothing expands, all five show at
+       rest. Under 768px they are a 3+2 grid, so the rail costs three buttons of
+       width, not five. The empty cell is bottom-left, which keeps ⑂ in the
+       bottom-right corner (the edge it holds everywhere else) and ✕ in the
+       top-left, farthest from it. tests/row-actions-sweep.js holds all of it. */
+    @media (max-width: 768px), (hover: none) {
+      #taskTable td.acts, #taskTable thead th:last-child { width: auto; min-width: 0; }
+      #taskTable .row-acts { position: static; transform: none; justify-content: flex-end; }
+      #taskTable tr:hover .row-acts, #taskTable tr:focus-within .row-acts {
+        background: transparent; border-color: transparent; box-shadow: none; }
+    }
+    @media (max-width: 768px) {
+      #taskTable .row-acts { display: grid; grid-template-columns: repeat(3, auto); justify-content: end; }
+      #taskTable .row-acts::before { content: ''; grid-area: 2 / 1; }
+    }
     /* Room for the PAIR. A critical row in progress carries both chips, and at
        the column's natural width they wrapped to two lines — so the one row
        that is both on the critical path and actually moving was also the one
@@ -3869,9 +3892,13 @@
     #taskTable td[data-pred-id] .help-text { color: var(--primary); }
     /* Was opacity 0 — see the pinning note above. Present but quiet at rest,
        full strength on the row you are on: the affordance is discoverable
-       without five buttons shouting from every one of forty rows. */
-    @media (hover: hover) {
+       without five buttons shouting from every one of forty rows. Folding to
+       ⑂ alone only above 768px: under that the rail holds all five in place
+       (see NOWHERE TO FLOAT), and folding would make ⑂ jump on hover. */
+    @media (hover: hover) and (min-width: 769px) {
       #taskTable tbody tr[data-task-id]:not(:hover):not(:focus-within) .row-acts > .btn-sm:not(.ra-key) { display: none; }
+    }
+    @media (hover: hover) {
       #taskTable tbody tr[data-task-id] .row-acts .btn-sm { opacity: .55; transition: opacity .12s ease; }
       #taskTable tbody tr[data-task-id]:hover .row-acts .btn-sm,
       #taskTable tbody tr[data-task-id]:focus-within .row-acts .btn-sm { opacity: 1; }
@@ -5776,7 +5803,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.1604</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.1730</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -13646,7 +13673,10 @@ Or say what you want, in your own words:
                 one item whose position is identical in both states: the cluster
                 grows away to the left and ⑂ never moves a pixel. Delete goes to
                 the far end, four buttons from where the pointer is. DOM order is
-                the visual order so the keyboard walks it the same way. */ ''}
+                the visual order so the keyboard walks it the same way. On a
+                narrow or touch screen all five sit in a reserved rail (a 3+2
+                grid under 768px) and nothing moves; ✕ still takes the corner
+                farthest from ⑂. */ ''}
           <td class="acts"><div class="row-acts">
             <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>
             <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)" aria-label="Outdent ${escapeHtml(t.name)}">⇤</button>
