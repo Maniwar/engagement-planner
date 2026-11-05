@@ -3104,6 +3104,8 @@
     .seg button { border-radius: 0; border: none; background: var(--c-ffffff); color: var(--c-334155); box-shadow: none; }
     .seg button + button { border-left: 1px solid var(--border); }
     .seg button:hover { background: var(--c-f1f5f9); }
+    /* one control holding two related groups (the Gantt's axis and its zoom) */
+    .seg button.seg-cut { border-left: 3px double var(--border); }
     /* A chosen filter is PRESSED, not the main button: a filled blue chip in a
        row of filters read as the next step, and with + Add entry beside it the
        tab showed two of them. Same pressed look as the theme switch. */
@@ -5342,8 +5344,17 @@ Or say what you want, in your own words:
         <div class="card-header">
           <h2>Gantt Chart — Schedule &amp; Progress</h2>
           <div class="chart-toolbar no-print">
-            <span class="seg"><button class="btn-sm" onclick="setCollapseLevel(0)" title="Phases only">L1</button><button class="btn-sm" onclick="setCollapseLevel(1)" title="Phases + work packages">L2</button><button class="btn-sm" onclick="setCollapseLevel(Infinity)" title="Expand everything">All</button></span>
-            <span class="seg"><button class="btn-sm" onclick="ganttZoom(-1)" title="Zoom out">−</button><button class="btn-sm" onclick="ganttZoom(1)" title="Zoom in">+</button><button class="btn-sm" onclick="ganttZoom(0)" title="Fit width">Fit</button></span>
+            <!-- TWO CONTROLS FOR HOW THE CHART IS DRAWN, and both say what is on.
+                 Breakout is how far the work is broken out: one button per WBS
+                 level the plan actually has, All, or one lane per person. It is
+                 painted by paintGanttToolbar() because the number of levels is
+                 the plan's, not the page's. The time switch folds the axis into
+                 the zoom that was already here: Dates, or the same days counted
+                 as Week 1, Week 2… or Day 1, Day 2… from the first working day,
+                 then −, + and Fit. One control for "how is time drawn", not a
+                 second set of scale buttons beside the first. -->
+            <span class="seg" id="ganttBreakSeg" role="group" aria-label="Breakout"></span>
+            <span class="seg" id="ganttViewSeg" role="group" aria-label="Time axis and zoom"><button class="btn-sm" data-gaxisbtn="dates" aria-pressed="true" onclick="setGanttAxis('dates')" title="Calendar dates along the top">Dates</button><button class="btn-sm" data-gaxisbtn="weeks" aria-pressed="false" onclick="setGanttAxis('weeks')" title="Week 1, Week 2… from the first working day, each working day numbered inside its week">Weeks</button><button class="btn-sm" data-gaxisbtn="days" aria-pressed="false" onclick="setGanttAxis('days')" title="Day 1, Day 2… counting working days from the start — weekends and holidays get no number">Days</button><button class="btn-sm seg-cut" onclick="ganttZoom(-1)" title="Zoom out">−</button><button class="btn-sm" onclick="ganttZoom(1)" title="Zoom in">+</button><button class="btn-sm" data-gfit="1" aria-pressed="true" onclick="ganttZoom(0)" title="Fit the whole plan to the width">Fit</button></span>
             <button class="btn-sm btn-secondary" onclick="toggleReservePanel()" title="Add schedule buffers: contingency (committed to client) and management reserve (held back)"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--warn);display:inline-block"></span> Reserves</button>
             <!-- Nine controls in a row: the chart copies and the report tools are
                  things you hand to somebody else, so they share one menu, the
@@ -5382,7 +5393,7 @@ Or say what you want, in your own words:
             <p class="help-text" style="margin-top:0.3rem">Included at the top of 📄 Copy status report. Edit freely — your words, AI's first draft.</p>
           </div>
           <div class="gantt-container" id="ganttContainer" style="background:white;border:1px solid var(--border);border-radius:8px"></div>
-          <p class="help-text" style="margin-top:0.5rem"><span id="ganttImplNote"></span>Click ▸/▾ on a phase to collapse or drill in • click any bar to edit the task • the exported image includes the title, legend and completeness so it's ready to paste into communications.</p>
+          <p class="help-text" style="margin-top:0.5rem"><span id="ganttImplNote"></span>Click ▸/▾ on a phase or a person to collapse or drill in • click any bar to edit the task • the exported image includes the title, legend and completeness so it's ready to paste into communications.</p>
         </div>
       </div>
     </div>
@@ -5774,7 +5785,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.04.1718</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.1721</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -6112,6 +6123,13 @@ Or say what you want, in your own words:
     let levelBaseFreeze = false, levelBaseCache = null;
     let unleveledDuration = null; // CPM duration with all leveling removed (for banners)
     let ganttDayW = null;         // null = auto zoom; otherwise px per day
+    /* How the Gantt is drawn, saved WITH THE PLAN beside collapsedIds and for
+       the same reason: a plan priced before its start date is agreed is shown
+       to a client in weeks, and whoever opens the file next should see it the
+       way it was sent. axis 'dates' | 'weeks' | 'days'; group 'wbs' | 'people';
+       open = the people whose lane is broken out into one row per activity.
+       The zoom (ganttDayW) is written alongside it as `zoom`. */
+    let ganttView = { axis: 'dates', group: 'wbs', open: [] };
     let ganttLabelW = (() => { try { return Number(localStorage.getItem('pertGantt.ganttLabelW')) || null; } catch (e) { return null; } })(); // drag-resizable title column
     let projectSpanUp = null;     // whole-project O/M/P schedule spans (all-optimistic / all-likely / all-pessimistic passes)
     let projectBudget = 0;        // optional cost budget for variance tracking
@@ -6798,6 +6816,7 @@ Or say what you want, in your own words:
         reserves = { contingency: { value: 0, unit: 'percent' }, management: { value: 0, unit: 'percent' } };
         pricing = { model: 'fixed', basis: 'p80', contractPrice: 0 }; cashTerms = { kind: 'none', days: 0 }; revTerms = { kind: 'none', days: 0, deposit: 0 };
         baselineDate = ''; baselineLog = []; collapsedIds = new Set(); levelMode = 'none';
+        ganttView = { axis: 'dates', group: 'wbs', open: [] }; ganttDayW = null;
         reqs = null; sowBaseline = null; coDraft = ''; coLog = [];
         document.getElementById('projectName').value = 'New Engagement';
         document.getElementById('holidays').value = '';
@@ -10056,6 +10075,7 @@ Or say what you want, in your own words:
         // versions is that a later reader can walk back through them.
         planVersions, planSeenVids, nextVersionNo, planLineage: planLineageId(), planForkedFrom, signoffs, nextSignoffNo,
         collapsedIds: [...collapsedIds],
+        ganttView: ganttViewOut(),
         tasks: tasks.map(t => ({
           id: t.id, name: t.name, o: t.o, m: t.m, p: t.p, milestone: t.milestone,
           owner: t.owner, units: t.units, attendees: t.attendees || [], levelDelay: t.levelDelay,
@@ -10327,6 +10347,8 @@ Or say what you want, in your own words:
       // THIS project, not the one being switched away from
       normalizeRaidLinks();
       collapsedIds = new Set(Array.isArray(data.collapsedIds) ? data.collapsedIds : []);
+      // a file saved before views existed opens as it always did: dates, by WBS, fitted
+      { const gv = normGanttView(data.ganttView); ganttDayW = gv.zoom; delete gv.zoom; ganttView = gv; }
       /* A saved counter is a hint, never a licence to reuse an id. A file whose
          nextId had fallen behind its highest activity id handed the next new
          activity an id already taken, and the dependency walk then looped on
@@ -15944,7 +15966,10 @@ Or say what you want, in your own words:
     }
     /* One sentence, built once, so the table cell, the editor and the Gantt
        marker cannot describe the same gate three different ways. */
-    function milestoneReachTip(t) {
+    // `fmt` states a date the way the surface asking does — the Gantt passes its
+    // own, so a relative chart's hover says "Week 4, day 2" like its axis
+    function milestoneReachTip(t, fmt) {
+      fmt = fmt || fmtNice;
       const r = milestoneReach(t);
       if (!r) return '';
       if (!r.n) return 'Nothing feeds this milestone yet. Link the activities it depends on and this will '
@@ -15952,7 +15977,7 @@ Or say what you want, in your own words:
       return 'What it took to reach this gate: ' + r.n + ' activit' + (r.n === 1 ? 'y' : 'ies') + ', '
         + fmtDurCell(r.effort) + ' of work, ' + fmtMoney(r.cost)
         + (r.span != null ? ', over ' + r.span + ' calendar day' + (r.span === 1 ? '' : 's')
-            + ' from ' + fmtNice(r.from) + ' to ' + fmtNice(r.at) : '')
+            + ' from ' + fmt(r.from) + ' to ' + fmt(r.at) : '')
         + '. ' + r.done + ' of ' + r.n + ' finished — ' + r.pct + '% by effort'
         + (r.logged != null ? '; ' + fmtDurCell(r.logged) + ' logged against ' + fmtDurCell(r.effort)
             + ' planned' : '')
@@ -21511,13 +21536,196 @@ Or say what you want, in your own words:
     // the ladder tops out at 120px/day, not 30
     const GANTT_ZOOMS = [3, 4, 6, 9, 13, 18, 24, 30, 40, 54, 72, 94, 120];
     function ganttZoom(delta) {
-      if (delta === 0) { ganttDayW = null; renderGantt(); return; }
-      const cur = ganttDayW || (renderGantt._lastAutoDayW || 13);
-      let idx = 0, bestD = Infinity;
-      GANTT_ZOOMS.forEach((z, i) => { const d = Math.abs(z - cur); if (d < bestD) { bestD = d; idx = i; } });
-      idx = Math.min(GANTT_ZOOMS.length - 1, Math.max(0, idx + delta));
-      ganttDayW = GANTT_ZOOMS[idx];
+      if (delta === 0) ganttDayW = null;
+      else {
+        const cur = ganttDayW || (renderGantt._lastAutoDayW || 13);
+        let idx = 0, bestD = Infinity;
+        GANTT_ZOOMS.forEach((z, i) => { const d = Math.abs(z - cur); if (d < bestD) { bestD = d; idx = i; } });
+        idx = Math.min(GANTT_ZOOMS.length - 1, Math.max(0, idx + delta));
+        ganttDayW = GANTT_ZOOMS[idx];
+      }
       renderGantt();
+      saveViewSoon();   // the zoom is part of the view the plan keeps
+    }
+
+    /* ═══ THE GANTT VIEW: HOW TIME IS DRAWN AND HOW FAR THE WORK BREAKS OUT ═══
+       Asked for as "relative weeks / days … and be able to control that view
+       and breakout". A plan priced before anybody has agreed a start date is
+       discussed as "week 3", and the chart could only print dates; its fold
+       stopped at L2 on a four-level plan, never said which level was on, and
+       could not show the work person by person.
+
+       Everything here is a way of LOOKING at the plan, so none of it is an
+       edit: saveViewSoon() writes it without an undo step, exactly as a fold. */
+    const GANTT_AXES = ['dates', 'weeks', 'days'];
+    const GANTT_MAX_LEVEL = 5;   // L1–L6 as buttons; deeper levels open by twisty or All
+    function normGanttView(v) {
+      v = (v && typeof v === 'object') ? v : {};
+      const z = Number(v.zoom);
+      return {
+        axis: GANTT_AXES.indexOf(v.axis) >= 0 ? v.axis : 'dates',
+        group: v.group === 'people' ? 'people' : 'wbs',
+        open: Array.isArray(v.open) ? [...new Set(v.open.filter(n => typeof n === 'string'))] : [],
+        zoom: (v.zoom != null && Number.isFinite(z) && z >= GANTT_ZOOMS[0] && z <= GANTT_ZOOMS[GANTT_ZOOMS.length - 1]) ? z : null
+      };
+    }
+    function ganttViewOut() {
+      return { axis: ganttView.axis, group: ganttView.group, open: ganttView.open.slice(), zoom: ganttDayW == null ? null : ganttDayW };
+    }
+    /* ═══ WHERE A DATE FALLS, COUNTED FROM THE START ═════════════════════════
+       Day 1 is the first working day on or after the project start: the day an
+       activity with ES 0 begins, so "Day N" is the count the schedule itself
+       keeps. Weekends and holidays get no number. Weeks are 7-day blocks from
+       Day 1, so "Week 3, day 2" is the second working day of the third week and
+       a full week holds as many numbered days as the plan's working week.
+
+       It walks the SAME calendar the scheduler walks — isWorkingDay over the
+       weekend set and the holiday list — rather than a second copy of the rule,
+       so a Sun–Thu week or a holiday moves the numbers exactly as it moves the
+       bars. One walk per drawing: cum[i] is the working days in [Day 1, Day 1 + i]. */
+    function relCalendar() {
+      const holidays = getHolidaySet();
+      const day1 = addWorkingDays(projectStartDate(), 0, holidays);
+      const cum = [];
+      const cursor = new Date(day1);
+      const pos = d => {
+        if (!d) return null;
+        const off = calDaysBetween(day1, d);
+        if (!Number.isFinite(off)) return null;
+        if (off < 0) return { off, before: true };
+        if (off > 36600) return null;          // a broken date is not worth a century of walking
+        while (cum.length <= off) {
+          cum.push((cum.length ? cum[cum.length - 1] : 0) + (isWorkingDay(cursor, holidays) ? 1 : 0));
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        const ws = off - off % 7;
+        return { off, day: cum[off], week: ws / 7 + 1, wd: cum[off] - (ws ? cum[ws - 1] : 0), working: isWorkingDay(stripTime(d), holidays) };
+      };
+      const at = n => { const x = new Date(day1); x.setDate(x.getDate() + n); return x; };
+      // the first and last working-day numbers inside week w, or null for a week of holidays
+      const range = w => {
+        const ws = (w - 1) * 7;
+        pos(at(ws)); const z = pos(at(ws + 6));
+        const a = (ws ? cum[ws - 1] : 0) + 1;
+        return z && z.day >= a ? [a, z.day] : null;
+      };
+      const fmt = (d, axis) => {
+        const p = pos(d);
+        if (!p) return '—';
+        if (axis === 'weeks') return p.before ? 'before Week 1' : 'Week ' + p.week + (p.working ? ', day ' + p.wd : ', non-working day');
+        return p.before ? 'before Day 1' : p.working ? 'Day ' + p.day : 'non-working day after Day ' + p.day;
+      };
+      return { day1, pos, range, fmt };
+    }
+    /* A date as the current view states it: the calendar in the Dates view, the
+       position from the start in the other two. `doc` picks the travelling
+       format, as fmtDoc does. Pass one relCalendar() when formatting many. */
+    function fmtWhen(d, doc, rc) {
+      if (ganttView.axis === 'dates' || !d) return doc ? fmtDoc(d) : fmtNice(d);
+      return (rc || relCalendar()).fmt(d, ganttView.axis);
+    }
+    function setGanttAxis(a) {
+      if (GANTT_AXES.indexOf(a) < 0) return;
+      ganttView.axis = a;
+      renderGantt();
+      saveViewSoon();
+    }
+    // the deepest WBS level holding a summary, 0-based; −1 for a flat plan
+    function ganttLevels() {
+      let max = -1;
+      tasksInWbsOrder().forEach(({ task, depth }) => { if (depth > max && isSummaryId(task.id)) max = depth; });
+      return Math.min(max, GANTT_MAX_LEVEL);
+    }
+    /* Which breakout button is TRUE of the chart: a level only when the fold is
+       exactly that level's, so a phase shut by hand leaves none of them lit
+       rather than one that no longer describes what is drawn. */
+    function ganttLevelOn(maxD) {
+      if (ganttView.group === 'people') return 'people';
+      const sums = [];
+      tasksInWbsOrder().forEach(({ task, depth }) => { if (isSummaryId(task.id)) sums.push({ id: task.id, depth }); });
+      if (sums.every(x => !collapsedIds.has(x.id))) return 'all';
+      for (let k = 0; k <= maxD; k++) if (sums.every(x => collapsedIds.has(x.id) === (x.depth >= k))) return k;
+      return null;
+    }
+    function ganttBreakout(k) {
+      if (k === 'people') { ganttView.group = 'people'; renderGantt(); saveViewSoon(); return; }
+      ganttView.group = 'wbs';
+      setCollapseLevel(k === 'all' ? Infinity : k);   // the fold the tables share; it renders and saves
+    }
+    function toggleGanttLane(name) {
+      const i = ganttView.open.indexOf(name);
+      if (i >= 0) ganttView.open.splice(i, 1); else ganttView.open.push(name);
+      renderGantt();
+      saveViewSoon();
+    }
+    /* The breakout buttons are the plan's levels, so they are painted, not
+       written into the page; rebuilt only when the number of levels changes so
+       a pressed button keeps its focus. Both segs then state what is on. */
+    function paintGanttToolbar() {
+      const br = document.getElementById('ganttBreakSeg');
+      if (br) {
+        const maxD = tasks.length ? ganttLevels() : -1;
+        if (br.dataset.levels !== String(maxD)) {
+          const b = (lbl, k, tip) => `<button type="button" class="btn-sm" data-gbreak="${k}" aria-pressed="false" onclick="ganttBreakout(${typeof k === 'number' ? k : "'" + k + "'"})" title="${escapeHtml(tip)}">${lbl}</button>`;
+          let h = '';
+          for (let k = 0; k <= maxD; k++) h += b('L' + (k + 1), k, k === 0 ? 'Phases only — every summary shut' : 'Break the work out down to WBS level ' + (k + 1));
+          h += b('All', 'all', 'Every level open, every activity on its own row');
+          h += b('People', 'people', 'One lane per person — owners and attendees — holding their activities');
+          br.innerHTML = h;
+          br.dataset.levels = String(maxD);
+        }
+        const on = ganttLevelOn(maxD);
+        br.querySelectorAll('[data-gbreak]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.gbreak === String(on))));
+      }
+      document.querySelectorAll('#ganttViewSeg [data-gaxisbtn]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.gaxisbtn === ganttView.axis)));
+      const fit = document.querySelector('#ganttViewSeg [data-gfit]');
+      if (fit) fit.setAttribute('aria-pressed', String(ganttDayW == null));
+    }
+    /* ═══ ONE LANE PER PERSON ══════════════════════════════════════════════
+       Everyone on an activity — its owner and its attendees, the same list the
+       workload is computed from — gets it in their lane, so an activity two
+       people share appears in both. Unowned work is a lane of its own, last,
+       rather than missing. Lanes are alphabetical, which is the only order a
+       reader can predict.
+
+       A shut lane PACKS its bars onto as few tracks as will hold them without
+       overlap (first track that is free by the bar's start), so the lane reads
+       as that person's timeline; open, it lists one row per activity, in start
+       order, like the WBS rows. `spanOf(t, s, e)` says which day columns a bar
+       really covers once its label is counted — a milestone's name, or a name
+       printed past the end of a short bar — so a label never runs into the
+       next bar on its track. Without it a bar covers its own days. */
+    function ganttLanes(chartStart, dayW, spanOf) {
+      const by = new Map();
+      leafTasks().filter(t => t.startDate).forEach(t => {
+        const ps = taskParticipants(t);
+        (ps.length ? ps : [{ name: '', units: 100 }]).forEach(p => {
+          if (!by.has(p.name)) by.set(p.name, []);
+          by.get(p.name).push({ t, units: p.units });
+        });
+      });
+      const keys = [...by.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b));
+      if (by.has('')) keys.push('');
+      return keys.map(key => {
+        const list = by.get(key).sort((a, b) => (a.t.startDate - b.t.startDate) || ((a.t.finishDate || 0) - (b.t.finishDate || 0)) || (a.t.id - b.t.id));
+        const ends = [], track = new Map();
+        list.forEach(({ t }) => {
+          const s0 = calDaysBetween(chartStart, t.startDate);
+          const e0 = t.milestone ? s0 + 1 : (t.finishDate ? calDaysBetween(chartStart, t.finishDate) : s0);
+          const [s, e] = spanOf ? spanOf(t, s0, e0) : [s0, e0];
+          let k = ends.findIndex(end => end < s);
+          if (k < 0) { k = ends.length; ends.push(e); } else ends[k] = e;
+          track.set(t.id, k);
+        });
+        let eff = 0, effDone = 0, pctSum = 0;
+        list.forEach(({ t, units }) => {
+          const e = t.milestone ? 0 : unitToWorkingDays(t.te || 0) * (units / 100);
+          eff += e; effDone += e * Math.min(100, t.percentComplete || 0) / 100; pctSum += Math.min(100, t.percentComplete || 0);
+        });
+        return { key, name: key || 'Unassigned', tasks: list.map(x => x.t), track, tracks: Math.max(1, ends.length),
+          effort: eff, pct: eff > 0 ? Math.round(effDone / eff * 100) : (list.length ? Math.round(pctSum / list.length) : 0),
+          open: ganttView.open.indexOf(key) >= 0 };
+      });
     }
     function ownerInitials(name) {
       const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -21549,7 +21757,15 @@ Or say what you want, in your own words:
       const holidays = getHolidaySet();
       const start = projectStartDate();
       const rv = computeReserves();
-      const rows = ganttWbsOrder();
+      /* In People the rows are lanes, packed once the day width is known (a
+         milestone reserves its label's width); the WBS rows stay empty, so every
+         WBS-only layer below — links, the collapsed-phase critical strip, the
+         "why here" badge — finds nothing to draw. The relative calendar is walked
+         once and shared by the axis, the hover text and the title line. */
+      const people = ganttView.group === 'people';
+      const rc = ganttView.axis === 'dates' ? null : relCalendar();
+      const when = d => rc ? rc.fmt(d, ganttView.axis) : fmtNice(d);
+      const rows = people ? [] : ganttWbsOrder();
       const rowIndexOf = {}; rows.forEach((o, i) => rowIndexOf[o.task.id] = i);
       const visibleIds = new Set(rows.map(o => o.task.id));
 
@@ -21588,7 +21804,6 @@ Or say what you want, in your own words:
       const HEADER_H = MON_H + DAY_H;
       const chartW = totalDays * dayW;
       const hasReserve = rv.contingencyUnits > 0 || rv.managementUnits > 0;
-      const bodyH = rows.length * ROWH + (hasReserve ? ROWH : 0);
       // legend must always fit inside the exported image — floor the width on it
       const legendItems = [
         ['#dc2626', 'Critical path'], ['#2563eb', 'On track'], ['#15803d', 'Complete'],
@@ -21597,6 +21812,49 @@ Or say what you want, in your own words:
       ];
       const legendW = legendItems.reduce((sw, it) => sw + 26 + it[1].length * 5.6 + 14, 0) + 265;
       const W = Math.max(PAD * 2 + LABELW + chartW, PAD * 2 + legendW);
+      // a milestone's label — one definition for drawing it and for making room for it
+      const msLabelOf = t => {
+        const msName = String(t.name || '').replace(/^◆\s*/, '');
+        const short = msName.length > 34 ? msName.slice(0, 32).replace(/\s+\S*$/, '') + '…' : msName;
+        const date = when(t.finishDate);
+        return { short, date, w: (short.length + date.length + 3) * 5.7 + 18 };
+      };
+      /* The name a bar carries in a shut lane, which has no row titles to say
+         whose bar is whose: inside the bar when it fits, otherwise just past its
+         end (cut to what is left of the chart), and the packer below makes room
+         for it so it never runs into the next bar on the track. */
+      const packedName = (t, bx, bw) => {
+        const nm0 = (t.percentComplete >= 100 ? '✓ ' : '') + String(t.name || '');
+        const nm = nm0.length > 30 ? nm0.slice(0, 29) + '…' : nm0;
+        if (nm.length * 5.9 + 8 <= bw) return { text: nm, x: bx + 4, inside: true };
+        const fit = Math.floor((W - PAD - (bx + bw + 4)) / 5.9);
+        if (fit >= 6) return { text: nm.length > fit ? nm.slice(0, fit - 1) + '…' : nm, x: bx + bw + 4, inside: false };
+        const fitIn = Math.floor((bw - 8) / 5.9);
+        return fitIn >= 4 ? { text: nm.slice(0, fitIn - 1) + '…', x: bx + 4, inside: true } : null;
+      };
+      // People: a shut lane is one row per track, its first row carrying the
+      // name; an open lane is a header row and one row per activity. Lanes
+      // alternate their shading, so a lane reads as one band however many
+      // tracks it needs.
+      const lanes = people ? ganttLanes(start, dayW, (t, s0, e0) => {
+        const bx = PAD + LABELW + s0 * dayW;
+        if (t.milestone) {
+          // the label goes right unless that runs off the chart; where the
+          // diamond's exact column could tip it either way, room is kept on both sides
+          const L = msLabelOf(t), n = Math.ceil((L.w + 10) / dayW);
+          const right = (bx + dayW + L.w) < (W - PAD), left = (bx + L.w) >= (W - PAD);
+          return [right ? s0 : s0 - n, left ? s0 + 1 : s0 + 1 + n];
+        }
+        const nm = packedName(t, bx, Math.max(dayW, (e0 - s0 + 1) * dayW));
+        return nm && !nm.inside ? [s0, e0 + Math.ceil((nm.text.length * 5.9 + 10) / dayW)] : [s0, e0];
+      }) : [];
+      const laneRows = [];
+      lanes.forEach((L, li) => {
+        if (L.open) { laneRows.push({ lane: L, head: true, band: li % 2 }); L.tasks.forEach(t => laneRows.push({ lane: L, task: t, band: li % 2 })); }
+        else for (let k = 0; k < L.tracks; k++) laneRows.push({ lane: L, head: k === 0, k, band: li % 2 });
+      });
+      const nRows = people ? laneRows.length : rows.length;
+      const bodyH = nRows * ROWH + (hasReserve ? ROWH : 0);
       const H = PAD * 2 + TITLE_H + HEADER_H + bodyH + LEGEND_H;
       const X0 = PAD + LABELW;                 // chart x origin
       const Y0 = PAD + TITLE_H + HEADER_H;     // rows y origin
@@ -21621,18 +21879,51 @@ Or say what you want, in your own words:
       const prog = overallProgress();
       const finish = durationToDate(Math.max(0, ...leafTasks().map(t => t.ef), 0));
       svg += `<text x="${PAD}" y="${PAD + 20}" font-family="${FF}" font-size="17" font-weight="700" fill="#0f172a">${escapeXml(projName())}</text>`;
-      svg += `<text x="${PAD}" y="${PAD + 36}" font-family="${FF}" font-size="11" fill="#64748b">Generated ${escapeXml(new Date().toLocaleDateString())}  •  ${prog.toFixed(0)}% complete  •  forecast finish ${escapeXml(fmtNice(finish))}${hasReserve ? '  •  committed ' + escapeXml(fmtNice(rv.committedDate)) : ''}${mcResult ? '  •  P80 ' + escapeXml(fmtNice(durationToDate(mcResult.p80))) : ''}</text>`;
+      svg += `<text x="${PAD}" y="${PAD + 36}" font-family="${FF}" font-size="11" fill="#64748b">Generated ${escapeXml(new Date().toLocaleDateString())}  •  ${prog.toFixed(0)}% complete  •  forecast finish ${escapeXml(when(finish))}${hasReserve ? '  •  committed ' + escapeXml(when(rv.committedDate)) : ''}${mcResult ? '  •  P80 ' + escapeXml(when(durationToDate(mcResult.p80))) : ''}</text>`;
 
       // header background + month/day tiers
       svg += `<rect x="${X0}" y="${PAD + TITLE_H}" width="${chartW}" height="${HEADER_H}" fill="#f8fafc"/>`;
       let curMonth = -1;
+      /* THE RELATIVE AXIS. The same calendar-day columns, so nothing that sits
+         on the chart moves — only what the two tiers say. The top tier is one
+         label per 7-day block from Day 1 ("Week 3", or the working days it
+         holds, "Days 11–15"); the bottom numbers each working day, inside its
+         week or from the start. Weekends and holidays stay shaded and
+         unnumbered. Labels that would collide thin out by whole weeks rather
+         than overprint. */
+      const blockW = 7 * dayW;
+      const relFits = (t, w) => t.length * 6.6 + 8 <= w;
+      const relEvery = rc ? Math.max(1, Math.ceil((ganttView.axis === 'days' ? 52 : 28) / blockW)) : 1;
       for (let i = 0; i < totalDays; i++) {
         const d = new Date(start); d.setDate(d.getDate() + i);
         const x = X0 + i * dayW;
+        if (rc) {
+          if (!isWorkingDay(d, holidays)) svg += `<rect x="${x}" y="${Y0}" width="${dayW}" height="${bodyH}" fill="#f1f5f9"/>`;
+          const p = rc.pos(d);
+          if (!p || p.before) continue;
+          if (p.off % 7 === 0) {
+            svg += `<line x1="${x}" y1="${PAD + TITLE_H}" x2="${x}" y2="${Y0 + bodyH}" stroke="#cbd5e1" stroke-width="1"/>`;
+            if ((p.week - 1) % relEvery === 0) {
+              const room = blockW * relEvery;
+              let t = '';
+              if (ganttView.axis === 'weeks') t = relFits('Week ' + p.week, room) ? 'Week ' + p.week : 'W' + p.week;
+              else { const r = rc.range(p.week); if (r) t = relFits('Days ' + r[0] + '–' + r[1], room) ? 'Days ' + r[0] + '–' + r[1] : r[0] + '–' + r[1]; }
+              if (t) svg += `<text data-gaxis="top" x="${x + 4}" y="${PAD + TITLE_H + 14}" font-family="${FF}" font-size="11" font-weight="700" fill="#334155">${escapeXml(t)}</text>`;
+            }
+          }
+          if (dayW >= 13 && p.working) {
+            const n = ganttView.axis === 'weeks' ? p.wd : p.day;
+            const t = ganttView.axis === 'days' && dayW >= 34 ? 'Day ' + n : String(n);
+            if (relFits(t, dayW + 6) || ganttView.axis === 'weeks' || (n - 1) % Math.ceil((t.length * 6 + 4) / dayW) === 0)
+              svg += `<text data-gaxis="bottom" x="${x + dayW / 2}" y="${PAD + TITLE_H + MON_H + 15}" font-family="${FF}" font-size="10" fill="#475569" text-anchor="middle">${t}</text>`;
+            svg += `<line x1="${x}" y1="${Y0}" x2="${x}" y2="${Y0 + bodyH}" stroke="#f1f5f9" stroke-width="1"/>`;
+          }
+          continue;
+        }
         if (d.getMonth() !== curMonth) {
           curMonth = d.getMonth();
           svg += `<line x1="${x}" y1="${PAD + TITLE_H}" x2="${x}" y2="${Y0 + bodyH}" stroke="#cbd5e1" stroke-width="1"/>`;
-          svg += `<text x="${x + 4}" y="${PAD + TITLE_H + 14}" font-family="${FF}" font-size="11" font-weight="700" fill="#334155">${escapeXml(d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }))}</text>`;
+          svg += `<text data-gaxis="top" x="${x + 4}" y="${PAD + TITLE_H + 14}" font-family="${FF}" font-size="11" font-weight="700" fill="#334155">${escapeXml(d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }))}</text>`;
         }
         // isWorkingDay, not raw weekday indices — the "Working week" toggles
         // drive weekendDays and the scheduler honours it, so shading a
@@ -21642,9 +21933,9 @@ Or say what you want, in your own words:
         const wknd = !isWorkingDay(d, holidays);
         if (wknd) svg += `<rect x="${x}" y="${Y0}" width="${dayW}" height="${bodyH}" fill="#f1f5f9"/>`;
         if (dayW >= 13) {
-          svg += `<text x="${x + dayW / 2}" y="${PAD + TITLE_H + MON_H + 15}" font-family="${FF}" font-size="10" fill="#475569" text-anchor="middle">${d.getDate()}</text>`;
+          svg += `<text data-gaxis="bottom" x="${x + dayW / 2}" y="${PAD + TITLE_H + MON_H + 15}" font-family="${FF}" font-size="10" fill="#475569" text-anchor="middle">${d.getDate()}</text>`;
         } else if (d.getDay() === 1) { // Mondays as week ticks
-          svg += `<text x="${x + 2}" y="${PAD + TITLE_H + MON_H + 15}" font-family="${FF}" font-size="10" fill="#475569">${d.getDate()}</text>`;
+          svg += `<text data-gaxis="bottom" x="${x + 2}" y="${PAD + TITLE_H + MON_H + 15}" font-family="${FF}" font-size="10" fill="#475569">${d.getDate()}</text>`;
           svg += `<line x1="${x}" y1="${Y0}" x2="${x}" y2="${Y0 + bodyH}" stroke="#e2e8f0" stroke-width="1"/>`;
         }
         if (dayW >= 13) svg += `<line x1="${x}" y1="${Y0}" x2="${x}" y2="${Y0 + bodyH}" stroke="#f1f5f9" stroke-width="1"/>`;
@@ -21652,21 +21943,25 @@ Or say what you want, in your own words:
       svg += `<line x1="${PAD}" y1="${Y0}" x2="${W - PAD}" y2="${Y0}" stroke="#cbd5e1" stroke-width="1.5"/>`;
 
       // row stripes + labels
-      rows.forEach(({ task: t, depth }, i) => {
+      const stripe = i => {
         const y = Y0 + i * ROWH;
         if (i % 2 === 1) svg += `<rect x="${PAD}" y="${y}" width="${W - PAD * 2}" height="${ROWH}" fill="#f8fafc" opacity="0.55"/>`;
         svg += `<line x1="${PAD}" y1="${y + ROWH}" x2="${W - PAD}" y2="${y + ROWH}" stroke="#f1f5f9" stroke-width="1"/>`;
+      };
+      if (nRows) {
+        // captions once, in the header band, so the columns are named. OUTSIDE
+        // the row group below — they belong to the header, and riding along
+        // with row 0 during a glide is how a column heading ends up halfway
+        // down the chart.
+        svg += `<text x="${PAD + LABELW - 12}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">DONE</text>`;
+        svg += `<text x="${PAD + LABELW - 46}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">WORK</text>`;
+        svg += `<text x="${PAD + LABELW - 84}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">OPEN</text>`;
+      }
+      // one row's header: the same drawing for a WBS row and an activity row
+      // inside an open lane
+      const drawRowLabel = (t, depth, y) => {
         const isSum = t.isSummary;
         const tx = PAD + 4 + depth * 14 + 14;
-        if (i === 0) {
-          // captions once, in the header band, so the columns are named. OUTSIDE
-          // the row group below — they belong to the header, and riding along
-          // with row 0 during a glide is how a column heading ends up halfway
-          // down the chart.
-          svg += `<text x="${PAD + LABELW - 12}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">DONE</text>`;
-          svg += `<text x="${PAD + LABELW - 46}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">WORK</text>`;
-          svg += `<text x="${PAD + LABELW - 84}" y="${Y0 - 6}" font-family="${FF}" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="end">OPEN</text>`;
-        }
         /* ═══ THE ROW MOVES AS A ROW ═══════════════════════════════════════
            Everything the row header draws lives in ONE group, because the
            expand animation slides groups and a row split across several of
@@ -21757,9 +22052,35 @@ Or say what you want, in your own words:
           const eff = t.isSummary ? plannedEffortUnit(t) : workingDaysToUnit(plannedEffortDays(t));
           if (eff > 0) svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="${t.isSummary ? '#94a3b8' : '#64748b'}" text-anchor="end">${escapeXml(fmtDurCell(eff))}</text>`;
         } else if (msR && msR.n && msR.effort > 0) {
-          svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${escapeXml(fmtDurCell(msR.effort))}<title>${escapeXml(milestoneReachTip(t))}</title></text>`;
+          svg += `<text x="${PAD + LABELW - 46}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${escapeXml(fmtDurCell(msR.effort))}<title>${escapeXml(milestoneReachTip(t, when))}</title></text>`;
         }
         svg += `</g>`;
+      };
+      /* A lane's header: the person, their initials, the work they carry on
+         this plan (owner and attendee shares, the workload's own sum) and how
+         much of it is done. The whole label is the toggle, across every track
+         of a shut lane, so it opens wherever it is clicked. */
+      const drawLaneLabel = (L, y, h) => {
+        const cy = y + ROWH / 2, cx = PAD + 2;
+        const nm = L.name.length > 34 ? L.name.slice(0, 33) + '…' : L.name;
+        svg += `<g data-glane="${escapeXml(encodeURIComponent(L.key))}" style="cursor:pointer"><rect x="${PAD}" y="${y}" width="${LABELW}" height="${h}" fill="transparent"/>`
+          + (L.open
+            ? `<polygon points="${cx},${cy - 3} ${cx + 10},${cy - 3} ${cx + 5},${cy + 5}" fill="#475569"/>`
+            : `<polygon points="${cx + 1},${cy - 5} ${cx + 9},${cy} ${cx + 1},${cy + 5}" fill="#475569"/>`)
+          + `<text x="${PAD + 18}" y="${cy + 4}" font-family="${FF}" font-size="12" font-weight="700" fill="${L.key ? '#1e293b' : '#64748b'}">${escapeXml(nm)} <tspan font-weight="400" fill="#94a3b8">(${L.tasks.length})</tspan></text>`
+          + (L.key ? `<circle cx="${PAD + LABELW - 148}" cy="${cy}" r="8.5" fill="${ownerColor(L.key)}"/><text x="${PAD + LABELW - 148}" y="${cy + 3}" font-family="${FF}" font-size="7.5" font-weight="700" fill="white" text-anchor="middle">${escapeXml(ownerInitials(L.key))}</text>` : '')
+          + (L.effort > 0 ? `<text x="${PAD + LABELW - 46}" y="${cy + 4}" font-family="${FF}" font-size="10" fill="#94a3b8" text-anchor="end">${escapeXml(fmtDurCell(workingDaysToUnit(L.effort)))}</text>` : '')
+          + `<text x="${PAD + LABELW - 12}" y="${cy + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${L.pct >= 100 ? '#16a34a' : L.pct > 0 ? '#2563eb' : '#94a3b8'}" text-anchor="end">${L.pct}%</text>`
+          + `<title>${escapeXml(L.name + ' — ' + L.tasks.length + ' activit' + (L.tasks.length === 1 ? 'y' : 'ies') + (L.open ? '. Click to pack them back into one lane' : '. Click to list them one per row'))}</title></g>`;
+      };
+      rows.forEach(({ task, depth }, i) => { stripe(i); drawRowLabel(task, depth, Y0 + i * ROWH); });
+      laneRows.forEach((r, i) => {
+        const y = Y0 + i * ROWH;
+        if (r.band) svg += `<rect x="${PAD}" y="${y}" width="${W - PAD * 2}" height="${ROWH}" fill="#f8fafc" opacity="0.8"/>`;
+        if (r.head && i) svg += `<line x1="${PAD}" y1="${y}" x2="${W - PAD}" y2="${y}" stroke="#cbd5e1" stroke-width="1"/>`;
+        if (r.task) svg += `<line x1="${PAD + 14}" y1="${y + ROWH}" x2="${W - PAD}" y2="${y + ROWH}" stroke="#f1f5f9" stroke-width="1"/>`;
+        if (r.task) drawRowLabel(r.task, 1, y);
+        else if (r.head) drawLaneLabel(r.lane, y, (r.lane.open ? 1 : r.lane.tracks) * ROWH);
       });
 
       // label column divider — draggable to resize the title column
@@ -21805,7 +22126,11 @@ Or say what you want, in your own words:
       const repOf = id => { let cur = tasks.find(x => x.id === id); let g = 0; while (cur && !visibleIds.has(cur.id) && g++ < 50) cur = tasks.find(x => x.id === cur.parentId); return (cur && visibleIds.has(cur.id)) ? cur : null; };
       const drawnPairs = new Set();
       const inCount = new Map(); // per visible successor — staggers converging drops
-      const leafOrder = leafTasks().slice().sort((a, b) => (isTestCaseTask(a) ? 1 : 0) - (isTestCaseTask(b) ? 1 : 0));
+      /* People lanes draw no arrows. An activity two people share sits in two
+         lanes, so an arrow has two places to land, and a network routed across
+         lanes sorted by name is a lattice nobody can trace. The note below says
+         so instead of leaving them silently missing. */
+      const leafOrder = people ? [] : leafTasks().slice().sort((a, b) => (isTestCaseTask(a) ? 1 : 0) - (isTestCaseTask(b) ? 1 : 0));
       // pass 1: resolve edges (rep remap + dedupe) so convergence is known
       // BEFORE drawing — 3+ links entering one bar merge onto a collector
       // lane with a SINGLE entry arrow instead of a row of arrowheads
@@ -21869,7 +22194,9 @@ Or say what you want, in your own words:
       {
         const el = document.getElementById('ganttImplNote');
         const hidden = impliedHidden + redundantDropped;
-        if (el) el.innerHTML = hidden
+        if (el) el.innerHTML = people
+          ? 'Grouped by person, so dependency arrows are not drawn — they are drawn when the chart is grouped by WBS (L1 … All). • '
+          : hidden
           ? '<b>' + hidden + '</b> implied link(s) not drawn — a longer chain already gates each one, so removing it would move no date. See the <a href="#" onclick="switchTab(\'pert\');return false">PERT</a> tab to inspect them. • '
           : '';
       }
@@ -22072,15 +22399,17 @@ Or say what you want, in your own words:
       });
       svg += links;
 
-      // bars
-      rows.forEach(({ task: t }, i) => {
-        const y = Y0 + i * ROWH;
+      // bars — one drawing for a WBS row, an activity row in an open lane, and a
+      // bar packed onto a lane's track (`packed`: no slack hatch, which would
+      // run into the next bar on the track, and the activity's name on the bar,
+      // because a packed lane has no row title to say whose bar it is)
+      const drawBar = (t, y, packed) => {
         const bx = dateX(t.startDate);
         const spanDays = t.finishDate ? (calDaysBetween(t.startDate, t.finishDate) + 1) : 1;
         const bw = Math.max(dayW, spanDays * dayW);
         const tipParts = [
           `${t.wbs}  ${t.name}`,
-          `${fmtNice(t.startDate)} → ${fmtNice(t.finishDate)}  •  ${t.percentComplete || 0}% done${!t.isSummary ? '  •  slack ' + (Math.abs(t.slack || 0) < 0.05 ? '0.0' : (t.slack || 0).toFixed(1)) : ''}${t.owner ? '  •  ' + roleText(t.owner) : ''}`
+          `${when(t.startDate)} → ${when(t.finishDate)}  •  ${t.percentComplete || 0}% done${!t.isSummary ? '  •  slack ' + (Math.abs(t.slack || 0) < 0.05 ? '0.0' : (t.slack || 0).toFixed(1)) : ''}${t.owner ? '  •  ' + roleText(t.owner) : ''}`
         ];
         if (t.deliverable) tipParts.push('Deliverable: ' + t.deliverable);
         if (t.description) tipParts.push('Scope: ' + (t.description.length > 90 ? t.description.slice(0, 88) + '…' : t.description));
@@ -22114,10 +22443,7 @@ Or say what you want, in your own words:
              flip uses the MEASURED label width, not the old fixed 84px, so a
              long title near the right edge swings left instead of walking off
              the chart. */
-          const msName = String(t.name || '').replace(/^◆\s*/, '');
-          const msShort = msName.length > 34 ? msName.slice(0, 32).replace(/\s+\S*$/, '') + '…' : msName;
-          const msDate = fmtNice(t.finishDate);
-          const msW = (msShort.length + msDate.length + 3) * 5.7 + 18;
+          const { short: msShort, date: msDate, w: msW } = msLabelOf(t);
           const msLabelRight = (cx + msW) < (W - PAD);
           svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer"><rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" rx="2" transform="rotate(45 ${cx} ${cy})" fill="${done ? '#16a34a' : '#7c3aed'}"/>` +
             `<text x="${msLabelRight ? cx + 14 : cx - 14}" y="${cy + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${done ? '#16a34a' : '#5b21b6'}" stroke="#fff" stroke-width="3" stroke-linejoin="round" paint-order="stroke" ${msLabelRight ? '' : 'text-anchor="end"'}>${done ? '✓ ' : ''}${escapeXml(msShort)}<tspan font-weight="400" fill="${done ? '#16a34a' : '#7c3aed'}" opacity="0.85"> · ${escapeXml(msDate)}</tspan></text>` +
@@ -22134,7 +22460,7 @@ Or say what you want, in your own words:
              working calendar and measure the calendar distance it covers,
              which is what the axis is drawn in. */
           const slackWd = unitToWorkingDays(t.slack);
-          const slackW = slackWd > 0
+          const slackW = !packed && slackWd > 0
             ? calDaysBetween(t.finishDate, addWorkingDays(t.finishDate, Math.round(slackWd), holidays)) * dayW
             : 0;
           // baseline underbar — only when it DIFFERS from the current schedule;
@@ -22142,7 +22468,7 @@ Or say what you want, in your own words:
           if (t.baseStart && t.baseFinish && (Math.abs(t.baseStart - t.startDate) > 432e5 || Math.abs(t.baseFinish - t.finishDate) > 432e5)) {
             const bbx = dateX(t.baseStart);
             const bbw = Math.max(4, (calDaysBetween(t.baseStart, t.baseFinish) + 1) * dayW);
-            svg += `<rect x="${bbx}" y="${y + 24}" width="${bbw}" height="3.5" rx="1.5" fill="#94a3b8"><title>Baseline ${escapeXml(fmtNice(t.baseStart))} → ${escapeXml(fmtNice(t.baseFinish))}</title></rect>`;
+            svg += `<rect data-gbase="${t.id}" x="${bbx}" y="${y + 24}" width="${bbw}" height="3.5" rx="1.5" fill="#94a3b8"><title>Baseline ${escapeXml(when(t.baseStart))} → ${escapeXml(when(t.baseFinish))}</title></rect>`;
           }
           if (slackW > 2) svg += `<rect x="${bx + bw}" y="${y + 10}" width="${slackW}" height="8" rx="3" fill="url(#g-hatchS)" opacity="0.5"><title>Slack / float</title></rect>`;
           const pctw = bw * Math.min(100, t.percentComplete || 0) / 100;
@@ -22186,6 +22512,14 @@ Or say what you want, in your own words:
              row header beside the other per-row facts, in a column of its own
              where the eye can skip it or scan it. The bar goes back to one
              number: how long this is open. */
+          if (packed) {
+            const nm = packedName(t, bx, bw);
+            if (nm) svg += nm.inside
+              ? `<text x="${nm.x}" y="${y + 7 + BAR_H - 4.5}" font-family="${FF}" font-size="10" font-weight="600" fill="#0f172a" stroke="#fff" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${escapeXml(nm.text)}</text>`
+              : `<text x="${nm.x}" y="${y + 7 + BAR_H - 4.5}" font-family="${FF}" font-size="10" font-weight="600" fill="#475569">${escapeXml(nm.text)}</text>`;
+            svg += `<title>${escapeXml(tip)}</title></g>`;
+            return;
+          }
           const lbl = done ? '✓' : (t.percentComplete > 0 ? t.percentComplete + '%' : '');
           if (!lbl) { /* nothing to say on the bar itself */ }
           else if (bw >= 56) {
@@ -22205,15 +22539,29 @@ Or say what you want, in your own words:
           else svg += `<text x="${bx + bw + (slackW > 2 ? slackW : 0) + 5}" y="${y + 7 + BAR_H - 4.5}" font-family="${FF}" font-size="10.5" font-weight="600" fill="#475569">${escapeXml(lbl)}</text>`;
           svg += `<title>${escapeXml(tip)}</title></g>`;
         }
+      };
+      rows.forEach(({ task }, i) => drawBar(task, Y0 + i * ROWH, false));
+      laneRows.forEach((r, i) => {
+        const y = Y0 + i * ROWH;
+        if (r.task) { drawBar(r.task, y, false); return; }
+        if (r.lane.open) {
+          // an open lane's own row: the span this person is busy across
+          const ts = r.lane.tasks;
+          const a = ts.reduce((m, t) => t.startDate < m ? t.startDate : m, ts[0].startDate);
+          const z = ts.reduce((m, t) => (t.finishDate || t.startDate) > m ? (t.finishDate || t.startDate) : m, ts[0].finishDate || ts[0].startDate);
+          svg += `<rect x="${dateX(a)}" y="${y + 11}" width="${Math.max(dayW, (calDaysBetween(a, z) + 1) * dayW)}" height="6" rx="2" fill="#475569" opacity="0.55"><title>${escapeXml(r.lane.name + ': ' + when(a) + ' → ' + when(z))}</title></rect>`;
+          return;
+        }
+        r.lane.tasks.forEach(t => { if (r.lane.track.get(t.id) === r.k) drawBar(t, y, true); });
       });
 
       // reserve row
       if (hasReserve) {
-        const y = Y0 + rows.length * ROWH;
+        const y = Y0 + nRows * ROWH;
         svg += `<g data-gres="1" style="cursor:pointer"><text x="${PAD + 6}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="11" font-weight="600" fill="#b45309">▸ Schedule reserve — click to adjust ⚙</text><title>Contingency &amp; management reserve. Click to open Analytics &amp; Risk, where both are edited (as % of duration or absolute days, or set from P80).</title></g>`;
         const x1 = dateX(rv.cpmDate) + dayW, x2 = dateX(rv.committedDate) + dayW, x3 = dateX(rv.totalDate) + dayW;
-        if (rv.contingencyUnits > 0) svg += `<rect x="${x1}" y="${y + 8}" width="${Math.max(3, x2 - x1)}" height="14" rx="3" fill="url(#g-hatchC)" stroke="#f59e0b"><title>Contingency reserve → committed ${escapeXml(fmtNice(rv.committedDate))}</title></rect>`;
-        if (rv.managementUnits > 0) svg += `<rect x="${x2}" y="${y + 8}" width="${Math.max(3, x3 - x2)}" height="14" rx="3" fill="url(#g-hatchM)" stroke="#b45309" stroke-width="1" opacity=".55"><title>Management reserve → total ${escapeXml(fmtNice(rv.totalDate))}</title></rect>`;
+        if (rv.contingencyUnits > 0) svg += `<rect x="${x1}" y="${y + 8}" width="${Math.max(3, x2 - x1)}" height="14" rx="3" fill="url(#g-hatchC)" stroke="#f59e0b"><title>Contingency reserve → committed ${escapeXml(when(rv.committedDate))}</title></rect>`;
+        if (rv.managementUnits > 0) svg += `<rect x="${x2}" y="${y + 8}" width="${Math.max(3, x3 - x2)}" height="14" rx="3" fill="url(#g-hatchM)" stroke="#b45309" stroke-width="1" opacity=".55"><title>Management reserve → total ${escapeXml(when(rv.totalDate))}</title></rect>`;
         svg += `<line x1="${x2}" y1="${Y0}" x2="${x2}" y2="${y + ROWH}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3"/>`;
         if (rv.managementUnits > 0) svg += `<line x1="${x3}" y1="${Y0}" x2="${x3}" y2="${y + ROWH}" stroke="#b45309" stroke-width="1" opacity=".55" stroke-dasharray="2,3"/>`;
       }
@@ -22221,7 +22569,7 @@ Or say what you want, in your own words:
       // today line (chip drawn after the clipped layer so it is never cut off)
       if (todayOff >= 0 && todayOff <= totalDays) {
         const x = X0 + todayOff * dayW;
-        svg += `<line x1="${x}" y1="${PAD + TITLE_H + MON_H}" x2="${x}" y2="${Y0 + bodyH}" stroke="#0f172a" stroke-width="1.8"/>`;
+        svg += `<line data-gtoday="line" x1="${x}" y1="${PAD + TITLE_H + MON_H}" x2="${x}" y2="${Y0 + bodyH}" stroke="#0f172a" stroke-width="1.8"/>`;
       }
       // ---- critical-path chain drawn ON TOP: a continuous bold red line running
       // under each zero-slack bar and elbowing to the next, so the path reads as
@@ -22311,7 +22659,7 @@ Or say what you want, in your own words:
         // pill lives in its own reserved strip between the meta line and the
         // month header (TITLE_H makes room) — it can never cover a date there
         const x = X0 + todayOff * dayW;
-        svg += `<rect x="${x - 20}" y="${PAD + 44}" width="40" height="15" rx="7" fill="#0f172a"/><text x="${x}" y="${PAD + 55}" font-family="${FF}" font-size="9" font-weight="700" fill="white" text-anchor="middle">TODAY</text>`;
+        svg += `<g data-gtoday="1"><rect x="${x - 20}" y="${PAD + 44}" width="40" height="15" rx="7" fill="#0f172a"/><text x="${x}" y="${PAD + 55}" font-family="${FF}" font-size="9" font-weight="700" fill="white" text-anchor="middle">TODAY</text><title>Today — ${escapeXml(when(today))}</title></g>`;
         svg += `<line x1="${x}" y1="${PAD + 59}" x2="${x}" y2="${PAD + 82}" stroke="#0f172a" stroke-width="1.8"/>`;
       }
 
@@ -22326,16 +22674,20 @@ Or say what you want, in your own words:
         lx += 26 + label.length * 5.6 + 14;
       });
 
-      return { markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>`, W, H };
+      // where the time axis starts and how wide a day is, so a reader of the
+      // markup (the export, a check) can place a date without re-deriving it
+      return { markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" data-x0="${X0}" data-dayw="${dayW}" data-start="${fmtISO(start)}">${svg}</svg>`, W, H };
     }
 
     function renderGantt() {
       const container = document.getElementById('ganttContainer');
+      paintGanttToolbar();
       if (!calculated || tasks.length === 0) { container.innerHTML = '<div class="empty-state"><h3>Calculate first</h3></div>'; return; }
       const { markup } = buildGanttSvg();
       container.innerHTML = markup;
       // bind collapse + open-editor clicks
       container.querySelectorAll('[data-gtoggle]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); toggleCollapse(Number(el.dataset.gtoggle)); }));
+      container.querySelectorAll('[data-glane]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); toggleGanttLane(decodeURIComponent(el.dataset.glane)); }));
       container.querySelectorAll('[data-gopen]').forEach(el => el.addEventListener('click', () => openEditModal(Number(el.dataset.gopen), true)));
       container.querySelectorAll('[data-gres]').forEach(el => el.addEventListener('click', () => { const rp = document.getElementById('reservePanel'); if (rp) { rp.style.display = 'block'; renderReserveInline(); rp.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }));
       // ↔ drag the label/chart divider to give deep WBS titles more room
@@ -22370,6 +22722,14 @@ Or say what you want, in your own words:
     function autofitGanttLabelW() {
       computeWbsCodes();
       let maxPx = 220;
+      if (ganttView.group === 'people') {
+        // the lane names, and the activities listed under an open lane
+        ganttLanes(projectStartDate(), renderGantt._lastAutoDayW || 13).forEach(L => {
+          maxPx = Math.max(maxPx, 18 + (L.name.length + 5) * 7 + 92);
+          if (L.open) L.tasks.forEach(t => { maxPx = Math.max(maxPx, 4 + 14 + 14 + (t.name.length + 2) * 6.3 + 92); });
+        });
+        return Math.max(180, Math.min(640, Math.ceil(maxPx)));
+      }
       visibleWbsOrder().forEach(({ task: t, depth }) => {
         const extra = (t.percentComplete >= 100 ? 2 : 0) + (t.milestone ? 2 : 0) + ((t.isSummary && collapsedIds.has(t.id)) ? 6 : 0);
         const px = 4 + depth * 14 + 14 + (t.name.length + extra) * 6.3 + 92;
@@ -28532,6 +28892,11 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
     // ---- Status report for PM handoff (rich-text copy, email-ready) ----
     function buildStatusReportHtml() {
       const u = unitLabel();
+      /* The report states time the way the Gantt does. A plan shown to its
+         client as "Week 6" and then reported as "Sep 1" is two documents that
+         disagree about whether a date has been agreed. */
+      const rcW = ganttView.axis === 'dates' ? null : relCalendar();
+      const docWhen = d => fmtWhen(d, true, rcW);
       const prog = overallProgress();
       const leaves = leafTasks();
       const projDur = Math.max(0, ...leaves.map(t => t.ef), 0);
@@ -28543,15 +28908,15 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       const th = td + 'background:#f1f5f9;font-weight:700;text-align:left;';
       const statusOf = t => t.percentComplete >= 100 ? '✅ Complete' : (isLate(t) ? '🔴 Behind' : t.percentComplete > 0 ? '🔵 In progress' : '⚪ Not started');
       const msRows = tasks.filter(t => t.milestone).map(t =>
-        `<tr><td style="${td}">◆ ${escapeHtml(t.name)}</td><td style="${td}">${fmtDoc(t.finishDate)}</td><td style="${td}">${statusOf(t)}</td></tr>`).join('');
+        `<tr><td style="${td}">◆ ${escapeHtml(t.name)}</td><td style="${td}">${docWhen(t.finishDate)}</td><td style="${td}">${statusOf(t)}</td></tr>`).join('');
       const taskRows = tasksInWbsOrder().map(({ task: t, depth }) => {
         const bold = t.isSummary ? 'font-weight:700;background:#f8fafc;' : '';
         const varD = (t.baseFinish && t.finishDate) ? calDaysBetween(t.baseFinish, currentFinish(t)) : null;
         return `<tr><td style="${td}${bold}">${t.wbs}</td>
           <td style="${td}${bold}padding-left:${9 + depth * 14}px">${t.milestone ? '◆ ' : ''}${escapeHtml(t.name)}</td>
           <td style="${td}${bold}">${escapeHtml(t.owner ? roleText(t.owner) : '')}</td>
-          <td style="${td}${bold}">${fmtDoc(t.startDate)}</td>
-          <td style="${td}${bold}">${fmtDoc(t.finishDate)}</td>
+          <td style="${td}${bold}">${docWhen(t.startDate)}</td>
+          <td style="${td}${bold}">${docWhen(t.finishDate)}</td>
           <td style="${td}${bold}text-align:right">${t.percentComplete || 0}%</td>
           <td style="${td}${bold}">${t.isSummary ? '' : statusOf(t)}</td>
           <td style="${td}${bold}text-align:right;color:${varD > 0 ? '#b91c1c' : varD < 0 ? '#15803d' : '#64748b'}">${varD == null ? '—' : (varD > 0 ? '+' : '') + varD + 'd'}</td></tr>`;
@@ -28626,7 +28991,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
         <h2 style="margin:0 0 4px">${escapeHtml(projName())} — Status Report</h2>
         <p style="margin:2px 0 10px;color:#64748b;font-size:12px">Generated ${new Date().toLocaleDateString()} • PERT 3-point estimates • ${mcResult ? mcResult.iters.toLocaleString() + ' Monte-Carlo simulations' : 'deterministic CPM'}${clientSafeReports ? ' • client version' : ''}</p>
         ${narrBlock}
-        <p style="margin:6px 0;font-size:13px"><b>Overall:</b> ${prog.toFixed(0)}% complete • forecast finish <b>${fmtDoc(finish)}</b>${mcResult ? ` • P80 ${fmtDoc(durationToDate(mcResult.p80))} • P90 ${fmtDoc(durationToDate(mcResult.p90))}` : ''}${rv.contingencyUnits > 0 ? ` • committed (with contingency) ${fmtDoc(rv.committedDate)}` : ''}</p>
+        <p style="margin:6px 0;font-size:13px"><b>Overall:</b> ${prog.toFixed(0)}% complete • forecast finish <b>${docWhen(finish)}</b>${mcResult ? ` • P80 ${docWhen(durationToDate(mcResult.p80))} • P90 ${docWhen(durationToDate(mcResult.p90))}` : ''}${rv.contingencyUnits > 0 ? ` • committed (with contingency) ${docWhen(rv.committedDate)}` : ''}</p>
         ${baseLine}${costLine}${moneyInLine}${overLine}
         <p style="margin:6px 0;font-size:13px"><b>Critical path:</b> ${escapeHtml(critNames) || '—'}</p>
         ${msRows ? `<h3 style="margin:14px 0 4px;font-size:14px">Milestones</h3><table style="border-collapse:collapse"><tr><th style="${th}">Milestone</th><th style="${th}">Date</th><th style="${th}">Status</th></tr>${msRows}</table>` : ''}
@@ -29946,6 +30311,7 @@ Return ONLY JSON (no prose, no fences): {"links":[{"task":"exact target name","d
       pricing = { model: 'fixed', basis: 'p80', contractPrice: 0 }; cashTerms = { kind: 'none', days: 0 }; revTerms = { kind: 'none', days: 0, deposit: 0 };
       reserves = { contingency: { value: 10, unit: 'percent' }, management: { value: 5, unit: 'percent' } };
       baselineDate = ''; baselineLog = []; collapsedIds = new Set(); levelMode = 'none'; projectBudget = 0; calculated = false;
+      ganttView = { axis: 'dates', group: 'wbs', open: [] }; ganttDayW = null;
       document.getElementById('projectName').value = 'Sample Client Engagement – CRM Rollout';
       if (!document.getElementById('projectStart').value) document.getElementById('projectStart').value = fmtISO(new Date());
       /* The sample used to ship its test cases as one long chain — TC 20 → 21
@@ -37648,13 +38014,17 @@ Rules: 5-10 entries. Focus on delivery risks (dependencies, client obligations, 
         const depthSetting = (sdSel && sdSel.value) || pricing.sowDepth || 'all';
         const maxD = depthSetting === 'all' ? Infinity : Number(depthSetting);
         const savedCollapse = new Set(collapsedIds);
+        // the SOW's chart is the scope at the scope table's depth, so it is
+        // always broken out by WBS — never the people lanes the screen may show
+        const savedGroup = ganttView.group;
+        ganttView.group = 'wbs';
         if (Number.isFinite(maxD)) {
           computeWbsCodes();
           collapsedIds = new Set();
           tasksInWbsOrder().forEach(({ task, depth }) => { if (isSummaryId(task.id) && depth >= maxD - 1) collapsedIds.add(task.id); });
         }
         try { d.ganttImg = await svgMarkupToPngDataUrl(buildGanttSvg().markup, 1.5); }
-        finally { collapsedIds = savedCollapse; }
+        finally { collapsedIds = savedCollapse; ganttView.group = savedGroup; }
       } catch (e) { d.ganttImg = null; }
       d.ganttDataUrl = null;
       const hasKey = !!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE));

@@ -2996,6 +2996,123 @@ const MUTANTS = [
   { what: 'in place: the blank row opens at the bottom of the table, not under its element',
     find: "      const last = rows[rows.length - 1]; if (!last) return;",
     with: "      const last = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')].pop(); if (!last) return;" },
+  /* ═══ THE GANTT IN WEEKS AND DAYS, AND HOW FAR IT BREAKS OUT ════════════════
+     Relative axes (Week 1… / Day 1…, counted on the working calendar), the
+     breakout buttons (every WBS level, All, People lanes) and the view kept with
+     the plan. Each mutant below breaks one sentence from the top of
+     gantt-view-sweep.js. */
+
+  { what: "gantt view: the axis counts weekends and holidays as working days",
+    find: "          cum.push((cum.length ? cum[cum.length - 1] : 0) + (isWorkingDay(cursor, holidays) ? 1 : 0));",
+    with: "          cum.push((cum.length ? cum[cum.length - 1] : 0) + 1);" },
+
+  { what: "gantt view: a holiday is numbered on the axis",
+    find: "          if (dayW >= 13 && p.working) {",
+    with: "          if (dayW >= 13) {" },
+
+  { what: "gantt view: the weeks are numbered from zero",
+    find: "return { off, day: cum[off], week: ws / 7 + 1,",
+    with: "return { off, day: cum[off], week: ws / 7," },
+
+  { what: "gantt view: the day inside a week is counted from the project start",
+    find: "wd: cum[off] - (ws ? cum[ws - 1] : 0), working:",
+    with: "wd: cum[off], working:" },
+
+  { what: "gantt view: the Days tier names a block from one day early",
+    find: "        const a = (ws ? cum[ws - 1] : 0) + 1;",
+    with: "        const a = (ws ? cum[ws - 1] : 0);" },
+
+  { what: "gantt view: the week labels sit a day right of the week they name",
+    find: "if (t) svg += `<text data-gaxis=\"top\" x=\"${x + 4}\"",
+    with: "if (t) svg += `<text data-gaxis=\"top\" x=\"${x + dayW + 4}\"" },
+
+  { what: "gantt view: the axis labels print over each other when zoomed out",
+    find: "      const relEvery = rc ? Math.max(1, Math.ceil((ganttView.axis === 'days' ? 52 : 28) / blockW)) : 1;",
+    with: "      const relEvery = 1;" },
+
+  { what: "gantt view: hovering a bar still says calendar dates",
+    find: "          `${when(t.startDate)} → ${when(t.finishDate)}  •  ${t.percentComplete || 0}% done",
+    with: "          `${fmtNice(t.startDate)} → ${fmtNice(t.finishDate)}  •  ${t.percentComplete || 0}% done" },
+
+  { what: "gantt view: a milestone is labelled with its calendar date",
+    find: "        const date = when(t.finishDate);",
+    with: "        const date = fmtNice(t.finishDate);" },
+
+  { what: "gantt view: the baseline hover still says calendar dates",
+    find: "<title>Baseline ${escapeXml(when(t.baseStart))} → ${escapeXml(when(t.baseFinish))}</title>",
+    with: "<title>Baseline ${escapeXml(fmtNice(t.baseStart))} → ${escapeXml(fmtNice(t.baseFinish))}</title>" },
+
+  { what: "gantt view: the TODAY marker does not say where today falls",
+    find: "<title>Today — ${escapeXml(when(today))}</title>",
+    with: "<title>Today</title>" },
+
+  { what: "gantt view: the time switch does not say which axis is on",
+    find: "x.setAttribute('aria-pressed', String(x.dataset.gaxisbtn === ganttView.axis))",
+    with: "x.setAttribute('aria-pressed', String(x.dataset.gaxisbtn === 'dates'))" },
+
+  { what: "gantt view: the breakout buttons stop at L2",
+    find: "    const GANTT_MAX_LEVEL = 5;",
+    with: "    const GANTT_MAX_LEVEL = 1;" },
+
+  { what: "gantt view: a level stays lit after a phase is folded by hand",
+    find: "for (let k = 0; k <= maxD; k++) if (sums.every(x => collapsedIds.has(x.id) === (x.depth >= k))) return k;",
+    with: "for (let k = 0; k <= maxD; k++) if (sums.some(x => collapsedIds.has(x.id) === (x.depth >= k))) return k;" },
+
+  { what: "gantt view: People leaves out the attendees",
+    find: "        const ps = taskParticipants(t);\n        (ps.length ? ps : [{ name: '', units: 100 }])",
+    with: "        const ps = taskParticipants(t).slice(0, 1);\n        (ps.length ? ps : [{ name: '', units: 100 }])" },
+
+  { what: "gantt view: a shut lane draws its bars over each other",
+    find: "          let k = ends.findIndex(end => end < s);",
+    with: "          let k = ends.length ? 0 : -1;" },
+
+  { what: "gantt view: a name printed past a short bar runs into the next bar",
+    find: "        return nm && !nm.inside ? [s0, e0 + Math.ceil((nm.text.length * 5.9 + 10) / dayW)] : [s0, e0];",
+    with: "        return [s0, e0];" },
+
+  { what: "gantt view: a milestone label in a lane runs into the bar before it",
+    find: "          return [right ? s0 : s0 - n, left ? s0 + 1 : s0 + 1 + n];",
+    with: "          return [s0, s0 + 1 + n];" },
+
+  { what: "gantt view: the chart does not say why People has no arrows",
+    find: "          ? 'Grouped by person, so dependency arrows are not drawn — they are drawn when the chart is grouped by WBS (L1 … All). • '",
+    with: "          ? ''" },
+
+  { what: "gantt view: a lane cannot be opened into its activities",
+    find: "        if (L.open) { laneRows.push({ lane: L, head: true, band: li % 2 }); L.tasks.forEach(t => laneRows.push({ lane: L, task: t, band: li % 2 })); }\n        else ",
+    with: "        " },
+
+  { what: "gantt view: the view is not saved with the plan",
+    find: "        ganttView: ganttViewOut(),\n",
+    with: "" },
+
+  { what: "gantt view: an opened lane is forgotten when the plan is loaded",
+    find: "        open: Array.isArray(v.open) ? [...new Set(v.open.filter(n => typeof n === 'string'))] : [],",
+    with: "        open: []," },
+
+  { what: "gantt view: the zoom is not kept with the view",
+    find: "zoom: ganttDayW == null ? null : ganttDayW };",
+    with: "zoom: null };" },
+
+  { what: "gantt view: a file saved before views existed opens in the last plan's view",
+    find: "      { const gv = normGanttView(data.ganttView); ganttDayW = gv.zoom; delete gv.zoom; ganttView = gv; }\n",
+    with: "" },
+
+  { what: "gantt view: changing the view becomes an undo step",
+    find: "      if (k === 'people') { ganttView.group = 'people'; renderGantt(); saveViewSoon(); return; }",
+    with: "      if (k === 'people') { ganttView.group = 'people'; renderGantt(); saveLocal(); return; }" },
+
+  { what: "gantt view: a new plan keeps the last plan's view",
+    find: "        ganttView = { axis: 'dates', group: 'wbs', open: [] }; ganttDayW = null;\n        reqs = null;",
+    with: "        reqs = null;" },
+
+  { what: "gantt view: the status report keeps calendar dates in a relative view",
+    find: "      const docWhen = d => fmtWhen(d, true, rcW);",
+    with: "      const docWhen = d => fmtDoc(d);" },
+
+  { what: "gantt view: the SOW chart is drawn in people lanes when the screen is",
+    find: "        ganttView.group = 'wbs';\n        if (Number.isFinite(maxD)) {",
+    with: "        if (Number.isFinite(maxD)) {" },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -3174,7 +3291,7 @@ const LIKELY = {
   'dark mode:': 'dark-mode-sweep.js', 'quiet working:': 'calm-prose-sweep.js', 'schedule import:': 'schedule-import-sweep.js',
   'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js',
   'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js',
-  'in place:': 'wbs-inline-sweep.js'
+  'in place:': 'wbs-inline-sweep.js', 'gantt view:': 'gantt-view-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is

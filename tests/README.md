@@ -851,6 +851,55 @@ later at the same specificity and once repainted an under-budget row red for a
 fact about the schedule. An assertion on the class name passed; the screen was
 still wrong.
 
+## The Gantt in weeks and days
+
+Asked for as "relative weeks / days, and be able to control that view and
+breakout". `gantt-view-sweep.js` checks it, counting the working calendar itself
+rather than asking the app:
+
+- **One switch for time.** Dates, Weeks or Days, folded into the zoom (−, +,
+  Fit) as one control, and the switch says which is on.
+- **Working days only.** Day 1 is the first working day on or after the start.
+  Weeks are 7-day blocks from Day 1. Weekends and holidays get no number. The
+  check plants a holiday and fakes today's date, so both are exercised.
+- **Everything on its own column.** Every bar, milestone, baseline bar and the
+  today line sits under the label for its own date. Hover text, milestone labels
+  and the title line say the same position, and no calendar date of the plan is
+  printed on a relative chart. Zoomed right out, labels thin out by whole weeks,
+  measured with the browser's own text widths.
+- **Breakout.** One button per WBS level the plan has, then All and People. Each
+  level shows exactly its rows, folds the Tasks table the same way, and is the
+  only one lit. A phase folded by hand lights none.
+- **People lanes.** One lane per person, owner and attendees, holding all their
+  work. No two bars overlap on a track, labels included. A lane opens into one
+  row per activity. No arrows, and the chart says why. The SOW's chart stays by
+  WBS while the screen shows people.
+- **Saved with the plan.** The view survives a reload and an export and import,
+  adds no undo step, and a new plan or an older file opens on Dates.
+- **Exports.** The chart image and the status report state time as the screen
+  does.
+
+Each rule has a planted defect in the engine (prefix `gantt view:`). What the
+dry runs taught:
+
+- **Read only what is drawn.** A fold glides the leaving rows out as faded
+  copies (`.g-ghost`) for a third of a second, and those copies carry the old
+  rows' markers. The first draft read them and reported phantom rows.
+- **A track is a line through the middle.** A milestone diamond's top edge sits
+  a pixel lower than a bar's, so grouping a lane's shapes by top edge never put
+  a gate on the same track as the bar before it. The overlap check now groups by
+  vertical centre.
+- **The collision needs its conditions.** A gate's label flips left only near
+  the right edge, and only when its text is long: "Day 32" fits on the right,
+  "Week 7, day 2" does not. On the fixture, the bar before the last gate also
+  printed its own long name past its end, which kept the gate off that track
+  anyway. The check enters People from Weeks and gives that bar a name that
+  fits inside it, so the gate's own label is the only thing left to make room.
+- **One equivalent mutant was dropped.** "People draws dependency arrows" could
+  not be caught: People has no WBS rows, so no arrow can find both its ends
+  even without the guard. The note saying arrows are not drawn has its own
+  mutant.
+
 ## Feature probes — which are NOT checks
 
 `budget-split.js` and `raid-outcomes.js` moved to `tests/probes/`, because they
