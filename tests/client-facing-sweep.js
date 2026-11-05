@@ -1312,10 +1312,14 @@ const DATA = FIXTURE();
     const replace = async (answer) => {
       hydrate(data); calculate();
       const n = ((reqs && reqs.stories) || []).length, hadFs = featureScope().hb;
+      /* Two questions now, told apart by WHEN they come: the go-ahead for the
+         replace is asked before the AI call (ask-first-sweep owns it) and is
+         answered yes; `answer` is for the stories question asked after it. */
       const asked = [];
+      let called = false;
       const realCall = window.callAnthropic, realConfirm = window.confirm;
-      window.callAnthropic = async () => JSON.stringify(PLAN);
-      window.confirm = m => { asked.push(String(m)); return answer; };
+      window.callAnthropic = async () => { called = true; return JSON.stringify(PLAN); };
+      window.confirm = m => { if (!called) return true; asked.push(String(m)); return answer; };
       document.getElementById('aiMode').value = 'replace';
       document.getElementById('aiNotes').value = 'ZZ replace the whole plan';
       document.getElementById('aiAlsoStories').checked = false;
