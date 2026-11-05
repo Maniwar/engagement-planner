@@ -270,7 +270,9 @@
     #wbsContainer td[data-ed]:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
     .wbs-ed-area { width: 100%; min-width: 200px; padding: 0.3rem 0.45rem; font-size: 0.8rem; line-height: 1.45; resize: vertical; }
     .wbs-draft td { background: var(--card); }
-    .wbs-draft-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    /* the blank row spans the whole table, which scrolls sideways on a phone: its
+       contents stay in view and wrap to the visible width instead */
+    .wbs-draft-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; position: sticky; left: 0.75rem; max-width: calc(100vw - 6rem); }
     .wbs-draft-name { width: min(420px, 100%); padding: 0.3rem 0.45rem; font-size: 0.85rem; }
     .finding { background: var(--card); color: var(--text); border: 1px solid var(--border);
       border-left: 3px solid var(--sev, var(--c-94a3b8)); border-radius: 8px;
@@ -4707,7 +4709,7 @@
         <div class="card-body">
           <details class="help-details" id="taskTableHelp">
             <summary>How estimates, status and inline editing work</summary>
-            <p class="help-text" id="taskTableHint" style="margin:0.5rem 0 0"><b>Shift-click</b> selects a range · click a <b>Start</b> cell to pin a date.</p>
+            <p class="help-text" id="taskTableHint" style="margin:0.5rem 0 0"><b>Shift-click</b> selects a range · click a <b>Start</b> cell to pin a date · <b>+</b> on a row adds work under it, right there.</p>
             <p class="help-text" style="margin:0.5rem 0 0">
               Enter Optimistic (best case), Most Likely, and Pessimistic (worst case) durations.
               <strong>TE = (O + 4M + P) / 6</strong> &nbsp;•&nbsp; <strong>Variance = ((P − O) / 6)²</strong>.
@@ -5774,7 +5776,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.04.1718</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.1604</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -11359,58 +11361,80 @@ Or say what you want, in your own words:
       if (ev.key === 'Enter' || ev.key === 'F2') { ev.preventDefault(); wbsEdit(null, td, id, f); }
     }
 
-    /* + on a WBS row opens a blank row in place, directly under the last row of
-       what it adds to. Enter adds the activity at the end of that element and
-       opens the next blank row, so a phase's work can be typed out line by
-       line; Esc closes it; More options… carries the name and the parent into
-       the full dialog. */
-    let wbsDraftParent = null;
-    function addUnderInline(parentId) {
-      if (!tasks.some(t => t.id === parentId)) return;
-      wbsDraftParent = parentId;
-      if (collapsedIds.has(parentId)) collapsedIds.delete(parentId);
-      renderWBS();
+    /* + on a row of either table — the WBS tab or the activity list on Tasks —
+       opens a blank row in place, directly under the last row of what it adds
+       to. Enter adds the activity at the end of that element and opens the
+       next blank row, so a phase's work can be typed out line by line; Esc
+       closes it; More options… carries the name and the parent into the full
+       dialog. There is one blank row at a time, in the table whose + was
+       pressed. A redraw of that table keeps what was typed, and takes the
+       focus back only when the blank row had it. */
+    const DRAFT_IN = {
+      wbs:   { box: '#wbsContainer', row: 'tr[data-wbsrow]',  id: r => +r.dataset.wbsrow, lead: 1, indent: d => (8 + d * 18) + 'px', render: () => renderWBS() },
+      tasks: { box: '#taskBody',     row: 'tr[data-task-id]', id: r => +r.dataset.taskId, lead: 3, indent: d => 'calc(0.6rem + ' + (d * 16) + 'px)', render: () => renderTaskTable() }
+    };
+    let draftAt = null;              // { table, parent, text, focus } — the one blank row open
+    function addHereBtn(t, table) {  // none on a milestone: a date has no work under it
+      return t.milestone ? '' : `<button type="button" class="wbs-add no-print" onclick="event.stopPropagation();addUnderInline(${t.id}, '${table}')" aria-label="Add an activity under ${escapeHtml(t.name)}" title="Add an activity under ${escapeHtml(t.name)}">+</button>`;
     }
-    function wbsDraftClose() { wbsDraftParent = null; const d = document.querySelector('#wbsContainer tr.wbs-draft'); if (d) d.remove(); }
-    function wbsDraftMount() {
-      const old = document.querySelector('#wbsContainer tr.wbs-draft'); if (old) old.remove();
-      if (wbsDraftParent == null) return;
-      const p = tasks.find(t => t.id === wbsDraftParent);
-      if (!p) { wbsDraftParent = null; return; }
+    function addUnderInline(parentId, table) {
+      if (!tasks.some(t => t.id === parentId) || !DRAFT_IN[table]) return;
+      draftAt = { table, parent: parentId, text: '', focus: true };
+      if (collapsedIds.has(parentId)) collapsedIds.delete(parentId);
+      DRAFT_IN[table].render();
+    }
+    function draftClose() { draftAt = null; document.querySelectorAll('tr.wbs-draft').forEach(d => d.remove()); }
+    /* Each table calls this just before it replaces its rows: it notes whether
+       the blank row has the focus, and puts the blank row back once they are drawn. */
+    function draftRedraw(table) {
+      const old = document.querySelector(DRAFT_IN[table].box + ' tr.wbs-draft');
+      if (draftAt && draftAt.table === table && old && old.contains(document.activeElement)) draftAt.focus = true;
+      setTimeout(() => draftMount(table), 0);
+    }
+    function draftMount(table) {
+      const T = DRAFT_IN[table];
+      const old = document.querySelector(T.box + ' tr.wbs-draft');
+      if (old) { if (draftAt && old.contains(document.activeElement)) draftAt.focus = true; old.remove(); }
+      if (!draftAt || draftAt.table !== table) return;
+      const p = tasks.find(t => t.id === draftAt.parent);
+      if (!p) { draftAt = null; return; }
       const desc = new Set([p.id]);
       const walk = id => childrenOf(id).forEach(c => { desc.add(c.id); walk(c.id); }); walk(p.id);
-      const rows = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')].filter(r => desc.has(+r.dataset.wbsrow));
+      const rows = [...document.querySelectorAll(T.box + ' ' + T.row)].filter(r => desc.has(T.id(r)));
       const last = rows[rows.length - 1]; if (!last) return;
       const depth = (tasksInWbsOrder().find(o => o.task.id === p.id) || { depth: 0 }).depth + 1;
-      last.insertAdjacentHTML('afterend', `<tr class="wbs-draft no-print" data-parent="${p.id}"><td></td>
-        <td colspan="99" style="padding-left:${8 + depth * 18}px">
+      last.insertAdjacentHTML('afterend', `<tr class="wbs-draft no-print" data-parent="${p.id}">${'<td></td>'.repeat(T.lead)}
+        <td colspan="99" style="padding-left:${T.indent(depth)}">
           <div class="wbs-draft-row"><input class="wbs-draft-name" type="text" autocomplete="off" placeholder="New activity under ${escapeHtml(p.name)}" aria-label="Name of a new activity under ${escapeHtml(p.name)}" />
           <span class="help-text">Enter adds it · Esc closes</span>
           <button type="button" class="btn-lite wbs-draft-more">More options…</button></div></td></tr>`);
-      const d = document.querySelector('#wbsContainer tr.wbs-draft');
+      const d = last.nextElementSibling;
       const inp = d.querySelector('input'), more = d.querySelector('.wbs-draft-more');
+      inp.value = draftAt.text || '';
       d.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('input', () => { if (draftAt) draftAt.text = inp.value; });
       inp.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { e.preventDefault(); wbsDraftClose(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); draftClose(); return; }
         if (e.key !== 'Enter') return;
         e.preventDefault();
         const name = inp.value.trim();
         if (!name) { flashSaved('Type a name first — or press Esc to close the row'); return; }
         const nt = makeTask({ id: nextId++, name, parentId: p.id });
         tasks.push(nt);               // the end of the element's children is the end of its siblings in array order
+        draftAt.text = '';            // the redraw notes the focus and keeps it in the next blank row
         saveLocal();
         refreshAll();                 // the redraw puts a fresh blank row back under the element
         flashSaved('➕ ' + name + ' added under ' + p.name);
       });
       // a blank row nobody is typing into closes when the focus leaves it — but not on its way to More options…
-      inp.addEventListener('blur', e => { if (!inp.value.trim() && e.relatedTarget !== more) setTimeout(() => { if (document.activeElement !== inp) wbsDraftClose(); }, 0); });
+      inp.addEventListener('blur', e => { if (!inp.value.trim() && e.relatedTarget !== more) setTimeout(() => { if (d.isConnected && document.activeElement !== inp) draftClose(); }, 0); });
       more.addEventListener('click', () => {
         const name = inp.value.trim(), pid = p.id;
-        wbsDraftClose();
+        draftClose();
         addUnder(pid);
         if (name) document.getElementById('mName').value = name;
       });
-      inp.focus();
+      if (draftAt.focus) { draftAt.focus = false; inp.focus(); }
     }
     /* + on a WBS row: a new activity under that row, at the end of its children. */
     function addUnder(parentId) {
@@ -13474,6 +13498,7 @@ Or say what you want, in your own words:
       const redunRow = redun.length ? `<tr class="no-print"><td colspan="99" class="finding-cell is-info" style="font-size:0.8rem;padding:0.4rem 0.75rem">
         🧹 <strong>${redun.length} redundant dependency link(s)</strong> — already implied through the chain (e.g. ${escapeHtml(redun[0].predName)} → ${escapeHtml(redun[0].task.name)}: the tasks between them gate it anyway). The Gantt no longer draws these.
         <button class="btn-sm btn-secondary" onclick="cleanupRedundantLinks()" title="Removes only the redundant links — the schedule is IDENTICAL (the chain already gates them); the charts and exports get cleaner. ↶ Undo restores.">Remove ${redun.length} link${redun.length === 1 ? '' : 's'}</button></td></tr>` : '';
+      draftRedraw('tasks');
       tbody.innerHTML = totalRow + alarmRow + tcRow + redunRow + visibleWbsOrder().map(({ task: t, depth }) => {
         const summary = t.isSummary;
         /* The diamond explains itself on hover instead of being a symbol you
@@ -13564,7 +13589,7 @@ Or say what you want, in your own words:
            lines. The strip is reserved on rows without one so the names all
            wrap at the same point. No <td> is added, so none of the six
            index-keyed table rules move. */
-        const nameCell = `<span class="tn-cell" style="padding-left:${depth * 16}px"><span class="tn-row"><span class="tn-name">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}</span><span class="tn-tag">${taxChip(t)}</span></span>${msReach}</span>`;
+        const nameCell = `<span class="tn-cell" style="padding-left:${depth * 16}px"><span class="tn-row"><span class="tn-name">${twisty}${t.milestone ? '◆ ' : ''}<span style="cursor:text" onclick="beginNameEdit(${t.id}, this, event)" title="Click to rename right here — everything traced to this activity follows (linked stories are offered an AI refresh)">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(${leafDescendants(t.id).length})</span>` : ''}${addHereBtn(t, 'tasks')}</span><span class="tn-tag">${taxChip(t)}</span></span>${msReach}</span>`;
         const pctCell = summary
           ? `<span title="Rolled up automatically from sub-tasks, weighted by expected duration (TE) — check off the children and this updates itself">${calculated ? (t.percentComplete || 0) + '%' : '—'} <span class="help-text" style="font-size:0.65rem">auto</span></span>`
           : (t.milestone && effectivePreds(t).length)
@@ -23090,7 +23115,7 @@ Or say what you want, in your own words:
           : '<span class="wbs-twisty-spacer"></span>';
         return `<tr class="row-edit${t.isSummary ? ' is-sum' : ''}" data-wbsrow="${t.id}" style="cursor:pointer" onclick="openEditModal(${t.id}, true)" title="Click a name, owner, deliverable, scope, acceptance or inputs to edit it here — anywhere else opens the full editor">
           <td style="white-space:nowrap">${ekTask(t)}</td>
-          <td class="${msReachW ? 'wbs-ms-name' : ''}" ${wbsEd(t.id, 'name')} style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}<span class="wbs-name">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}${t.milestone ? '' : `<button type="button" class="wbs-add no-print" onclick="event.stopPropagation();addUnderInline(${t.id})" aria-label="Add an activity under ${escapeHtml(t.name)}" title="Add an activity under ${escapeHtml(t.name)}">+</button>`}</span>${msReachW}</td>
+          <td class="${msReachW ? 'wbs-ms-name' : ''}" ${wbsEd(t.id, 'name')} style="padding-left:${8 + depth * 18}px"><span style="display:inline-flex;align-items:center">${twisty}${t.milestone ? '◆ ' : ''}<span class="wbs-name">${escapeHtml(t.milestone ? t.name.replace(/^◆\s*/, '') : t.name)}</span>${collapsedIds.has(t.id) ? ` <span class="help-text" style="font-size:0.68rem;margin-left:4px">(+${leafDescendants(t.id).length})</span>` : ''}${addHereBtn(t, 'wbs')}</span>${msReachW}</td>
           ${/* Capped. personCell already truncates its own role and company
                 sub-line, so 222px was reserving room the cell does not use —
                 and this is the widest table in the app, where every reserved
@@ -23154,7 +23179,7 @@ Or say what you want, in your own words:
             : '<span class="help-text">—</span>'; })()}</td>
         </tr>`;
       }).join('');
-      setTimeout(wbsDraftMount, 0);
+      draftRedraw('wbs');
       cont.innerHTML = `
         <div class="toolbar no-print" style="margin-bottom:0.6rem">
           <button class="btn-sm btn-secondary" onclick="setCollapseLevel(0)">L1 · Phases</button>

@@ -2922,8 +2922,8 @@ const MUTANTS = [
     with: "pv.textContent = 'Will be ' + ((p && p.wbs) ? p.wbs + '.' : '') + (at)" },
 
   { what: 'adding work: a WBS row has no + to add under it',
-    find: "${t.milestone ? '' : `<button type=\"button\" class=\"wbs-add no-print\"",
-    with: "${true ? '' : `<button type=\"button\" class=\"wbs-add no-print\"" },
+    find: "${addHereBtn(t, 'wbs')}",
+    with: "" },
 
   { what: 'adding work: + on a phase opens the dialog with no parent',
     find: "      document.getElementById('mParent').value = taskRefLabel(p, 0);",
@@ -2977,8 +2977,8 @@ const MUTANTS = [
     find: "data-wbsrow=\"${t.id}\" style=\"cursor:pointer\" onclick=\"openEditModal(${t.id}, true)\" title=\"Click a name",
     with: "data-wbsrow=\"${t.id}\" style=\"cursor:pointer\" title=\"Click a name" },
 
-  { what: 'in place: + on a WBS row opens the full dialog again',
-    find: "onclick=\"event.stopPropagation();addUnderInline(${t.id})\"",
+  { what: 'in place: + on a row opens the full dialog again',
+    find: "onclick=\"event.stopPropagation();addUnderInline(${t.id}, '${table}')\"",
     with: "onclick=\"event.stopPropagation();addUnder(${t.id})\"" },
 
   { what: 'in place: an empty blank row adds a nameless activity',
@@ -2987,7 +2987,7 @@ const MUTANTS = [
 
   { what: 'in place: the blank row closes after one, so a phase is typed out one + at a time',
     find: "        refreshAll();                 // the redraw puts a fresh blank row back under the element",
-    with: "        wbsDraftParent = null; refreshAll();" },
+    with: "        draftAt = null; refreshAll();" },
 
   { what: 'in place: More options… leaves the typed name behind',
     find: "        if (name) document.getElementById('mName').value = name;",
@@ -2995,7 +2995,55 @@ const MUTANTS = [
 
   { what: 'in place: the blank row opens at the bottom of the table, not under its element',
     find: "      const last = rows[rows.length - 1]; if (!last) return;",
-    with: "      const last = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')].pop(); if (!last) return;" },
+    with: "      const last = [...document.querySelectorAll(T.box + ' ' + T.row)].pop(); if (!last) return;" },
+
+  /* ═══ THE SAME ON THE TASKS TAB ═════════════════════════════════════════════
+     The activity list on Tasks had no + and no blank row; both tables now share
+     one. Each mutant below breaks one sentence from the top of wbs-inline-sweep.js. */
+
+  { what: 'in place: the Tasks rows have no + to add under them',
+    find: "${addHereBtn(t, 'tasks')}",
+    with: "" },
+
+  { what: 'in place: + on a Tasks row opens its blank row in the WBS table',
+    find: "${addHereBtn(t, 'tasks')}",
+    with: "${addHereBtn(t, 'wbs')}" },
+
+  { what: 'in place: the activity list never puts its blank row back after drawing',
+    find: "      draftRedraw('tasks');\n      tbody.innerHTML",
+    with: "      tbody.innerHTML" },
+
+  { what: 'in place: the blank row opens in both tables at once',
+    find: "      if (!draftAt || draftAt.table !== table) return;",
+    with: "      if (!draftAt) return;" },
+
+  { what: 'in place: a redraw loses what was typed in the blank row',
+    find: "      inp.value = draftAt.text || '';\n",
+    with: "" },
+
+  { what: 'in place: a redraw takes the focus out of the blank row being typed in',
+    find: "      if (draftAt && draftAt.table === table && old && old.contains(document.activeElement)) draftAt.focus = true;\n",
+    with: "" },
+
+  { what: 'in place: two redraws in a row take the focus out of the blank row',
+    find: "      if (old) { if (draftAt && old.contains(document.activeElement)) draftAt.focus = true; old.remove(); }",
+    with: "      if (old) old.remove();" },
+
+  { what: 'in place: a redraw pulls the focus back into the blank row after it left',
+    find: "      if (draftAt.focus) { draftAt.focus = false; inp.focus(); }",
+    with: "      draftAt.focus = false; inp.focus();" },
+
+  { what: 'in place: Enter carries the typed name into the next blank row',
+    find: "        draftAt.text = '';            // the redraw notes the focus and keeps it in the next blank row\n",
+    with: "" },
+
+  { what: 'in place: an empty blank row closes on a redraw',
+    find: "if (d.isConnected && document.activeElement !== inp) draftClose();",
+    with: "if (document.activeElement !== inp) draftClose();" },
+
+  { what: 'in place: on a phone the blank row runs off the screen',
+    find: "flex-wrap: wrap; position: sticky; left: 0.75rem; max-width: calc(100vw - 6rem); }",
+    with: "flex-wrap: wrap; }" },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and

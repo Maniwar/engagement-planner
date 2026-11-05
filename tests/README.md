@@ -570,6 +570,24 @@ table to the activity list's standard.
 same placement rules there. The engine has a planted defect for each rule
 (prefix `in place:`), and all twelve were caught on their first run.
 
+**The same on Tasks.** The activity list on Tasks already edited its cells in
+place but had no + and no blank row. Both tables now share one blank row, and
+the + section of `wbs-inline-sweep.js` runs once per table, with every rule
+above. Some rules are new, and hold on both tables:
+
+- **One table at a time.** The blank row opens only in the table whose + was
+  pressed. Both tables redraw on every change, so a shared row could otherwise
+  open in both and take the focus in the hidden one.
+- **Redraws.** A redraw while the blank row is open, empty or half typed, once
+  or twice in a row, keeps it open and keeps the text. It takes the focus back
+  only when the blank row had it.
+- **Phones.** The table scrolls sideways there. The phone check uses its own
+  touch-screen page and taps +, because a mouse hover expands the row's action
+  buttons over it. More options… must be on screen.
+
+Eleven more planted defects cover these, and the four that pointed at the
+WBS-only code now point at the shared code.
+
 ## The checks, checked
 
 `harness-meta.js` is the only file here that does not look at the product. It

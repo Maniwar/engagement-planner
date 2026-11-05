@@ -576,5 +576,17 @@
  "in place: the blank row closes after one, so a phase is typed out one + at a time": "wbs-inline-sweep.js",
  "in place: More options… leaves the typed name behind": "wbs-inline-sweep.js",
  "in place: the blank row opens at the bottom of the table, not under its element": "wbs-inline-sweep.js",
- "in place: clicking a name in the WBS opens the full dialog again": "wbs-inline-sweep.js"
+ "in place: clicking a name in the WBS opens the full dialog again": "wbs-inline-sweep.js",
+ "in place: + on a row opens the full dialog again": "wbs-inline-sweep.js",
+ "in place: + on a Tasks row opens its blank row in the WBS table": "wbs-inline-sweep.js",
+ "in place: the Tasks rows have no + to add under them": "wbs-inline-sweep.js",
+ "in place: the activity list never puts its blank row back after drawing": "wbs-inline-sweep.js",
+ "in place: the blank row opens in both tables at once": "wbs-inline-sweep.js",
+ "in place: a redraw takes the focus out of the blank row being typed in": "wbs-inline-sweep.js",
+ "in place: two redraws in a row take the focus out of the blank row": "wbs-inline-sweep.js",
+ "in place: a redraw pulls the focus back into the blank row after it left": "wbs-inline-sweep.js",
+ "in place: Enter carries the typed name into the next blank row": "wbs-inline-sweep.js",
+ "in place: on a phone the blank row runs off the screen": "wbs-inline-sweep.js",
+ "in place: a redraw loses what was typed in the blank row": "wbs-inline-sweep.js",
+ "in place: an empty blank row closes on a redraw": "wbs-inline-sweep.js"
 }
