@@ -173,6 +173,23 @@ ellipsis at the end (it was cut at the START), keep every control on screen at
 a 40px touch height, and still open each menu fully on screen. On the desktop
 it must stay one row with the title drawn.
 
+`row-actions-sweep.js` checks that the row actions on Tasks (✕ ⇤ ⇥ ✎ ⑂) never
+sit on another cell. They used to float out of their pinned rail: on a phone
+all five were drawn at rest over the name, the "+" and the owner, and in a
+narrow window pointing at a row spread them over the owner and then the "+",
+so a click meant for "+" landed on a row action. The sweep asks the page what
+is on top (`elementFromPoint`) of every word and control in every row, on a
+390px phone and a 1024px tablet (touch) and in 400–760px windows (mouse), at
+rest, pointed at and focused, at four sideways scroll positions; every row's
+"+" must be what a tap at its centre reaches. It then taps or clicks the "+"
+for real on the rows that differ (first phase, first activity, deepest, the
+"+" nearest the rail, last) and requires the blank row to open under that
+activity and nothing else to happen. Each tap redraws the table, so tapping
+all of them made the check too slow to measure under `anchor-check.js`.
+It also holds the cluster's safety order:
+⑂ does not move when the row is pointed at, and ✕ is the button farthest from
+it. Five planted defects (prefix `row actions:`) are each caught by it.
+
 `icon-sweep.js` checks that the controls draw ONE icon set. It walks every
 tab and every header menu on the rendered page, not the source, so a label
 built by string concatenation is held to it as well. It fails on an emoji in

@@ -2757,6 +2757,38 @@ const MUTANTS = [
     find: '.header-actions .btn-sm, .header-actions summary.btn-sm, .header-actions label.btn-ghost { width: 100%; min-height: 44px;',
     with: '.header-actions .btn-sm, .header-actions summary.btn-sm, .header-actions label.btn-ghost { width: 100%; min-height: 0; max-height: 30px;' },
 
+  /* ═══ THE ROW ACTIONS ON A NARROW OR TOUCH SCREEN ═══════════════════════════
+     Each breaks one half of NOWHERE TO FLOAT in index.html, or the order the
+     cluster keeps for safety. row-actions-sweep.js asks the page what is on
+     top of every word and control in the row, and where ⑂ and ✕ sit. */
+  { what: 'row actions: on a narrow screen the cluster floats out of its rail again',
+    find: '#taskTable .row-acts { position: static; transform: none; justify-content: flex-end; }',
+    with: '#taskTable .row-acts { justify-content: flex-end; }' },
+
+  { what: 'row actions: a touch screen draws the whole cluster over the row again',
+    find: '@media (max-width: 768px), (hover: none) {\n      #taskTable td.acts',
+    with: '@media (max-width: 768px) {\n      #taskTable td.acts' },
+
+  { what: 'row actions: the narrow rail is one line of five, wide enough to bury the frozen name',
+    find: '#taskTable .row-acts { display: grid; grid-template-columns: repeat(3, auto); justify-content: end; }',
+    with: '#taskTable .row-acts { justify-content: end; }' },
+
+  /* ✎ and ✕ trade places and nothing else changes, so the only defect is that
+     delete is now one button from where the pointer rests. */
+  { what: 'row actions: delete sits beside decompose, where the pointer rests',
+    find: '            <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>\n'
+        + '            <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)" aria-label="Outdent ${escapeHtml(t.name)}">⇤</button>\n'
+        + '            <button class="btn-sm btn-secondary" onclick="indentTask(${t.id})" title="Indent (nest under the row above)" aria-label="Indent ${escapeHtml(t.name)}">⇥</button>\n'
+        + '            <button class="btn-sm btn-secondary" onclick="openEditModal(${t.id})" title="Edit" aria-label="Edit ${escapeHtml(t.name)}"><span class="ico" data-i="pencil" aria-hidden="true"></span></button>\n',
+    with: '            <button class="btn-sm btn-secondary" onclick="openEditModal(${t.id})" title="Edit" aria-label="Edit ${escapeHtml(t.name)}"><span class="ico" data-i="pencil" aria-hidden="true"></span></button>\n'
+        + '            <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)" aria-label="Outdent ${escapeHtml(t.name)}">⇤</button>\n'
+        + '            <button class="btn-sm btn-secondary" onclick="indentTask(${t.id})" title="Indent (nest under the row above)" aria-label="Indent ${escapeHtml(t.name)}">⇥</button>\n'
+        + '            <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>\n' },
+
+  { what: 'row actions: decompose jumps a row when a narrow row is pointed at',
+    find: '@media (hover: hover) and (min-width: 769px) {',
+    with: '@media (hover: hover) {' },
+
   { what: 'icons: the Project menu goes back to an emoji',
     find: '<span class="ico" data-i="folder-open" aria-hidden="true"></span> Project ▾</summary>',
     with: '📂 Project ▾</summary>' },
@@ -3341,7 +3373,8 @@ const LIKELY = {
   'dark mode:': 'dark-mode-sweep.js', 'quiet working:': 'calm-prose-sweep.js', 'schedule import:': 'schedule-import-sweep.js',
   'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js',
   'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js',
-  'in place:': 'wbs-inline-sweep.js', 'asks first:': 'ask-first-sweep.js'
+  'in place:': 'wbs-inline-sweep.js', 'asks first:': 'ask-first-sweep.js',
+  'row actions:': 'row-actions-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is
