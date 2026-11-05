@@ -2895,6 +2895,29 @@
     .row-acts .btn-sm { padding: 0.2rem 0.4rem; margin: 0; }
     #taskTable tr:hover .row-acts, #taskTable tr:focus-within .row-acts {
       background: var(--card); border-color: var(--border); box-shadow: var(--sh-2); }
+    /* NOWHERE TO FLOAT ON A NARROW SCREEN. The cluster spreads over the far end
+       of the row, which on a wide screen is the status column. At 768px and
+       under it is the owner and the frozen name column: pointing at a row
+       spread the cluster over the owner's name, and narrower still over the
+       row's "+". A touch screen has no hover to wait for, so there all five
+       were drawn at rest, over the name, the "+" and the owner of every row.
+
+       So on a narrow or touch screen the rail is as wide as its buttons and the
+       cluster sits inside it: nothing floats, nothing expands, all five show at
+       rest. Under 768px they are a 3+2 grid, so the rail costs three buttons of
+       width, not five. The empty cell is bottom-left, which keeps ⑂ in the
+       bottom-right corner (the edge it holds everywhere else) and ✕ in the
+       top-left, farthest from it. tests/row-actions-sweep.js holds all of it. */
+    @media (max-width: 768px), (hover: none) {
+      #taskTable td.acts, #taskTable thead th:last-child { width: auto; min-width: 0; }
+      #taskTable .row-acts { position: static; transform: none; justify-content: flex-end; }
+      #taskTable tr:hover .row-acts, #taskTable tr:focus-within .row-acts {
+        background: transparent; border-color: transparent; box-shadow: none; }
+    }
+    @media (max-width: 768px) {
+      #taskTable .row-acts { display: grid; grid-template-columns: repeat(3, auto); justify-content: end; }
+      #taskTable .row-acts::before { content: ''; grid-area: 2 / 1; }
+    }
     /* Room for the PAIR. A critical row in progress carries both chips, and at
        the column's natural width they wrapped to two lines — so the one row
        that is both on the critical path and actually moving was also the one
@@ -3871,9 +3894,13 @@
     #taskTable td[data-pred-id] .help-text { color: var(--primary); }
     /* Was opacity 0 — see the pinning note above. Present but quiet at rest,
        full strength on the row you are on: the affordance is discoverable
-       without five buttons shouting from every one of forty rows. */
-    @media (hover: hover) {
+       without five buttons shouting from every one of forty rows. Folding to
+       ⑂ alone only above 768px: under that the rail holds all five in place
+       (see NOWHERE TO FLOAT), and folding would make ⑂ jump on hover. */
+    @media (hover: hover) and (min-width: 769px) {
       #taskTable tbody tr[data-task-id]:not(:hover):not(:focus-within) .row-acts > .btn-sm:not(.ra-key) { display: none; }
+    }
+    @media (hover: hover) {
       #taskTable tbody tr[data-task-id] .row-acts .btn-sm { opacity: .55; transition: opacity .12s ease; }
       #taskTable tbody tr[data-task-id]:hover .row-acts .btn-sm,
       #taskTable tbody tr[data-task-id]:focus-within .row-acts .btn-sm { opacity: 1; }
@@ -4806,7 +4833,7 @@
         <div class="card-header">
           <h2>Requirements &amp; user stories <button type="button" class="info-icon" aria-label="More about this" data-ek-legend-append data-help="Epics → user stories → Given/When/Then acceptance criteria, each traced to a WBS work item. The estimation unit for SOWs: a story that isn't testable can't be accepted or invoiced.&#10;&#10;WHY THIS MATTERS: stories define WHAT a user needs and WHY; acceptance criteria are the boundary lines and the billing checklist. A story with only happy-path criteria is typically estimated at 40-60% of its true cost — error paths and edge cases are where the hours go. Each story links to one WBS activity, so completeness rolls up from the plan automatically.">i</button></h2>
           <div class="toolbar no-print">
-            <button class="btn-secondary btn-sm" id="reqDraftBtn" onclick="draftRequirements()" title="AI drafts personas, epics and INVEST user stories with happy/error/edge acceptance criteria for every WBS work item — or fills the gaps if some already exist"><span class="ico" data-i="bot" aria-hidden="true"></span> Draft from WBS</button>
+            <button class="btn-secondary btn-sm" id="reqDraftBtn" onclick="draftRequirements()" title="AI drafts personas, epics and INVEST user stories with happy/error/edge acceptance criteria for every WBS work item. Stories already here are rewritten too, so it asks first — to fill only the gaps, use Draft missing stories in Findings"><span class="ico" data-i="bot" aria-hidden="true"></span> Draft from WBS</button>
             <button class="btn-secondary btn-sm" onclick="openReviseStories()" title="Apply ONE instruction across every story and every acceptance criterion at once — remove a concept the plan invented, correct who the users actually are, drop a feature or region that is out of scope, make vague thresholds measurable. A generated plan that invented something is not a lint finding: the stories are well-formed, they are simply about the wrong thing. Stories the instruction does not touch come back unchanged, and ↶ Undo reverses the lot."><span class="ico" data-i="pencil" aria-hidden="true"></span> Revise all stories…</button>
             <button class="btn-secondary btn-sm" id="reqAddBtn" onclick="openStoryModal(null)" title="Write a story by hand">+ Add story</button>
             <button class="btn-secondary btn-sm" onclick="generateTestPlan()" title="AI derives test cases from EVERY story's acceptance criteria (batched so nothing truncates): one TC per AC minimum, scheduled as WBS tasks under a Test Execution phase, each depending on the activity it verifies, owned by your QA/UAT resource. Safe to re-run — existing TCs are kept, only gaps are filled."><span class="ico" data-i="flask-conical" aria-hidden="true"></span> Generate test plan</button>
@@ -5787,7 +5814,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.1900</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.2021</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -13668,7 +13695,10 @@ Or say what you want, in your own words:
                 one item whose position is identical in both states: the cluster
                 grows away to the left and ⑂ never moves a pixel. Delete goes to
                 the far end, four buttons from where the pointer is. DOM order is
-                the visual order so the keyboard walks it the same way. */ ''}
+                the visual order so the keyboard walks it the same way. On a
+                narrow or touch screen all five sit in a reserved rail (a 3+2
+                grid under 768px) and nothing moves; ✕ still takes the corner
+                farthest from ⑂. */ ''}
           <td class="acts"><div class="row-acts">
             <button class="btn-sm btn-danger" onclick="deleteTask(${t.id})" title="Delete task (undoable)" aria-label="Delete ${escapeHtml(t.name)}">✕</button>
             <button class="btn-sm btn-secondary" onclick="outdentTask(${t.id})" title="Outdent (promote a level)" aria-label="Outdent ${escapeHtml(t.name)}">⇤</button>
@@ -17684,8 +17714,31 @@ Or say what you want, in your own words:
     }
 
     // ---- Baseline snapshot ----
-    function setBaseline() {
-      if (!calculated && !recompute()) return;
+    /* A BASELINE IN FORCE IS A PROMISE ALREADY MADE. Pressing Set / update
+       baseline, or any Re-baseline link, overwrote it without a word, and the
+       variance it measured restarted from zero. So with one in force this asks
+       first and says which one goes and what it commits; with none there is
+       nothing to lose and it just sets one. A caller that has already asked
+       (the reading's "Freeze today as the baseline") passes { asked: true },
+       so one press is one question. Returns false when the answer is no. */
+    function baselineReplaceQuestion() {
+      const committed = leafTasks().filter(t => t.baseFinish instanceof Date && !isNaN(t.baseFinish.getTime()));
+      const fsN = (reqsBaseline && Array.isArray(reqsBaseline.stories)) ? reqsBaseline.stories.length : 0;
+      if (!baselineDate || (!committed.length && !fsN)) return '';
+      const fin = committed.length ? new Date(Math.max.apply(null, committed.map(t => t.baseFinish.getTime()))) : null;
+      const cost = committed.reduce((n, t) => n + (Number(t.baseCost) || 0), 0);
+      const holds = [];
+      if (committed.length) holds.push(committed.length + ' ' + ptrPl(committed.length, 'activity', 'activities')
+        + (fin ? ' to a finish of ' + fmtNice(fin) : '') + (cost > 0 ? ' and a cost of ' + fmtMoney(cost) : ''));
+      if (fsN) holds.push(fsN + ' ' + ptrPl(fsN, 'story', 'stories') + ' to the feature set');
+      return 'Replace the baseline set on ' + fmtNice(new Date(baselineDate + 'T00:00:00')) + '?\n\n'
+        + 'It commits ' + holds.join(', and ') + '. Today’s plan takes its place, and every variance '
+        + 'measured against it restarts from zero.\n\n↶ Undo puts the old baseline back.';
+    }
+    function setBaseline(opts) {
+      if (!calculated && !recompute()) return false;
+      const ask = (opts && opts.asked) ? '' : baselineReplaceQuestion();
+      if (ask && !confirm(ask)) return false;
       tasks.forEach(t => {
         t.baseStart = t.startDate ? new Date(t.startDate) : null;
         t.baseFinish = t.finishDate ? new Date(t.finishDate) : null;
@@ -24691,7 +24744,7 @@ Or say what you want, in your own words:
           hint: 'Each card lists its own. Or click ✎ on a flagged card to fix it by hand — thresholds the AI invents are proposals to review, not facts.',
           more: 'As written they are untestable, unbillable, or untraceable.',
           acts: [{ label: 'Fix with AI', icon: 'wrench', onclick: 'aiFixStoryLints()',
-            title: 'Sends ONLY the flagged stories with their exact findings; the AI rewrites ACs into Given/When/Then, adds missing error/edge paths, swaps vague words for measurable thresholds, names real personas, and suggests WBS links. Clean stories are untouched; you review the result.' }] });
+            title: 'Sends ONLY the flagged stories with their exact findings; the AI rewrites ACs into Given/When/Then, adds missing error/edge paths, swaps vague words for measurable thresholds, names real personas, and suggests WBS links. Clean stories are untouched. It asks first, then puts the rewrites straight in; ↶ Undo reverses them.' }] });
       }
       const findings = findingsList(fRows);
       const typeIcon = { happy: '✅', error: '⚠️', edge: '🧪', perf: '📏' };
@@ -26782,11 +26835,28 @@ Return ONLY JSON: {"stories":[{"id":"US-1","epicId":"","wbsName":"","persona":""
           + '. ↶ Undo reverses all of it. Test cases written against changed criteria may now be stale.');
       } catch (e) { streamHide(false); alert('The revision failed: ' + (e.message || e)); }
     }
+    function lintFixQuestion(flagged) {
+      const n = flagged.length;
+      const nC = flagged.reduce((a, x) => a + ((x.s.ac || []).length), 0);
+      const nW = flagged.reduce((a, x) => a + x.warns.length, 0);
+      const ids = flagged.map(x => x.s.id);
+      const named = ids.length <= 4 ? ids.slice(0, -1).join(', ') + (ids.length > 1 ? ' and ' : '') + ids[ids.length - 1]
+        : ids.slice(0, 3).join(', ') + ' and ' + (ids.length - 3) + ' more';
+      return 'Rewrite ' + n + ' flagged ' + ptrPl(n, 'story', 'stories') + ' with AI?\n\n'
+        + 'The AI rewrites ' + named + ' — ' + (n === 1 ? 'its story sentence, persona' : 'their story sentences, personas')
+        + ' and ' + nC + ' acceptance ' + ptrPl(nC, 'criterion', 'criteria') + ' — to clear ' + nW + ' lint '
+        + ptrPl(nW, 'finding') + ', and puts the result straight in. Wording you edited by hand on '
+        + (n === 1 ? 'it' : 'them') + ' is replaced; stories with no findings are not touched.\n\n↶ Undo puts '
+        + (n === 1 ? 'it' : 'them') + ' back.';
+    }
     async function aiFixStoryLints() {
       if (!reqs || !Array.isArray(reqs.stories) || !reqs.stories.length) return;
       if (!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE))) { alert('Add your Anthropic API key first (⚙ API Key on the Tasks tab).'); return; }
       const flagged = reqs.stories.map(s => ({ s, warns: storyLint(s) })).filter(x => x.warns.length);
       if (!flagged.length) { flashSaved('✓ No lint findings — every story is testable and traced.'); return; }
+      /* The rewrites land as they come back — there is no review step — so the
+         question is asked here, before the call, and says how much is rewritten. */
+      if (!confirm(lintFixQuestion(flagged))) return;
       computeWbsCodes();
       const wbsNames = storyableLeaves().map(t => t.name);
       const payload = flagged.map(x => ({
@@ -28198,9 +28268,28 @@ Return ONLY JSON (no prose, no fences):
       return entries.map(({ task: t, depth }) =>
         `${'  '.repeat(depth)}${t.wbs} | ${t.name}${t.milestone ? ' [milestone]' : ''}${isSummaryId(t.id) ? ' [phase]' : ''}${t.owner ? ' | owner: ' + t.owner : ''}${t.deliverable ? ' | deliverable: ' + t.deliverable : ''}${t.description ? ' | scope: ' + t.description : ''}${t.acceptance ? ' | done-when: ' + t.acceptance : ''}`).join('\n');
     }
+    /* A REDRAFT REWRITES WHAT IS ALREADY HERE. With stories on the page, Draft
+       from WBS sends them back to the AI and keeps whatever returns: every
+       story sentence and criterion rewritten, hand edits included, and on a
+       single-shot draft a story the answer leaves out is gone. So it asks
+       first and says how much, and names the targeted gap-filler when there
+       are gaps it could fill instead. No stories yet: nothing to lose. */
+    function storiesRedraftQuestion() {
+      const nS = reqs.stories.length;
+      const nC = reqs.stories.reduce((n, s) => n + ((s.ac || []).length), 0);
+      let gaps = 0;
+      try { gaps = coverageStats().uncovered.length; } catch (e) {}
+      return 'Redraft the ' + nS + ' user ' + ptrPl(nS, 'story', 'stories') + ' already here?\n\n'
+        + 'The AI rewrites ' + (nS === 1 ? 'it' : 'all ' + nS) + ' and ' + (nS === 1 ? 'its ' : 'their ') + nC + ' acceptance '
+        + ptrPl(nC, 'criterion', 'criteria') + ' from the WBS, keeping the IDs, and adds stories where an activity has none. '
+        + 'Wording you edited by hand is replaced, and a story the AI leaves out can be lost.'
+        + (gaps ? '\n\n' + gaps + ' client-facing ' + ptrPl(gaps, 'activity has', 'activities have') + ' no story yet. '
+            + '“Draft missing stories” in Stories ▸ Findings fills only ' + (gaps === 1 ? 'that one' : 'those') + ' and leaves these alone.' : '');
+    }
     async function draftRequirements() {
       if (!tasks.length) { alert('Build the plan first (Tasks tab) — stories trace to WBS activities.'); return; }
       if (!(document.getElementById('aiKey').value.trim() || localStorage.getItem(AI_KEY_STORE))) { alert('Add your Anthropic API key first (⚙ API Key on the Tasks tab).'); return; }
+      if (reqs && Array.isArray(reqs.stories) && reqs.stories.length && !confirm(storiesRedraftQuestion())) return;
       computeWbsCodes();
       // big plans go straight to phase-by-phase drafting: many small calls that
       // each COMPLETE, instead of one huge response that could hit the ceiling
@@ -33083,7 +33172,8 @@ Rules:
             + (f ? ', committing to a finish of ' + fmtNice(f) : '')
             + '. Every variance on this screen restarts from zero, and the old comparison is gone';
         },
-        run: function () { setBaseline(); if (calculated) { renderAnalytics(); renderGantt(); renderBaseline(); } }
+        // ptApplyFix has asked already (confirm above), so the call does not ask again
+        run: function () { setBaseline({ asked: true }); if (calculated) { renderAnalytics(); renderGantt(); renderBaseline(); } }
       },
       snapshot: {
         label: 'Record a status snapshot',
@@ -33912,6 +34002,25 @@ BAD   {"panel":"price","sev":"watch",
         + ' optimistic / pessimistic range was derived (≈0.75× / 1.6×)' + (filed ? ' — filed in the RAID log as an assumption to check with the owners.' : ' — check ' + (n === 1 ? 'it' : 'them') + ' with the owners.');
     }
 
+    /* What a replace throws away, in numbers, for the question above. */
+    function planReplaceQuestion(withStories, importing) {
+      const leaves = leafTasks();
+      const phases = tasks.filter(t => isSummaryId(t.id)).length;
+      const started = leaves.filter(t => (Number(t.percentComplete) || 0) > 0 || t.actualStart || t.actualFinish).length;
+      const nS = (reqs && Array.isArray(reqs.stories)) ? reqs.stories.length : 0;
+      const nC = nS ? reqs.stories.reduce((n, s) => n + ((s.ac || []).length), 0) : 0;
+      const hb = hasBaseline();
+      return 'Replace the whole plan?\n\n'
+        + 'This replaces all ' + leaves.length + ' ' + ptrPl(leaves.length, 'activity', 'activities')
+        + (phases ? ' in ' + phases + ' ' + ptrPl(phases, 'phase') : '')
+        + (started ? ' — ' + started + ' of them with progress recorded —' : '')
+        + ' with what the AI builds from ' + (importing ? 'the attached schedule' : 'your notes') + '. '
+        + 'Their estimates, progress, actuals and links go with them'
+        + (hb ? ', and so does the baseline set on ' + fmtNice(new Date(baselineDate + 'T00:00:00')) : '') + '.'
+        + (withStories && nS ? '\n\nWith “+ user stories & ACs” ticked, the ' + nS + ' user ' + ptrPl(nS, 'story', 'stories')
+            + ' and ' + nC + ' acceptance ' + ptrPl(nC, 'criterion', 'criteria') + ' already here are discarded and redrafted from the new plan.' : '')
+        + '\n\nTo change only part of the plan, choose “Update existing” instead.';
+    }
     async function generateWithAI() {
       const btn = document.getElementById('aiGenerateBtn');
       const status = document.getElementById('aiStatus');
@@ -33935,6 +34044,23 @@ BAD   {"panel":"price","sev":"watch",
           errEl.style.display = 'block'; return;
         }
         return updateProgressFromNotes(notes, btn, status, errEl);
+      }
+      /* ASKED BEFORE IT IS PAID FOR. "Create / replace all tasks" is the first
+         option, so it is what a person gets without choosing, and it rebuilt
+         every activity — progress, actuals and links with them, and with the
+         "+ user stories" box ticked every story too — before anything was said.
+         The one question that did exist came after the AI had answered and the
+         old plan was gone. So a replace over a plan that has activities asks
+         here, before the call, and says how much goes. An empty plan has
+         nothing to lose, and Update existing replaces nothing wholesale. */
+      if (mode !== 'merge' && tasks.length) {
+        const ticked = document.getElementById('aiAlsoStories');
+        if (!confirm(planReplaceQuestion(!!(ticked && ticked.checked), atts.length > 0))) {
+          const said = 'Nothing changed — the plan is as it was.';
+          status.textContent = said;
+          setTimeout(() => { if (status.textContent === said) status.textContent = ''; }, 6000);
+          return;
+        }
       }
       const importing = atts.length > 0;
       const noteText = importing ? (notes ? `\nThe user's notes on it — they take precedence over the source where the two disagree:\n"""${notes}"""` : '') : '';
@@ -44571,7 +44697,7 @@ IMPORTANT: rows marked [ROLL-UP] are WBS summary rows — the tool schedules and
       }
       cont.innerHTML = trend + `<h3 style="font-size:0.95rem;margin:1rem 0 0.5rem">Health check — ${escapeHtml(healthFindings.date)} (${healthFindings.findings.length} finding${healthFindings.findings.length === 1 ? '' : 's'})</h3>
         ${healthFindings.findings.length ? `<div class="table-wrap"><table><thead><tr><th></th><th>Area</th><th>Finding</th><th>Recommendation</th><th class="no-print"></th></tr></thead><tbody>${rows}</tbody></table></div>
-        ${fixable.length ? `<div class="toolbar no-print" style="margin-top:0.6rem"><button class="btn-secondary btn-sm" onclick="aiFixFindings()" title="The AI edits the plan to address every fixable finding — you review the result"><span class="ico" data-i="wrench" aria-hidden="true"></span> Fix all ${fixable.length} with AI</button><span class="help-text">applies the recommendations as a plan update — every change stays editable</span></div>` : ''}`
+        ${fixable.length ? `<div class="toolbar no-print" style="margin-top:0.6rem"><button class="btn-secondary btn-sm" onclick="aiFixFindings()" title="The AI edits the plan to address every fixable finding. It asks first, then applies the result as one plan update; ↶ Undo reverses it"><span class="ico" data-i="wrench" aria-hidden="true"></span> Fix all ${fixable.length} with AI</button><span class="help-text">applies the recommendations as a plan update — every change stays editable</span></div>` : ''}`
         : '<div class="conflict-card ok"><strong style="color:var(--success)">✓ No issues found.</strong> Estimates, structure and resourcing all look sound.</div>'}`;
     }
     // 🩺 One-stop scan: recompute, run every deterministic gap check (+ AI review
@@ -44650,6 +44776,15 @@ IMPORTANT: rows marked [ROLL-UP] are WBS summary rows — the tool schedules and
       flashSaved('✍ Change request pre-filled — review it, then press ✨ Generate plan');
     }
 
+    function fixAllQuestion(list) {
+      const n = list.length, nA = leafTasks().length;
+      const areas = [...new Set(list.map(fd => String(fd.area || '').replace(/^🤖\s*/, '').trim()).filter(Boolean))];
+      return 'Apply ' + n + ' ' + ptrPl(n, 'fix', 'fixes') + ' to the plan with AI?\n\n'
+        + 'The AI edits the plan’s ' + nA + ' ' + ptrPl(nA, 'activity', 'activities') + ' to address '
+        + (n === 1 ? 'that finding' : 'all ' + n + ' findings') + (areas.length ? ' (' + areas.slice(0, 4).join(', ') + (areas.length > 4 ? ', …' : '') + ')' : '')
+        + '. It may rename, re-estimate, re-own, add or remove activities, and the result goes straight into the plan.\n\n'
+        + '↶ Undo puts the plan back.';
+    }
     // per-finding fix buttons render inside the rows
     async function aiFixFindings(singleIndex) {
       if (!healthFindings) return;
@@ -44657,6 +44792,11 @@ IMPORTANT: rows marked [ROLL-UP] are WBS summary rows — the tool schedules and
       const list = (singleIndex != null ? [healthFindings.findings[singleIndex]] : healthFindings.findings)
         .filter(fd => fd && fd.recommendation && fd.severity !== 'info' && !fd.jump && !fd.relink);
       if (!list.length) return;
+      /* Fix all hands the whole plan to the AI and applies what comes back as a
+         plan update, with no review step: it may rename, re-estimate, re-own,
+         add or remove activities. So it asks before the call and says how many
+         fixes. A row's own Fix is one named recommendation and goes straight. */
+      if (singleIndex == null && !confirm(fixAllQuestion(list))) return;
       const instructions = list.map((fd, i) => `${i + 1}. [${fd.area}] ${fd.finding} — DO THIS: ${fd.recommendation}`).join('\n');
       const current = { projectName: document.getElementById('projectName').value, durationUnit: document.getElementById('durationUnit').value,
         tasks: tasks.map(t => ({ name: t.name, optimistic: t.o, mostLikely: t.m, pessimistic: t.p, milestone: t.milestone, owner: t.owner, units: t.units,
