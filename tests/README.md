@@ -570,6 +570,59 @@ table to the activity list's standard.
 same placement rules there. The engine has a planted defect for each rule
 (prefix `in place:`), and all twelve were caught on their first run.
 
+### Asking before replacing work (November 2026)
+
+Four actions replaced somebody's work without saying so. Each was confirmed on
+the fixture before it was changed:
+
+- **Set baseline** overwrote the baseline of 2026-07-25 with today's plan. The
+  "Set baseline today" notice on Plan vs actual was reported as a second way
+  in, but it only appears when there is no baseline, so it never had one to
+  overwrite. The toolbar button and the Re-baseline links did.
+- **Generate plan**, in its default "Create / replace all tasks" mode, rebuilt
+  all 23 activities. The only question came after the AI had answered and the
+  old plan was gone. With "+ user stories" ticked, also the default, the 13
+  stories were discarded and redrafted with no question at all.
+- **Draft from WBS** sent the 13 existing stories back to the AI and kept what
+  returned. A stubbed answer with one story left one story.
+- **Fix with AI** on the Stories ▸ Findings wording row put the AI's rewrites
+  straight into the flagged stories; one story's three criteria became one.
+  It was reported as "Fix all N with AI", which is a different button, on
+  Analytics ▸ Health check. That one applied an AI plan update for every
+  fixable finding just as directly, and in the probe it removed an activity.
+  Both were in scope, and both now ask before the call rather than adding a
+  review step after it. A row's own Fix is one named recommendation and still
+  goes straight.
+
+`ask-first-sweep.js` holds each to the same rules, with the AI stubbed:
+
+- **Ask first, with counts.** With work to lose, the action asks before any AI
+  call and says what goes: which baseline (its date) and how many activities it
+  commits; how many activities a replace rebuilds and, with the box ticked, how
+  many stories go with them; how many stories and criteria a redraft rewrites;
+  how many flagged stories and criteria a wording fix rewrites; how many fixes
+  Fix all applies. A count is looked for as a number on its own, with IDs such
+  as US-2 taken out first, so a question naming US-2 does not pass for one
+  that says "2 stories".
+- **No means nothing.** Answering no leaves the plan, the undo stack and the
+  notes in the box as they were, and no AI call goes out.
+- **Yes is one undo step.** Set baseline, Draft from WBS and both Fix buttons
+  were one undo step and still are, and one undo brings the old work back. Generate plan's replace
+  was already two or three steps and is unchanged.
+- **Nothing to lose, no question.** No baseline yet, an empty plan, no stories
+  yet, nothing flagged, nothing fixable, or Update existing (which edits in
+  place): none of these ask.
+- **One question per press.** The reading's "Freeze today as the baseline"
+  already asks, so the re-baseline it runs does not ask again. A replace that
+  redrafts the stories asks once, not again when the redraft starts.
+
+The questions use `confirm()`, as every other destructive action here does.
+`client-facing-sweep.js` drives a replace and answers the stories question
+that comes after it; it now tells the two questions apart by whether the AI
+has been called yet.
+
+The engine has a planted defect for each rule (prefix `asks first:`).
+
 ## The checks, checked
 
 `harness-meta.js` is the only file here that does not look at the product. It

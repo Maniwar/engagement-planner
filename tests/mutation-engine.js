@@ -2996,6 +2996,125 @@ const MUTANTS = [
   { what: 'in place: the blank row opens at the bottom of the table, not under its element',
     find: "      const last = rows[rows.length - 1]; if (!last) return;",
     with: "      const last = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')].pop(); if (!last) return;" },
+
+  /* ── ASK BEFORE REPLACING WORK ─────────────────────────────────────────
+     Set baseline overwrote a committed baseline, Generate plan rebuilt every
+     activity and asked only after the AI had answered, Draft from WBS
+     rewrote every story. Each mutant below breaks one sentence from the top
+     of ask-first-sweep.js. */
+  { what: 'asks first: Set baseline replaces a committed baseline without asking',
+    find: "      if (ask && !confirm(ask)) return false;\n      tasks.forEach(t => {",
+    with: "      tasks.forEach(t => {" },
+
+  { what: 'asks first: answering no to Set baseline replaces it anyway',
+    find: "      if (ask && !confirm(ask)) return false;\n      tasks.forEach(t => {",
+    with: "      if (ask) confirm(ask);\n      tasks.forEach(t => {" },
+
+  { what: 'asks first: Set baseline asks with no baseline to lose',
+    find: "if (!baselineDate || (!committed.length && !fsN)) return '';",
+    with: "if (!baselineDate || (!committed.length && !fsN)) return 'Set a baseline?';" },
+
+  { what: 'asks first: the baseline question does not say which baseline it replaces',
+    find: "return 'Replace the baseline set on ' + fmtNice(new Date(baselineDate + 'T00:00:00')) + '?\\n\\n'",
+    with: "return 'Replace the baseline?\\n\\n'" },
+
+  { what: 'asks first: the baseline question does not say how many activities it commits',
+    find: "if (committed.length) holds.push(committed.length + ' ' + ptrPl(committed.length, 'activity', 'activities')",
+    with: "if (committed.length) holds.push('the activities'" },
+
+  { what: 'asks first: the reading\'s Freeze today as the baseline asks twice',
+    find: "run: function () { setBaseline({ asked: true });",
+    with: "run: function () { setBaseline();" },
+
+  { what: 'asks first: a confirmed re-baseline takes two undo steps',
+    find: "      if (ask && !confirm(ask)) return false;\n      tasks.forEach(t => {",
+    with: "      if (ask && !confirm(ask)) return false;\n      if (ask) { baselineDate = null; saveLocal(); }\n      tasks.forEach(t => {" },
+
+  { what: 'asks first: Generate plan replaces every activity without asking',
+    find: "      if (mode !== 'merge' && tasks.length) {\n        const ticked",
+    with: "      if (false) {\n        const ticked" },
+
+  { what: 'asks first: Generate plan asks before an Update existing that replaces nothing',
+    find: "      if (mode !== 'merge' && tasks.length) {\n        const ticked",
+    with: "      if (tasks.length) {\n        const ticked" },
+
+  { what: 'asks first: Generate plan asks on an empty plan with nothing to lose',
+    find: "      if (mode !== 'merge' && tasks.length) {\n        const ticked",
+    with: "      if (mode !== 'merge') {\n        const ticked" },
+
+  { what: 'asks first: answering no to Generate plan replaces the plan anyway',
+    find: "if (!confirm(planReplaceQuestion(!!(ticked && ticked.checked), atts.length > 0))) {",
+    with: "if (!confirm(planReplaceQuestion(!!(ticked && ticked.checked), atts.length > 0)) && false) {" },
+
+  { what: 'asks first: Generate plan asks only after the AI has answered',
+    find: ["      if (mode !== 'merge' && tasks.length) {\n        const ticked",
+           "        const plan = parseAIJsonStrict(text, 'the plan'); // partial plans are never applied"],
+    with: ["      if (false) {\n        const ticked",
+           "        const plan = parseAIJsonStrict(text, 'the plan'); // partial plans are never applied\n        if (mode !== 'merge' && tasks.length && !confirm(planReplaceQuestion(false, importing))) return;"] },
+
+  { what: 'asks first: the replace question does not say how many activities it replaces',
+    find: "+ 'This replaces all ' + leaves.length + ' ' + ptrPl(leaves.length, 'activity', 'activities')",
+    with: "+ 'This replaces all the activities'" },
+
+  { what: 'asks first: the replace question leaves out the stories the ticked box discards',
+    find: "+ (withStories && nS ? '\\n\\nWith “+ user stories & ACs” ticked, the '",
+    with: "+ (false ? '\\n\\nWith “+ user stories & ACs” ticked, the '" },
+
+  { what: 'asks first: Draft from WBS rewrites the existing stories without asking',
+    find: "      if (reqs && Array.isArray(reqs.stories) && reqs.stories.length && !confirm(storiesRedraftQuestion())) return;\n",
+    with: "" },
+
+  { what: 'asks first: answering no to Draft from WBS redrafts anyway',
+    find: "      if (reqs && Array.isArray(reqs.stories) && reqs.stories.length && !confirm(storiesRedraftQuestion())) return;",
+    with: "      if (reqs && Array.isArray(reqs.stories) && reqs.stories.length) confirm(storiesRedraftQuestion());" },
+
+  { what: 'asks first: Draft from WBS asks on a plan with no stories yet',
+    find: "      if (reqs && Array.isArray(reqs.stories) && reqs.stories.length && !confirm(storiesRedraftQuestion())) return;",
+    with: "      if (!confirm(reqs && Array.isArray(reqs.stories) && reqs.stories.length ? storiesRedraftQuestion() : 'Draft the stories?')) return;" },
+
+  { what: 'asks first: the redraft question does not say how many stories it rewrites',
+    find: "return 'Redraft the ' + nS + ' user ' + ptrPl(nS, 'story', 'stories') + ' already here?\\n\\n'\n        + 'The AI rewrites ' + (nS === 1 ? 'it' : 'all ' + nS)",
+    with: "return 'Redraft the user stories already here?\\n\\n'\n        + 'The AI rewrites ' + (nS === 1 ? 'it' : 'all of them')" },
+
+  { what: 'asks first: the redraft question does not say how many criteria it rewrites',
+    find: "+ ' and ' + (nS === 1 ? 'its ' : 'their ') + nC + ' acceptance '",
+    with: "+ ' and ' + (nS === 1 ? 'its ' : 'their ') + 'acceptance '" },
+
+  { what: 'asks first: Fix with AI rewrites the flagged stories without asking',
+    find: "      if (!confirm(lintFixQuestion(flagged))) return;\n",
+    with: "" },
+
+  { what: 'asks first: answering no to Fix with AI rewrites them anyway',
+    find: "      if (!confirm(lintFixQuestion(flagged))) return;",
+    with: "      confirm(lintFixQuestion(flagged));" },
+
+  { what: 'asks first: the Fix with AI question does not say how many stories it rewrites',
+    find: "return 'Rewrite ' + n + ' flagged ' + ptrPl(n, 'story', 'stories') + ' with AI?\\n\\n'",
+    with: "return 'Rewrite the flagged stories with AI?\\n\\n'" },
+
+  { what: 'asks first: the Fix with AI question does not say how many criteria it rewrites',
+    find: "+ ' and ' + nC + ' acceptance ' + ptrPl(nC, 'criterion', 'criteria') + ' — to clear '",
+    with: "+ ' and acceptance criteria — to clear '" },
+
+  { what: 'asks first: Fix all with AI changes the plan without asking',
+    find: "      if (singleIndex == null && !confirm(fixAllQuestion(list))) return;\n",
+    with: "" },
+
+  { what: 'asks first: answering no to Fix all with AI changes the plan anyway',
+    find: "      if (singleIndex == null && !confirm(fixAllQuestion(list))) return;",
+    with: "      if (singleIndex == null) confirm(fixAllQuestion(list));" },
+
+  { what: 'asks first: Fix all with AI asks only after the AI has answered',
+    find: ["      if (singleIndex == null && !confirm(fixAllQuestion(list))) return;\n",
+           "        const plan = parseAIJsonStrict(await callAnthropic(prompt, { onDelta, cachePrefix: fixPrefix }), 'the fixes'); // a repaired/partial delta is never applied"],
+    with: ["",
+           "        const plan = parseAIJsonStrict(await callAnthropic(prompt, { onDelta, cachePrefix: fixPrefix }), 'the fixes'); // a repaired/partial delta is never applied\n        if (singleIndex == null && !confirm(fixAllQuestion(list))) { streamHide(false); return; }"] },
+
+  { what: 'asks first: the Fix all question does not say how many fixes it applies',
+    find: ["return 'Apply ' + n + ' ' + ptrPl(n, 'fix', 'fixes') + ' to the plan with AI?\\n\\n'",
+           "+ (n === 1 ? 'that finding' : 'all ' + n + ' findings')"],
+    with: ["return 'Apply the fixes to the plan with AI?\\n\\n'",
+           "+ (n === 1 ? 'that finding' : 'all the findings')"] },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -3174,7 +3293,7 @@ const LIKELY = {
   'dark mode:': 'dark-mode-sweep.js', 'quiet working:': 'calm-prose-sweep.js', 'schedule import:': 'schedule-import-sweep.js',
   'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js',
   'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js',
-  'in place:': 'wbs-inline-sweep.js'
+  'in place:': 'wbs-inline-sweep.js', 'asks first:': 'ask-first-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is
