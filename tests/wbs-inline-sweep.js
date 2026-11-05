@@ -20,6 +20,16 @@
      blank row, Esc closes it, an empty Enter adds nothing, and "More options…"
      carries the typed name and the parent into the full dialog;
    · adding under a leaf makes it a phase; every edit is one undo step.
+
+   And the activity list on Tasks adds work the same way: + on any of its rows
+   but a milestone's opens the same blank row there, held to every requirement
+   above. On either table:
+   · the blank row opens only in the table whose + was pressed, never in the
+     other one as well;
+   · a redraw of the table while it is open — one or two in a row — keeps it
+     open, keeps what was typed, and takes the focus back only when the blank
+     row had it;
+   · on a phone, where the table scrolls sideways, More options… is on screen.
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const { requirePlaywright, chromePath, APP, FIXTURE } = require('./_harness');
@@ -43,14 +53,14 @@ const DATA = FIXTURE();
   const modalOpen = () => page.evaluate(() => { const m = document.getElementById('modal'); return !!m && m.getClientRects().length > 0 && getComputedStyle(m).display !== 'none' && !m.classList.contains('closing'); });
   const closeAll = () => page.evaluate(() => { try { closeModal(); } catch (e) {} try { endCellEdit(true); } catch (e) {} });
   const editorIn = sel => page.evaluate(s => { const td = document.querySelector(s); const e = td && td.querySelector('input, textarea'); return e ? { tag: e.tagName, focused: document.activeElement === e } : null; }, sel);
-  const T = () => page.evaluate(() => {
+  const pick = () => page.evaluate(() => {
     computeWbsCodes();
     const leaf = tasks.find(t => !t.milestone && !isSummaryId(t.id) && !isTestCaseTask(t));
     const leaf2 = tasks.filter(t => !t.milestone && !isSummaryId(t.id) && !isTestCaseTask(t))[1];
     const ph = tasks.find(t => isSummaryId(t.id) && childrenOf(t.id).length >= 2);
     return { leaf: leaf && { id: leaf.id, name: leaf.name }, leaf2: leaf2 && leaf2.id, ph: ph && { id: ph.id, wbs: ph.wbs, n: childrenOf(ph.id).length } };
   });
-  const t0 = await T();
+  const t0 = await pick();
   if (!t0.leaf || !t0.ph) { say('fixture', 'the plan has no plain activity or no phase with two children'); }
   const L = t0.leaf && t0.leaf.id;
 
@@ -153,85 +163,159 @@ const DATA = FIXTURE();
     }
   }
 
-  // ═══ + OPENS A BLANK ROW IN PLACE ═══════════════════════════════════════
-  if (t0.ph) {
-    const P = t0.ph;
-    await page.evaluate(() => { switchTab('wbs'); renderWBS(); }); await page.waitForTimeout(150);
-    await page.click('#wbsContainer tr[data-wbsrow="' + P.id + '"] .wbs-add', { force: true });
+  // ═══ + OPENS A BLANK ROW IN PLACE — on the WBS tab and on Tasks ═════════
+  const TABLES = {
+    wbs:   { label: '',          tab: 'wbs',   box: '#wbsContainer', attr: 'data-wbsrow',  key: 'wbsrow', render: 'renderWBS',       other: '#taskBody' },
+    tasks: { label: ' (Tasks)', tab: 'tasks', box: '#taskBody',     attr: 'data-task-id', key: 'taskId', render: 'renderTaskTable', other: '#wbsContainer' }
+  };
+  const rowOf = (T, id) => T.box + ' tr[' + T.attr + '="' + id + '"]';
+  const show = T => page.evaluate(([tab, render]) => { try { closeModal(); } catch (e) {} switchTab(tab); window[render](); }, [T.tab, T.render]).then(() => page.waitForTimeout(150));
+  const draftIn = box => page.evaluate(b => { const d = document.querySelector(b + ' tr.wbs-draft'); const i = d && d.querySelector('input');
+    return d ? { value: i ? i.value : null, focused: !!i && document.activeElement === i } : null; }, box);
+
+  async function blankRow(name) {
+    const T = TABLES[name], A0 = '+ in place' + T.label, sfx = T.label ? ' ' + name : '';
+    const t1 = await pick();
+    if (!t1.ph) return say(A0, 'the plan has no phase with two children left to add under');
+    const P = t1.ph;
+    await show(T);
+
+    // + on every row but a milestone's
+    const cover = await page.evaluate(([box, attr]) => {
+      const rows = [...document.querySelectorAll(box + ' tr[' + attr + ']')];
+      const ms = rows.filter(r => (tasks.find(t => t.id === +r.getAttribute(attr)) || {}).milestone);
+      const work = rows.filter(r => !ms.includes(r));
+      return { work: work.length, workWithout: work.filter(r => !r.querySelector('.wbs-add')).length, ms: ms.length, msWith: ms.filter(r => r.querySelector('.wbs-add')).length };
+    }, [T.box, T.attr]);
+    if (!cover.work) say(A0, 'the table shows no rows to add under');
+    if (cover.workWithout) say(A0, cover.workWithout + ' of ' + cover.work + ' rows have no +');
+    if (cover.msWith) say(A0, cover.msWith + ' milestones offer a + — a date has no work under it');
+
+    await page.click(rowOf(T, P.id) + ' .wbs-add', { force: true }).catch(e => say(A0, 'the phase row\'s + cannot be pressed: ' + e.message.split('\n')[0]));
     await page.waitForTimeout(200);
-    const D = await page.evaluate(pid => {
-      const d = document.querySelector('#wbsContainer tr.wbs-draft');
+    const D = await page.evaluate(([pid, box, attr, other]) => {
+      const d = document.querySelector(box + ' tr.wbs-draft');
       if (!d) return null;
       // the row it sits under: the phase's last visible descendant, or the phase
       computeWbsCodes();
       const desc = new Set(); const walk = id => childrenOf(id).forEach(c => { desc.add(c.id); walk(c.id); }); walk(pid);
-      const rows = [...document.querySelectorAll('#wbsContainer tr[data-wbsrow]')];
-      const lastOf = rows.filter(r => +r.dataset.wbsrow === pid || desc.has(+r.dataset.wbsrow)).pop();
+      const rows = [...document.querySelectorAll(box + ' tr[' + attr + ']')];
+      const lastOf = rows.filter(r => +r.getAttribute(attr) === pid || desc.has(+r.getAttribute(attr))).pop();
       const inp = d.querySelector('input');
-      return { after: d.previousElementSibling === lastOf, focused: !!inp && document.activeElement === inp, parent: +d.dataset.parent };
-    }, P.id);
-    if (!D) say('+ in place', '+ on a phase opened no blank row in the table');
+      return { after: d.previousElementSibling === lastOf, focused: !!inp && document.activeElement === inp, parent: +d.dataset.parent,
+        elsewhere: !!document.querySelector(other + ' tr.wbs-draft') };
+    }, [P.id, T.box, T.attr, T.other]);
+    if (!D) return say(A0, '+ on a phase opened no blank row in the table');
+    if (await modalOpen()) say(A0, '+ opened the full dialog instead of a row in place');
+    if (D.parent !== P.id) say(A0, 'the blank row is not for the phase whose + was pressed');
+    if (!D.after) say(A0, 'the blank row is not directly under the last row of the phase');
+    if (!D.focused) say(A0, 'the blank row\'s name is not focused, so typing goes nowhere');
+    if (D.elsewhere) say(A0, 'a blank row opened in the other table as well');
+    await page.evaluate(r => window[r](), T.render); await page.waitForTimeout(150);
+    const K0 = await draftIn(T.box);
+    if (!K0) say(A0, 'a redraw of the table closed the blank row before anything was typed');
+    else if (!K0.focused) say(A0, 'a redraw of the table took the focus out of the empty blank row');
+    const before = await page.evaluate(() => tasks.length);
+    await page.keyboard.press('Enter'); await page.waitForTimeout(150);
+    if ((await page.evaluate(() => tasks.length)) !== before) say(A0, 'Enter on an empty blank row added an activity');
+    const one = 'Inline child one' + sfx, two = 'Inline child two' + sfx;
+    await page.keyboard.type(one); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
+    await page.keyboard.type(two); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
+    const A = await page.evaluate(([pid, n1, n2, box, other]) => {
+      computeWbsCodes();
+      const kids = childrenOf(pid);
+      const one = tasks.find(t => t.name === n1), two = tasks.find(t => t.name === n2);
+      const d = document.querySelector(box + ' tr.wbs-draft');
+      return { one: one && { parent: one.parentId, code: one.wbs, at: kids.indexOf(one) }, two: two && { parent: two.parentId, at: kids.indexOf(two) },
+        n: kids.length, draftAgain: !!d, focused: !!d && document.activeElement === d.querySelector('input'), wbs: (tasks.find(t => t.id === pid) || {}).wbs,
+        elsewhere: !!document.querySelector(other + ' tr.wbs-draft') };
+    }, [P.id, one, two, T.box, T.other]);
+    R['inline' + (sfx ? '_' + name : '')] = A;
+    if (!A.one || !A.two) say(A0, 'Enter did not add the typed activities (one: ' + !!A.one + ', two: ' + !!A.two + ')');
     else {
-      if (await modalOpen()) say('+ in place', '+ opened the full dialog instead of a row in place');
-      if (D.parent !== P.id) say('+ in place', 'the blank row is not for the phase whose + was pressed');
-      if (!D.after) say('+ in place', 'the blank row is not directly under the last row of the phase');
-      if (!D.focused) say('+ in place', 'the blank row\'s name is not focused, so typing goes nowhere');
-      const before = await page.evaluate(() => tasks.length);
-      await page.keyboard.press('Enter'); await page.waitForTimeout(150);
-      if ((await page.evaluate(() => tasks.length)) !== before) say('+ in place', 'Enter on an empty blank row added an activity');
-      await page.keyboard.type('Inline child one'); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
-      await page.keyboard.type('Inline child two'); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
-      const A = await page.evaluate(pid => {
-        computeWbsCodes();
-        const kids = childrenOf(pid);
-        const one = tasks.find(t => t.name === 'Inline child one'), two = tasks.find(t => t.name === 'Inline child two');
-        const d = document.querySelector('#wbsContainer tr.wbs-draft');
-        return { one: one && { parent: one.parentId, code: one.wbs, at: kids.indexOf(one) }, two: two && { parent: two.parentId, at: kids.indexOf(two) },
-          n: kids.length, draftAgain: !!d, focused: !!d && document.activeElement === d.querySelector('input'), wbs: (tasks.find(t => t.id === pid) || {}).wbs };
-      }, P.id);
-      R.inline = A;
-      if (!A.one || !A.two) say('+ in place', 'Enter did not add the typed activities (one: ' + !!A.one + ', two: ' + !!A.two + ')');
-      else {
-        if (A.one.parent !== P.id || A.two.parent !== P.id) say('+ in place', 'an activity added in place is not under the phase');
-        if (A.one.at !== P.n || A.two.at !== P.n + 1) say('+ in place', 'the added activities are not at the end of the phase, in the order typed');
-        if (A.one.code !== A.wbs + '.' + (P.n + 1)) say('+ in place', 'the first added activity is ' + A.one.code + ', not ' + A.wbs + '.' + (P.n + 1));
-      }
-      if (!A.draftAgain || !A.focused) say('+ in place', 'after Enter there is no fresh blank row ready for the next one');
-      await page.keyboard.press('Escape'); await page.waitForTimeout(150);
-      const gone = await page.evaluate(() => !document.querySelector('#wbsContainer tr.wbs-draft'));
-      if (!gone) say('+ in place', 'Esc did not close the blank row');
-      const un = await page.evaluate(() => { doUndo(); return tasks.some(t => t.name === 'Inline child two'); });
-      if (un) say('+ in place', 'undo did not take back the last activity added in place');
+      if (A.one.parent !== P.id || A.two.parent !== P.id) say(A0, 'an activity added in place is not under the phase');
+      if (A.one.at !== P.n || A.two.at !== P.n + 1) say(A0, 'the added activities are not at the end of the phase, in the order typed');
+      if (A.one.code !== A.wbs + '.' + (P.n + 1)) say(A0, 'the first added activity is ' + A.one.code + ', not ' + A.wbs + '.' + (P.n + 1));
     }
+    if (!A.draftAgain || !A.focused) say(A0, 'after Enter there is no fresh blank row ready for the next one');
+    if (A.elsewhere) say(A0, 'after Enter a blank row opened in the other table as well');
+
+    // a redraw keeps what was typed, and the focus only when the blank row had it
+    await page.keyboard.type('Half typed');
+    await page.evaluate(r => window[r](), T.render); await page.waitForTimeout(150);
+    const K1 = await draftIn(T.box);
+    if (!K1) say(A0, 'a redraw of the table closed the blank row with a name half typed');
+    else {
+      if (K1.value !== 'Half typed') say(A0, 'a redraw of the table lost what was typed in the blank row (it holds ' + JSON.stringify(K1.value) + ')');
+      if (!K1.focused) say(A0, 'a redraw of the table took the focus out of the blank row while it was being typed in');
+    }
+    await page.evaluate(r => { window[r](); window[r](); }, T.render); await page.waitForTimeout(150);
+    const K3 = await draftIn(T.box);
+    if (!K3 || K3.value !== 'Half typed' || !K3.focused) say(A0, 'two redraws in a row ' + (!K3 ? 'closed the blank row' : K3.value !== 'Half typed' ? 'lost what was typed' : 'took the focus out of the blank row'));
+    await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+    await page.evaluate(r => window[r](), T.render); await page.waitForTimeout(150);
+    const K2 = await draftIn(T.box);
+    if (K2 && K2.focused) say(A0, 'a redraw pulled the focus back into the blank row after it had left it');
+    if (K2 && K2.value !== 'Half typed') say(A0, 'a redraw lost the half-typed name once the focus had left it');
+    await page.focus(T.box + ' tr.wbs-draft input').catch(() => {});
+    await page.keyboard.press('ControlOrMeta+A'); await page.keyboard.press('Backspace');
+
+    await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+    const gone = await page.evaluate(b => !document.querySelector(b + ' tr.wbs-draft'), T.box);
+    if (!gone) say(A0, 'Esc did not close the blank row');
+    const un = await page.evaluate(n2 => { doUndo(); return tasks.some(t => t.name === n2); }, two);
+    if (un) say(A0, 'undo did not take back the last activity added in place');
 
     // More options… carries the name and the parent into the full dialog
-    await page.evaluate(() => { switchTab('wbs'); renderWBS(); }); await page.waitForTimeout(150);
-    await page.click('#wbsContainer tr[data-wbsrow="' + P.id + '"] .wbs-add', { force: true }); await page.waitForTimeout(150);
+    await show(T);
+    await page.click(rowOf(T, P.id) + ' .wbs-add', { force: true }); await page.waitForTimeout(150);
     await page.keyboard.type('A bigger piece of work');
-    const more = await page.$('#wbsContainer tr.wbs-draft .wbs-draft-more');
-    if (!more) say('+ in place', 'the blank row has no way into the full dialog');
+    const more = await page.$(T.box + ' tr.wbs-draft .wbs-draft-more');
+    if (!more) say(A0, 'the blank row has no way into the full dialog');
     else {
       await more.click(); await page.waitForTimeout(300);
       const M = await page.evaluate(pid => ({ open: document.getElementById('modal').getClientRects().length > 0, name: document.getElementById('mName').value,
         parent: resolveTaskRef(document.getElementById('mParent').value, modalParentMap) === pid }), P.id);
-      if (!M.open) say('More options…', 'it did not open the full dialog');
-      if (M.name !== 'A bigger piece of work') say('More options…', 'the typed name did not come with it ("' + M.name + '")');
-      if (!M.parent) say('More options…', 'the parent did not come with it');
+      if (!M.open) say('More options…' + T.label, 'it did not open the full dialog');
+      if (M.name !== 'A bigger piece of work') say('More options…' + T.label, 'the typed name did not come with it ("' + M.name + '")');
+      if (!M.parent) say('More options…' + T.label, 'the parent did not come with it');
       await closeAll();
     }
-  }
 
-  // + on a leaf makes it a phase
-  if (t0.leaf2) {
-    await page.evaluate(() => { switchTab('wbs'); renderWBS(); }); await page.waitForTimeout(150);
-    await page.click('#wbsContainer tr[data-wbsrow="' + t0.leaf2 + '"] .wbs-add', { force: true }).catch(e => say('+ under a leaf', 'its + cannot be pressed'));
-    await page.waitForTimeout(150);
-    await page.keyboard.type('A step within it'); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
-    await page.keyboard.press('Escape');
-    const LF = await page.evaluate(id => { const n = tasks.find(t => t.name === 'A step within it'); return { parent: n && n.parentId, sum: isSummaryId(id) }; }, t0.leaf2);
-    if (LF.parent !== t0.leaf2) say('+ under a leaf', 'the activity added in place is not under the leaf');
-    if (!LF.sum) say('+ under a leaf', 'the leaf did not become a phase');
+    // on a phone the table scrolls sideways; what the blank row offers stays on screen
+    {
+      const pc = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+      const pp = await pc.newPage();
+      pp.on('pageerror', e => errs.push(e.message));
+      await pp.goto(APP, { waitUntil: 'load' });
+      await pp.evaluate(([d, tab, render]) => { hydrate(d); calculate(); refreshAll(); switchTab(tab); window[render](); }, [DATA, T.tab, T.render]);
+      await pp.waitForTimeout(300);
+      const pid = await pp.evaluate(() => tasks.find(t => isSummaryId(t.id) && childrenOf(t.id).length >= 2).id);
+      await pp.tap(rowOf(T, pid) + ' .wbs-add').catch(e => say(A0, 'at a phone\'s width the + cannot be tapped: ' + e.message.split('\n')[0]));
+      await pp.waitForTimeout(250);
+      const PH = await pp.evaluate(b => { const m = document.querySelector(b + ' tr.wbs-draft .wbs-draft-more'); if (!m) return null;
+        m.closest('tr').scrollIntoView({ block: 'center' }); const r = m.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), w: innerWidth }; }, T.box);
+      if (!PH) say(A0, 'at a phone\'s width a tap on + opened no blank row');
+      else if (PH.left < 0 || PH.right > PH.w) say(A0, 'at a phone\'s width More options… is off screen (' + PH.left + '–' + PH.right + ' of ' + PH.w + ')');
+      await pc.close();
+    }
+
+    // + on a leaf makes it a phase
+    const leaf = (await pick()).leaf2;
+    if (leaf) {
+      const A1 = '+ under a leaf' + T.label, step = 'A step within it' + sfx;
+      await show(T);
+      await page.click(rowOf(T, leaf) + ' .wbs-add', { force: true }).catch(e => say(A1, 'its + cannot be pressed'));
+      await page.waitForTimeout(150);
+      await page.keyboard.type(step); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
+      await page.keyboard.press('Escape');
+      const LF = await page.evaluate(([id, st]) => { const n = tasks.find(t => t.name === st); return { parent: n && n.parentId, sum: isSummaryId(id) }; }, [leaf, step]);
+      if (LF.parent !== leaf) say(A1, 'the activity added in place is not under the leaf');
+      if (!LF.sum) say(A1, 'the leaf did not become a phase');
+    }
   }
+  await blankRow('wbs');
+  await blankRow('tasks');
 
   R.pageErrors = errs.slice(0, 8);
   console.log(JSON.stringify(R, null, 1));
