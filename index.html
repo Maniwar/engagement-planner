@@ -5814,7 +5814,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.1455</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.1638</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -22246,8 +22246,9 @@ Or say what you want, in your own words:
           if (redundantEdges.has(t0.id + ':' + p.id)) { redundantDropped++; return; }
           const pt0 = tasks.find(x => x.id === p.id);
           if (!pt0) return;
+          const plain = p.type === 'FS' && !p.lag;
           if (!linkSucc.has(p.id)) linkSucc.set(p.id, []);
-          linkSucc.get(p.id).push(t0.id);
+          linkSucc.get(p.id).push({ v: t0.id, plain });
           const t = repOf(t0.id), pt = repOf(p.id);
           if (!t || !pt || t.id === pt.id) return;
           /* A gate stays on show under a folded phase; its links to work
@@ -22258,7 +22259,6 @@ Or say what you want, in your own words:
              then dropped two arrows each "implied" by the other — so nothing
              led from one phase into the next. The gates are joined below. */
           if (holds(t.id, pt.id) || holds(pt.id, t.id)) return;
-          const plain = p.type === 'FS' && !p.lag;
           const pairKey = pt.id + '>' + t.id;
           if (drawnPairs.has(pairKey)) {
             // a pair is only reducible if EVERY link folded into it is plain
@@ -22277,6 +22277,40 @@ Or say what you want, in your own words:
           pairByKey.set(pairKey, rec); pairList.push(rec);
         });
       });
+      /* Gates showing under one folded phase that wait on each other through
+         its hidden work are joined gate to gate, so dropping their loops into
+         the phase bar leaves none floating with nothing to say where it sits in
+         the flow. The walk goes only through work hidden in that phase and
+         stops at the first row on show. A join is plain when some chain to it
+         is plain finish-to-start throughout: then it gates the later gate as
+         surely as a link would, and the pass below may drop a gate's own long
+         line to that gate — a folded build phase drew one beside the join
+         from its first review to its final one, the same constraint twice. */
+      const reachIn = (mId, phId, plainOnly) => {
+        const out = new Set(), got = new Set([mId]), q = [mId];
+        while (q.length) (linkSucc.get(q.shift()) || []).forEach(({ v, plain }) => {
+          if ((plainOnly && !plain) || got.has(v)) return;
+          got.add(v);
+          if (visibleIds.has(v)) { out.add(v); return; }
+          const r = repOf(v);
+          if (r && r.id === phId) q.push(v);
+        });
+        return out;
+      };
+      collapsedIds.forEach(phId => {
+        if (!visibleIds.has(phId)) return;
+        const shown = new Set(rows.filter(o => holds(phId, o.task.id)).map(o => o.task.id));
+        shown.forEach(mId => {
+          const plainTo = reachIn(mId, phId, true);
+          reachIn(mId, phId, false).forEach(v => {
+            const key = mId + '>' + v;
+            if (!shown.has(v) || drawnPairs.has(key)) return;
+            drawnPairs.add(key);
+            const m = tasks.find(x => x.id === mId), n = tasks.find(x => x.id === v);
+            pairList.push({ key, t0: n, pt0: m, t: n, pt: m, plain: plainTo.has(v), type: 'FS', join: true });
+          });
+        });
+      });
       // Transitive reduction over the pairs actually about to be drawn. The
       // redundantEdges filter above reads raw `predecessors`, so it cannot see
       // the far bigger source of arrows here: effectivePreds hands a dependency
@@ -22289,7 +22323,6 @@ Or say what you want, in your own words:
       // weaker than the direct link, and SS/FF anchor different ends.
       let impliedHidden = 0;
       {
-        // pairs only: the gate-to-gate arrows added below are context, never a bypass
         const succ = new Map();
         pairList.forEach(e => { if (!e.plain) return; if (!succ.has(e.pt.id)) succ.set(e.pt.id, []); succ.get(e.pt.id).push(e); });
         // can `to` still be reached from `from` without arrow `skip`, on what is still drawn
@@ -22308,36 +22341,9 @@ Or say what you want, in your own words:
            as "implied" by the other, which left nothing joining the rows. */
         pairList.forEach(e => {
           e.implied = e.plain && reachWithout(e.pt.id, e.t.id, e);
-          if (e.implied) impliedHidden++;
+          if (e.implied && !e.join) impliedHidden++;   // a join is no link of the plan's
         });
       }
-      /* Gates showing under one folded phase that wait on each other through
-         its hidden work are joined gate to gate, so dropping their loops into
-         the phase bar leaves none floating with nothing to say where it sits in
-         the flow. The walk goes only through work hidden in that phase and
-         stops at the first row on show. */
-      collapsedIds.forEach(phId => {
-        if (!visibleIds.has(phId)) return;
-        const shown = new Set(rows.filter(o => holds(phId, o.task.id)).map(o => o.task.id));
-        shown.forEach(mId => {
-          const got = new Set([mId]), q = [mId];
-          while (q.length) (linkSucc.get(q.shift()) || []).forEach(v => {
-            if (got.has(v)) return;
-            got.add(v);
-            if (visibleIds.has(v)) {
-              const key = mId + '>' + v;
-              if (shown.has(v) && !drawnPairs.has(key)) {
-                drawnPairs.add(key);
-                const m = tasks.find(x => x.id === mId), n = tasks.find(x => x.id === v);
-                pairList.push({ key, t0: n, pt0: m, t: n, pt: m, plain: false, type: 'FS', implied: false });
-              }
-              return;
-            }
-            const r = repOf(v);
-            if (r && r.id === phId) q.push(v);
-          });
-        });
-      });
       pairList.forEach(({ t0, pt0, t, pt, implied, type }) => { if (!implied) edgeList.push({ t0, pt0, t, pt, type }); });
       // never silently thin the picture — say how many arrows were left out
       {

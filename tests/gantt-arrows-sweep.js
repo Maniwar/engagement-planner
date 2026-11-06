@@ -10,7 +10,8 @@
    the other's work (folded, the picture goes round in a circle), and one
    where four arrows a day apart drop past a gate with a short label and then
    one with a long label (so one of them, whatever the font, is a step short
-   of clearing the first label and nowhere near clearing the second). The
+   of clearing the first label and nowhere near clearing the second), and one
+   whose gates wait on each other through hidden work with a lead in it. The
    sample plan runs too.
 
    Each view is drawn, and every arrow is measured against the shapes on the
@@ -77,6 +78,17 @@
       is the label as drawn, to within 1.5 px. The chart's room-making guess at
       a label's width runs up to 35 px wide; kept clear on that guess, a line
       stepped round text that was not there and into the next label.
+   15. No arrow is drawn that other drawn arrows already imply: no chain of
+      them leads from its predecessor's row to its successor's through plain
+      finish-to-start links alone (an arrow joining two gates through a folded
+      phase's hidden work counts, when every link in that work is one). Folded,
+      a build phase drew a gate's line to the final review beside the arrow
+      that joined the first review to the final one — the same constraint
+      twice, and a third red line down the phase.
+   16. And no link is left out that they do not imply: where a link joins two
+      rows and no arrow is drawn for it, it is a plain finish-to-start and a
+      chain of drawn plain finish-to-start arrows leads there instead. A lead
+      in the hidden work makes the chain round it weaker than the link.
 
    Views: everything open on dates, on weeks, and on days zoomed in; the
    screenshot's folds on dates, on weeks, and on days zoomed in; phases only
@@ -215,7 +227,13 @@ P2.10|4|P2.4.1
 14.8|2|14.2
 14.9|2|14.3
 14.10|2|14.4
-14.11|2|14.5`.split('\n').map(l => l.split('|'));
+14.11|2|14.5
+15||LEAD
+15.1|0|10.7|go-ahead for the phase with a lead
+15.2||15.1
+15.2.1|0||first step of the phase signed off
+15.2.2|3|15.2.1FS-2
+15.2.3|0|15.2.2|last step of the phase signed off`.split('\n').map(l => l.split('|'));
 const FOLDS = ['P2.4', '3.1', '3.3', '4.2', '4.3'];
 const TODAY = '2026-11-05';
 
@@ -466,6 +484,49 @@ function judge(C, view, say) {
       });
     });
   });
+  // 15–16. an arrow a plain chain of drawn arrows implies is not drawn, and a link left undrawn is one they imply
+  const plainIn = new Map(C.sched.map(t => [t.id, new Set(t.plain)]));
+  // the links folded into each pair of rows, and whether every one is a plain finish-to-start
+  const pairPlain = new Map();
+  succ.forEach((outs, p) => outs.forEach(t => {
+    const A = repOf(p), B = repOf(t);
+    if (A == null || B == null || A === B || isAnc(A, B) || isAnc(B, A)) return;
+    const k = A + '>' + B;
+    pairPlain.set(k, (pairPlain.has(k) ? pairPlain.get(k) : true) && plainIn.get(t).has(p));
+  }));
+  // no link of its own joins the two rows: a chain through work hidden in a folded phase both show under
+  const plainSucc = new Map();
+  C.sched.forEach(t => t.plain.forEach(p => { if (red.has(t.id + ':' + p)) return; if (!plainSucc.has(p)) plainSucc.set(p, []); plainSucc.get(p).push(t.id); }));
+  const hiddenPlain = (u, v) => C.collapsed.some(ph => {
+    if (!shape.has(ph) || !isAnc(ph, u) || !isAnc(ph, v)) return false;
+    const got = new Set([u]), q = [u];
+    while (q.length) for (const w of (plainSucc.get(q.shift()) || [])) {
+      if (w === v) return true;
+      if (got.has(w) || shape.has(w) || repOf(w) !== ph) continue;
+      got.add(w); q.push(w);
+    }
+    return false;
+  });
+  const stepPlain = (u, v) => pairPlain.has(u + '>' + v) ? pairPlain.get(u + '>' + v) : hiddenPlain(u, v);
+  const drawn = C.links.filter(L => L.from && L.to).map(L => [+L.from, +L.to]);
+  const plainChain = (x, y, skip) => {
+    const got = new Set([x]), q = [x];
+    while (q.length) { const u = q.shift(); for (const e of drawn) {
+      if (e === skip || e[0] !== u || got.has(e[1]) || !stepPlain(e[0], e[1])) continue;
+      if (e[1] === y) return true;
+      got.add(e[1]); q.push(e[1]);
+    } }
+    return false;
+  };
+  drawn.forEach(e => {
+    if (stepPlain(e[0], e[1]) && plainChain(e[0], e[1], e)) say(view + ' · ' + e.join('>'), 'the arrow from ' + nm(e[0]) + ' to ' + nm(e[1]) + ' is drawn, though other arrows already lead there through plain finish-to-start links alone, so it moves no date');
+  });
+  const isDrawn = new Set(drawn.map(e => e.join('>')));
+  pairPlain.forEach((plain, k) => {
+    if (isDrawn.has(k)) return;
+    const [A, B] = k.split('>').map(Number);
+    if (!plain || !plainChain(A, B, null)) say(view + ' · ' + k, 'no arrow joins ' + nm(A) + ' to ' + nm(B) + ', though a link joins them, and ' + (plain ? 'no chain of plain finish-to-start arrows leads there instead' : 'the link is not a plain finish-to-start, so no chain implies it'));
+  });
   return C.links.length;
 }
 
@@ -500,6 +561,8 @@ function judge(C, view, say) {
     return {
       x0: +svg.dataset.x0, dayW: +svg.dataset.dayw, start: svg.dataset.start, w: +svg.getAttribute('width'), shapes, links,
       sched: tasks.map(t => ({ id: t.id, parent: t.parentId, preds: (t.predecessors || []).map(p => p.id), eff: t.isSummary ? [] : effectivePreds(t).map(p => p.id),
+        // the predecessors every one of whose links to this activity is a plain finish-to-start
+        plain: t.isSummary ? [] : (E => [...new Set(E.map(p => p.id))].filter(id => E.every(p => p.id !== id || (p.type === 'FS' && !p.lag))))(effectivePreds(t)),
         name: t.name, start: t.startDate ? fmtISO(t.startDate) : null, finish: t.finishDate ? fmtISO(t.finishDate) : null, ms: !!t.milestone })),
       redundant: redundantLinkList().map(r => r.task.id + ':' + r.predId), collapsed: [...collapsedIds]
     };

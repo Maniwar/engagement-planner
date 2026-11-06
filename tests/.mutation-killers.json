@@ -666,5 +666,7 @@
  "arrows: a gate's label is not kept clear at all": "gantt-arrows-sweep.js",
  "arrows: a step for a label jogs past one label only to cross the next": "gantt-arrows-sweep.js",
  "arrows: a label is stepped round however far the detour": "gantt-arrows-sweep.js",
- "arrows: a label is kept clear by the wide room-making estimate, not as drawn": "gantt-arrows-sweep.js"
+ "arrows: a label is kept clear by the wide room-making estimate, not as drawn": "gantt-arrows-sweep.js",
+ "arrows: a join never counts as a chain, so a gate's long line runs beside it": "gantt-arrows-sweep.js",
+ "arrows: a join counts as a chain even through a lead, so a link it does not imply goes undrawn": "gantt-arrows-sweep.js"
 }

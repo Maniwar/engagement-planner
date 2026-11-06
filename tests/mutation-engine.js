@@ -3377,8 +3377,19 @@ const MUTANTS = [
     with: "if (f === skip || got.has(f.t.id)) continue;" },
 
   { what: 'arrows: gates under one folded phase, chained through its hidden work, are left unjoined',
-    find: "if (shown.has(v) && !drawnPairs.has(key)) {",
-    with: "if (false) {" },
+    find: "if (!shown.has(v) || drawnPairs.has(key)) return;",
+    with: "return;" },
+
+  /* A join between two gates is plain when a chain to it is plain throughout,
+     and then the implied-arrow pass may drop a gate's own long line beside
+     it; a lead in the hidden work makes the chain weaker than the link. */
+  { what: 'arrows: a join never counts as a chain, so a gate\'s long line runs beside it',
+    find: "pairList.push({ key, t0: n, pt0: m, t: n, pt: m, plain: plainTo.has(v), type: 'FS', join: true });",
+    with: "pairList.push({ key, t0: n, pt0: m, t: n, pt: m, plain: false, type: 'FS', join: true });" },
+
+  { what: 'arrows: a join counts as a chain even through a lead, so a link it does not imply goes undrawn',
+    find: "if ((plainOnly && !plain) || got.has(v)) return;",
+    with: "if (got.has(v)) return;" },
 
   { what: 'arrows: a gate\'s label is not kept clear at all',
     find: "return a > cx ? [hardIv[r][0], b + 1] : [a - 1, hardIv[r][1]];",

@@ -994,7 +994,8 @@ Reported with a screenshot of a real engagement plan: "weird arrows coming
 into shapes incorrectly". `gantt-arrows-sweep.js` draws a plan with that plan's
 shape (its WBS codes, durations, links and folds, under neutral names, plus a
 phase using every link type, two phases that each wait on the other's work,
-and a phase built to pass lines by labels of uneven length) and the sample
+a phase built to pass lines by labels of uneven length, and one whose
+milestones wait on each other through hidden work with a lead in it) and the sample
 plan, in fifteen views: open, the screenshot's folds, and every level button
 (L1, L2, L3). It measures every arrow against the drawn shapes and against
 dates it counts itself:
@@ -1022,6 +1023,12 @@ dates it counts itself:
 - **No link lost.** Where an activity waits on one that shows as another row,
   a chain of drawn arrows joins the two rows. Milestones under one folded phase
   that wait on each other through its hidden work are joined directly.
+- **No arrow a chain already implies, and no link dropped that one does not.**
+  No arrow is drawn where other drawn arrows already lead from its start to
+  its end through plain finish-to-start links alone. A join between two
+  milestones counts when the hidden work between them is all plain
+  finish-to-start. Where a link joins two rows and no arrow is drawn for it,
+  the link is plain finish-to-start and such a chain leads there instead.
 - **Clear of labels where that is cheap.** No line runs through a milestone's
   label when the column beside its diamond, away from the label, was within
   40 px. A step taken for a label must have a label to clear, be at most 40 px,
@@ -1054,6 +1061,12 @@ when the straight drop is blocked. What the dry runs taught:
   dropped PRE-PLAN → PLAN and PRE-PLAN → its first milestones, each as implied
   by the other. Each arrow is now judged on the arrows still drawn, which gives
   the same answer on a plan without loops.
+- **A join is a chain too.** The joins between milestones under a folded phase
+  were added after the pass that drops implied arrows, so they never counted.
+  At L1 the customer signoff then drew its own red line to the final build
+  review, beside the join from the first review to the final one. A join now
+  counts when the hidden work it stands for is all plain finish-to-start. A
+  lead in that work makes the chain weaker than the link, and the link stays.
 - **A bar starting on day one has no left side.** An activity's bar may be
   crossed when both ways round are off the chart or past the detour limit.
   The router always did this; the rule now says so, after the label phase put
