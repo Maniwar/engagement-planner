@@ -648,5 +648,16 @@
  "asks first: Fix all with AI changes the plan without asking": "ask-first-sweep.js",
  "asks first: answering no to Fix all with AI changes the plan anyway": "ask-first-sweep.js",
  "asks first: Fix all with AI asks only after the AI has answered": "ask-first-sweep.js",
- "asks first: the Fix all question does not say how many fixes it applies": "ask-first-sweep.js"
+ "asks first: the Fix all question does not say how many fixes it applies": "ask-first-sweep.js",
+ "arrows: a folded phase sends its arrows from its own end again": "gantt-arrows-sweep.js",
+ "arrows: an arrow into a folded phase lands at the phase's own start, not the hidden activity's": "gantt-arrows-sweep.js",
+ "arrows: a start-to-start link leaves the predecessor's finish": "gantt-arrows-sweep.js",
+ "arrows: a finish-to-finish link lands on the successor's start": "gantt-arrows-sweep.js",
+ "arrows: a diamond is entered from its side again": "gantt-arrows-sweep.js",
+ "arrows: a diamond is left from its side, through its own label": "gantt-arrows-sweep.js",
+ "arrows: an arrow drops straight through whatever is in its way": "gantt-arrows-sweep.js",
+ "arrows: the head into the start of a bar sits on a stub shorter than itself": "gantt-arrows-sweep.js",
+ "arrows: the drop into a bar lands well past its start": "gantt-arrows-sweep.js",
+ "arrows: a pair folded into one arrow draws its first link, not the one that gates it": "gantt-arrows-sweep.js",
+ "arrows: an arrow steps aside for the bar of the phase it is entering": "gantt-arrows-sweep.js"
 }

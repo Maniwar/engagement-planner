@@ -3312,6 +3312,56 @@ const MUTANTS = [
            "+ (n === 1 ? 'that finding' : 'all ' + n + ' findings')"],
     with: ["return 'Apply the fixes to the plan with AI?\\n\\n'",
            "+ (n === 1 ? 'that finding' : 'all the findings')"] },
+
+  /* ═══ EVERY GANTT ARROW JOINS THE TWO DATES ITS LINK NAMES ═════════════════
+     Arrows ran back from a folded phase's end into the far ends of the bars
+     they fed, one spine ran through every bar of a fan, and link types were
+     ignored. Each mutant below breaks one rule from the top of
+     gantt-arrows-sweep.js. */
+
+  { what: 'arrows: a folded phase sends its arrows from its own end again',
+    find: "const ax = Math.max(sh.x, Math.min(sh.x2, anchorX(tt0, fromFinish)));",
+    with: "const ax = fromFinish ? sh.x2 : sh.x;" },
+
+  { what: 'arrows: an arrow into a folded phase lands at the phase\'s own start, not the hidden activity\'s',
+    find: "const ax = Math.max(sh.x, Math.min(sh.x2, anchorX(tt0, toFinish)));",
+    with: "const ax = toFinish ? sh.x2 : sh.x;" },
+
+  { what: 'arrows: a start-to-start link leaves the predecessor\'s finish',
+    find: "const fromFinishOf = ty => ty !== 'SS' && ty !== 'SF';",
+    with: "const fromFinishOf = ty => true;" },
+
+  { what: 'arrows: a finish-to-finish link lands on the successor\'s start',
+    find: "const toFinishOf = ty => ty === 'FF' || ty === 'SF';",
+    with: "const toFinishOf = ty => false;" },
+
+  { what: 'arrows: a diamond is entered from its side again',
+    find: "if (sh.kind === 'ms') return { e: sh.cx, y: sh.cy + (fromAbove ? -10 : 10), left: null };",
+    with: "if (sh.kind === 'ms') return { e: sh.cx, y: sh.cy + (fromAbove ? -10 : 10), left: sh.cx - 10, mid: sh.cy };" },
+
+  { what: 'arrows: a diamond is left from its side, through its own label',
+    find: "if (sh.kind === 'ms') { const y = sh.cy + (down ? 11 : -11); return { pts: [[sh.cx, y]], c: sh.cx, horiz: false }; }",
+    with: "if (sh.kind === 'ms') return { pts: [[sh.cx + 11, sh.cy], [sh.cx + 17, sh.cy]], c: sh.cx + 17, horiz: true, dir: 1 };" },
+
+  { what: 'arrows: an arrow drops straight through whatever is in its way',
+    find: "if (own.has(r) || !blocks(r, cur)) continue;",
+    with: "continue;" },
+
+  { what: 'arrows: the head into the start of a bar sits on a stub shorter than itself',
+    find: "const want = N.left - 11;",
+    with: "const want = N.left - 4;" },
+
+  { what: 'arrows: the drop into a bar lands well past its start',
+    find: "const inset = Math.min(6, (sh.x2 - sh.x) / 2);",
+    with: "const inset = Math.min(16, (sh.x2 - sh.x) / 2);" },
+
+  { what: 'arrows: a pair folded into one arrow draws its first link, not the one that gates it',
+    find: "Object.assign(ex, { t0, pt0, type: p.type });",
+    with: "void ex;" },
+
+  { what: 'arrows: an arrow steps aside for the bar of the phase it is entering',
+    find: "if (own.has(r) || !blocks(r, cur)) continue;",
+    with: "if (!blocks(r, cur)) continue;" },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and
@@ -3491,7 +3541,8 @@ const LIKELY = {
   'sync:': 'trunk-sweep.js', 'the sync control': 'trunk-sweep.js',
   'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js',
   'in place:': 'wbs-inline-sweep.js', 'asks first:': 'ask-first-sweep.js',
-  'row actions:': 'row-actions-sweep.js', 'gantt view:': 'gantt-view-sweep.js'
+  'row actions:': 'row-actions-sweep.js', 'gantt view:': 'gantt-view-sweep.js',
+  'arrows:': 'gantt-arrows-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is

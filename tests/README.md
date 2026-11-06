@@ -988,6 +988,53 @@ dry runs taught:
   even without the guard. The note saying arrows are not drawn has its own
   mutant.
 
+## Gantt arrows join the dates their links name
+
+Reported with a screenshot of a real engagement plan: "weird arrows coming
+into shapes incorrectly". `gantt-arrows-sweep.js` draws a plan with that plan's
+shape (its WBS codes, durations, links and folds, under neutral names, plus a
+phase using every link type) and the sample plan, in ten views. It measures
+every arrow against the drawn shapes and against dates it counts itself:
+
+- **Leaves at the right date.** Finish for finish-to-start and
+  finish-to-finish, start for start-to-start and start-to-finish. From a folded
+  phase, the arrow leaves the phase bar at the hidden activity's own date. It
+  used to leave from the phase's end, so arrows ran back into the far ends of
+  the bars they fed.
+- **Lands at the right date.** A bar's start (or finish, for -to-finish links),
+  a diamond only through its top or bottom point, a folded phase at the hidden
+  activity's date. The head points into the shape and rides a straight run
+  at least 8 px long.
+- **Touches nothing on the way.** No arrow runs through an activity's bar, a
+  diamond, or either of its own ends. Phase bars may be crossed: phases overlap
+  in time, so an arrow into a phase that began earlier must pass its bar.
+- **One arrow per pair, and the gating one.** Where several hidden activities
+  link to one successor, the arrow draws the one that finishes last.
+- **No detour round its own phase.** An arrow does not step aside for the bar of
+  a phase that holds one of its ends.
+
+The router behind it travels in the gaps between rows and crosses a row only at
+a column that row's shape leaves clear, stepping aside in the gap above the row
+when the straight drop is blocked. What the dry runs taught:
+
+- **A crash is not a catch.** The first tryouts passed `tests/<name>` to a tool
+  that adds `tests/` itself. Every check died on a missing file, and the tool
+  reported all of them as caught. Run a tryout against the real product first:
+  it must come back green.
+- **Steering round labels made staircases.** Arrows that stepped around every
+  milestone label zig-zagged down the chart. Labels sit on a white halo above
+  the lines, so the router steers round shapes only.
+- **Shared rails earned nothing.** Making arrows into one activity reuse an
+  earlier arrow's columns changed the bends by about 1%. It came out. Ignoring a
+  phase's own bar is what cut the clutter: without it, 88 more arrows bent more
+  than four times. The "no box round a diamond" rule went with the rails,
+  because nothing on these plans could still make one.
+- **Rows that wait on their own phase are a loop.** The screenshot's table has
+  rows like "5.2.1 waits on 5.2". The app refuses such a plan, so the
+  fixture drops those links, as the import would have to.
+
+Each rule has a planted defect in the engine (prefix `arrows:`).
+
 ## Feature probes — which are NOT checks
 
 `budget-split.js` and `raid-outcomes.js` moved to `tests/probes/`, because they

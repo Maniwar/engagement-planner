@@ -5814,7 +5814,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.05.2021</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.0033</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -22187,6 +22187,15 @@ Or say what you want, in your own words:
         });
         return bxx + (sameDayPred ? dayW : 0);
       };
+      /* A link joins two DATES, and its type says which: finish-to-start leaves
+         the predecessor's finish and lands on the successor's start, a
+         start-to-start leaves the start, and -to-finish links land on the
+         finish. These are the x of those dates for any activity, drawn or
+         folded away — the same arithmetic drawBar uses for a bar's two ends. */
+      const spanEnd = tt => tt.milestone ? msAnchorX(tt) : dateX(tt.startDate) + Math.max(dayW, (calDaysBetween(tt.startDate, tt.finishDate) + 1) * dayW);
+      const anchorX = (tt, atFinish) => tt.milestone ? msAnchorX(tt) : atFinish ? spanEnd(tt) : dateX(tt.startDate);
+      const fromFinishOf = ty => ty !== 'SS' && ty !== 'SF';
+      const toFinishOf = ty => ty === 'FF' || ty === 'SF';
       let links = '';
       /* Transitively-redundant edges add arrows but no gating — don't draw them.
          redundantLinkList is type- and lag-aware, so a lagged or SS/FF link that
@@ -22203,15 +22212,12 @@ Or say what you want, in your own words:
       // first drawn pair wins, and real-flow links come before TC plumbing).
       const repOf = id => { let cur = tasks.find(x => x.id === id); let g = 0; while (cur && !visibleIds.has(cur.id) && g++ < 50) cur = tasks.find(x => x.id === cur.parentId); return (cur && visibleIds.has(cur.id)) ? cur : null; };
       const drawnPairs = new Set();
-      const inCount = new Map(); // per visible successor — staggers converging drops
       /* People lanes draw no arrows. An activity two people share sits in two
          lanes, so an arrow has two places to land, and a network routed across
          lanes sorted by name is a lattice nobody can trace. The note below says
          so instead of leaving them silently missing. */
       const leafOrder = people ? [] : leafTasks().slice().sort((a, b) => (isTestCaseTask(a) ? 1 : 0) - (isTestCaseTask(b) ? 1 : 0));
-      // pass 1: resolve edges (rep remap + dedupe) so convergence is known
-      // BEFORE drawing — 3+ links entering one bar merge onto a collector
-      // lane with a SINGLE entry arrow instead of a row of arrowheads
+      // pass 1: resolve the edges (folded ends remapped, one per pair) before any is drawn
       const edgeList = [];
       const pairList = [], pairByKey = new Map();
       leafOrder.forEach(t0 => {
@@ -22225,11 +22231,18 @@ Or say what you want, in your own words:
           const pairKey = pt.id + '>' + t.id;
           if (drawnPairs.has(pairKey)) {
             // a pair is only reducible if EVERY link folded into it is plain
-            const ex = pairByKey.get(pairKey); if (ex && !plain) ex.plain = false;
+            const ex = pairByKey.get(pairKey); if (!ex) return;
+            if (!plain) ex.plain = false;
+            // ONE arrow per pair, and it draws the link that gates the pair: the
+            // latest predecessor date folded into it (real flow before test-case
+            // plumbing). Keeping whichever came first drew a folded phase's
+            // earliest activity as the reason for a start it does not set.
+            const tc = isTestCaseTask(t0) && !isTestCaseTask(pt0), exTc = isTestCaseTask(ex.t0) && !isTestCaseTask(ex.pt0);
+            if ((exTc && !tc) || (tc === exTc && anchorX(pt0, fromFinishOf(p.type)) > anchorX(ex.pt0, fromFinishOf(ex.type)) + 0.5)) Object.assign(ex, { t0, pt0, type: p.type });
             return;
           }
           drawnPairs.add(pairKey);
-          const rec = { key: pairKey, t0, pt0, t, pt, plain };
+          const rec = { key: pairKey, t0, pt0, t, pt, plain, type: p.type };
           pairByKey.set(pairKey, rec); pairList.push(rec);
         });
       });
@@ -22263,11 +22276,7 @@ Or say what you want, in your own words:
           if (e.implied) impliedHidden++;
         });
       }
-      pairList.forEach(({ t0, pt0, t, pt, implied }) => {
-        if (implied) return;
-        const k = inCount.get(t.id) || 0; inCount.set(t.id, k + 1);
-        edgeList.push({ t0, pt0, t, pt, k });
-      });
+      pairList.forEach(({ t0, pt0, t, pt, implied, type }) => { if (!implied) edgeList.push({ t0, pt0, t, pt, type }); });
       // never silently thin the picture — say how many arrows were left out
       {
         const el = document.getElementById('ganttImplNote');
@@ -22278,202 +22287,142 @@ Or say what you want, in your own words:
           ? '<b>' + hidden + '</b> implied link(s) not drawn — a longer chain already gates each one, so removing it would move no date. See the <a href="#" onclick="switchTab(\'pert\');return false">PERT</a> tab to inspect them. • '
           : '';
       }
-      const mergeGroups = new Map(); // successor id → bus-spine state
-      edgeList.forEach(e => {
-        const pyC = Y0 + rowIndexOf[e.pt.id] * ROWH + (e.pt.isSummary ? 13 : ROWH / 2);
-        const syC = Y0 + rowIndexOf[e.t.id] * ROWH + (e.t.isSummary ? 13 : ROWH / 2);
-        if (pyC < syC) { // converging from above
-          const g = mergeGroups.get(e.t.id) || { n: 0, cols: [], crit: false, allTc: true, maxPX: 0, minSubL: Infinity };
-          const spanW0 = e.pt.milestone ? (msAnchorX(e.pt) - dateX(e.pt.startDate)) + 10 : Math.max(dayW, (calDaysBetween(e.pt.startDate, e.pt.finishDate) + 1) * dayW);
-          g.maxPX = Math.max(g.maxPX, dateX(e.pt.startDate) + spanW0 + 32);
-          g.minSubL = Math.min(g.minSubL, Y0 + rowIndexOf[e.pt.id] * ROWH + ROWH - 3.5);
-          g.n++; mergeGroups.set(e.t.id, g);
+      /* ═══ THE ROUTE AN ARROW TAKES ═══════════════════════════════════════
+         Each arrow leaves its predecessor at the date the link anchors to and
+         lands on its successor at the other — on the phase bar, at the hidden
+         activity's own date, when either end is folded away. The old router
+         drew from a folded phase's END, so five activities waiting on a
+         one-day call early in the phase were reached by arrows that ran back
+         from its last day into the far ends of their bars; and it merged three
+         or more links onto one spine that ran through every bar it fed.
+
+         Between rows an arrow travels in the gaps, which no shape reaches, and
+         it crosses a row only at a column nothing on that row covers: where the
+         straight drop is blocked it steps aside in the gap above the row, to
+         the nearest clear column. Arrows of a fan meet the same blockers, so
+         they settle on the same columns and read as one rail with taps.
+         An arrow does not steer round the bar of a phase that holds one of
+         its own ends: it is entering (or leaving) that phase anyway, and the
+         detour round the phase's far end made it longer — and drew a box round
+         a diamond that two arrows into one gate passed on either side.
+         Milestone labels are not steered round — stepping round every label
+         made staircases — and they sit on a white halo above the lines.
+
+         What earlier fixes taught, and this keeps:
+         - a diamond is entered through its top or bottom point — a sideways
+           entry floats beside it — and left the same way, because its label
+           sits on its right at mid-height;
+         - a phase bar is the thin bar at the top of its row: arrows meet the
+           bar itself, not the empty middle of the row;
+         - the head rides a straight run longer than the head, or it sits
+           crooked on the bend;
+         - a long run along a predecessor's row cuts through its slack hatch,
+           so beyond a couple of days it travels the gap under the row. */
+      const PADX = 4;                                  // clearance either side of a shape
+      const shapeOf = tt => {
+        const top = Y0 + rowIndexOf[tt.id] * ROWH;
+        if (tt.milestone) return { kind: 'ms', top, cx: msAnchorX(tt), cy: top + ROWH / 2 };
+        const x = dateX(tt.startDate), x2 = spanEnd(tt);
+        return tt.isSummary
+          ? { kind: 'sum', top, x, x2, y1: top + 10, y2: top + 17, cap: top + 23, mid: top + 13 }
+          : { kind: 'bar', top, x, x2, y1: top + 7, y2: top + 7 + BAR_H, mid: top + ROWH / 2 };
+      };
+      // per row: the span a vertical line must not cross — the row's one shape
+      const hardIv = rows.map(({ task: tt }) => { const sh = shapeOf(tt); return sh.kind === 'ms' ? [sh.cx - 10 - PADX, sh.cx + 10 + PADX] : [sh.x - PADX, sh.x2 + PADX]; });
+      const COL_LO = X0 + 2, COL_HI = W - PAD - 2;
+      const blocks = (r, x) => x > hardIv[r][0] && x < hardIv[r][1];
+      // the clear column on row r nearest `want`, leaning toward `toward` on a tie
+      const clearOn = (r, want, toward) => {
+        if (!blocks(r, want)) return want;
+        const L = hardIv[r][0] >= COL_LO ? hardIv[r][0] : null, H = hardIv[r][1] <= COL_HI ? hardIv[r][1] : null;
+        if (L === null || H === null) return L === null ? H : L;
+        const dL = want - L, dH = H - want;
+        return Math.abs(dL - dH) < 0.5 ? (toward < want ? L : H) : dL < dH ? L : H;
+      };
+      const laneUnder = r => Y0 + r * ROWH + ROWH - 3;   // the gap below row r, heading down
+      const laneOver = r => Y0 + r * ROWH + 3;           // the gap above row r, heading up
+      /* Walk from column x through the rows strictly between source row i and
+         target row j. Where a row blocks the current column, step aside in the
+         gap before that row to its nearest clear column — or, where the only
+         clear column is far, keep going: a crossing beats a detour across the
+         chart. `own` holds the rows of the phases that hold either end. */
+      const walk = (i, j, x, goal, own) => {
+        const down = j > i, steps = [], far = Math.max(160, dayW * 8);
+        let cur = x;
+        for (let r = i + (down ? 1 : -1); down ? r < j : r > j; r += down ? 1 : -1) {
+          if (own.has(r) || !blocks(r, cur)) continue;
+          const nx = clearOn(r, cur, goal);
+          if (nx === null || Math.abs(nx - cur) > far) continue;
+          if (Math.abs(nx - cur) > 0.01) { steps.push([down ? laneUnder(r - 1) : laneOver(r + 1), nx]); cur = nx; }
         }
-      });
-      // divergence twin: one bar fanning out to 3+ successors below shares a
-      // single exit + out-spine, with a short tap into each successor
-      const outGroups = new Map();
-      edgeList.forEach(e => {
-        const pyC = Y0 + rowIndexOf[e.pt.id] * ROWH + (e.pt.isSummary ? 13 : ROWH / 2);
-        const syC = Y0 + rowIndexOf[e.t.id] * ROWH + (e.t.isSummary ? 13 : ROWH / 2);
-        if (!(syC > pyC)) return;
-        const g2 = mergeGroups.get(e.t.id);
-        if (g2 && g2.n >= 3) return; // that edge rides the successor's in-bus instead
-        const o = outGroups.get(e.pt.id) || { n: 0, taps: 0, crit: false, allTc: true, maxLane: 0 };
-        o.n++; outGroups.set(e.pt.id, o);
-      });
-      edgeList.forEach(({ t0, pt0, t, pt, k }) => {
-          const si = rowIndexOf[t.id], pi = rowIndexOf[pt.id];
-          const sX = dateX(t.startDate);
-          // summary bars are THIN bars at the TOP of their row — anchor to the
-          // bar itself, not the row's empty mid-height
-          const sY = Y0 + si * ROWH + (t.isSummary ? 13 : ROWH / 2);
-          const sSpanW = t.milestone ? (msAnchorX(t) - sX) + 10 : Math.max(dayW, (calDaysBetween(t.startDate, t.finishDate) + 1) * dayW);
-          const sEdge = t.milestone ? msAnchorX(t) - 11 : sX;
-          const spanW = pt.milestone ? (msAnchorX(pt) - dateX(pt.startDate)) + 10 : Math.max(dayW, (calDaysBetween(pt.startDate, pt.finishDate) + 1) * dayW);
-          const pX = dateX(pt.startDate) + spanW;
-          const pY = Y0 + pi * ROWH + (pt.isSummary ? 13 : ROWH / 2);
-          const crit = t.isCritical && pt.isCritical;
-          // "verified by" plumbing: links whose ORIGINAL successor is a test
-          // case are informational — dozens converge on one UAT window; draw
-          // them faint and dashed so they sit behind the real schedule flow
-          const tcLink = isTestCaseTask(t0) && !isTestCaseTask(pt0);
-          const stroke = crit && !tcLink ? '#dc2626' : '#94a3b8';
-          const mk = crit && !tcLink ? 'g-arrC' : 'g-arr';
-          const sw = tcLink ? 0.9 : crit ? 1.7 : 1.2, op = tcLink ? 0.35 : crit ? 0.9 : 0.65;
-          const dash = tcLink ? ' stroke-dasharray="3,3"' : '';
-          const grp = mergeGroups.get(t.id);
-          if (grp && grp.n >= 3 && sY > pY) {
-            // convergence: this source only rides down to the collector lane —
-            // ONE trunk arrow (drawn after the loop) enters the bar for the
-            // whole group instead of a row of stacked arrowheads
-            // every source joins ONE shared bus spine via a short stub under
-            // its own label — the spine (drawn once, after the loop) carries
-            // the whole group down to a single entry arrow
-            const spineX = grp.maxPX;
-            const pRowT2 = Y0 + pi * ROWH;
-            const subL = pRowT2 + ROWH - 3.5; // stub rail under the label, not through it
-            const pBot = pt.isSummary ? pRowT2 + 18 : pRowT2 + 7 + BAR_H;
-            const d0 = pt.milestone
-              ? `M${msAnchorX(pt)},${pY + 11} L${msAnchorX(pt)},${subL} L${spineX},${subL}`
-              : `M${pX - 4},${pBot} L${pX - 4},${subL} L${spineX},${subL}`;
-            links += `<path d="${d0}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash}/>`;
-            grp.cols.push(spineX);
-            grp.crit = grp.crit || (crit && !tcLink);
-            grp.allTc = grp.allTc && tcLink;
-            grp.t = t; grp.si = si; grp.sX = sX; grp.sSpanW = sSpanW;
-            return;
+        return { cur, steps };
+      };
+      const exitOf = (sh, tt0, fromFinish, down) => {
+        if (sh.kind === 'ms') { const y = sh.cy + (down ? 11 : -11); return { pts: [[sh.cx, y]], c: sh.cx, horiz: false }; }
+        const ax = Math.max(sh.x, Math.min(sh.x2, anchorX(tt0, fromFinish)));
+        if (sh.kind === 'bar' || (fromFinish ? sh.x2 - ax < 2 : ax - sh.x < 2)) {
+          const ex = fromFinish ? sh.x2 : sh.x, c = fromFinish ? ex + 6 : ex - 6;
+          return { pts: [[ex, sh.mid], [c, sh.mid]], c, horiz: true, dir: fromFinish ? 1 : -1 };
+        }
+        // a folded phase: leave the bar's edge at the hidden activity's own date
+        const onCap = ax - sh.x < 3 || sh.x2 - ax < 3;
+        return { pts: [[ax, down ? (onCap ? sh.cap + 1 : sh.y2 + 1) : sh.y1 - 1]], c: ax, horiz: false };
+      };
+      const entryOf = (sh, tt0, toFinish, fromAbove) => {
+        if (sh.kind === 'ms') return { e: sh.cx, y: sh.cy + (fromAbove ? -10 : 10), left: null };
+        const ax = Math.max(sh.x, Math.min(sh.x2, anchorX(tt0, toFinish)));
+        const inset = Math.min(6, (sh.x2 - sh.x) / 2);
+        const e = sh.kind === 'bar' ? (toFinish ? sh.x2 - inset : sh.x + inset)
+          : Math.max(sh.x + Math.min(2, inset), Math.min(sh.x2 - Math.min(2, inset), ax + (toFinish ? -4 : 4)));
+        const onCap = e - sh.x < 3 || sh.x2 - e < 3;
+        const y = fromAbove ? sh.y1 - 1 : (sh.kind === 'sum' && onCap ? sh.cap : sh.y2) + 1;
+        // a start-anchored link meeting the bar's own start may come in from the left
+        return { e, y, left: !toFinish && ax - sh.x < 2 ? sh.x - 1 : null, mid: sh.mid };
+      };
+      const routeOf = ({ t0, pt0, t, pt, type }) => {
+        const i = rowIndexOf[pt.id], j = rowIndexOf[t.id], down = j > i;
+        const own = new Set();
+        [t0, pt0].forEach(tt => { for (let c = tasks.find(x => x.id === tt.parentId), g = 0; c && g++ < 50; c = tasks.find(x => x.id === c.parentId)) if (visibleIds.has(c.id)) own.add(rowIndexOf[c.id]); });
+        const S = exitOf(shapeOf(pt), pt0, fromFinishOf(type), down), N = entryOf(shapeOf(t), t0, toFinishOf(type), down);
+        const laneS = down ? laneUnder(i) : laneOver(i), laneT = down ? laneUnder(j - 1) : laneOver(j + 1);
+        const c = S.c, y0 = S.pts[S.pts.length - 1][1];
+        const lead = () => S.pts.map(q => q.slice());
+        const via = (P, w, x0) => { let x = x0; w.steps.forEach(([ly, nx]) => { P.push([x, ly], [nx, ly]); x = nx; }); return x; };
+        const cost = P => { let h = 0; for (let n = 1; n < P.length; n++) h += Math.abs(P[n][0] - P[n - 1][0]) + Math.abs(P[n][1] - P[n - 1][1]) * 0.25; return h + P.length * 6; };
+        // into the start of a bar from the left, when it starts clear of the predecessor
+        if (N.left !== null && N.left - 11 >= c) {
+          const want = N.left - 11;
+          const w = walk(i, j, want, want, own);
+          if (w.cur <= want + 0.01 && w.cur >= c - 0.01) {
+            const P = lead();
+            if (S.horiz && (want - c) * S.dir >= 0 && Math.abs(want - c) <= dayW * 2.2) P.push([want, y0]);   // a short run along its own row, never back through its bar
+            else if (Math.abs(want - c) > 0.01) P.push([c, laneS], [want, laneS]);
+            const x = via(P, w, want);
+            P.push([x, N.mid], [N.left, N.mid]);
+            return P;
           }
-          const og = outGroups.get(pt.id);
-          if (og && og.n >= 3 && sY > pY) {
-            // out-bus: draw only this successor's TAP off the shared spine;
-            // the single exit + spine is drawn once after the loop
-            const spineX2 = pX + 8;
-            const laneC2 = Y0 + si * ROWH - 4;
-            const entryX2 = t.milestone ? msAnchorX(t) : Math.max(sX + 5, Math.min(sX + sSpanW - 5, spineX2));
-            const entryY2 = t.milestone ? sY - 11 : t.isSummary ? Y0 + si * ROWH + 9 : Y0 + si * ROWH + 6;
-            const d2 = Math.abs(entryX2 - spineX2) > 0.5
-              ? `M${spineX2},${laneC2} L${entryX2},${laneC2} L${entryX2},${entryY2}`
-              : `M${spineX2},${laneC2} L${spineX2},${entryY2}`;
-            links += `<path d="${d2}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-            og.taps++; og.pX = pX; og.pY = pY;
-            og.maxLane = Math.max(og.maxLane, laneC2);
-            og.crit = og.crit || (crit && !tcLink);
-            og.allTc = og.allTc && tcLink;
-            return;
-          }
-          const bend = pX + 7;
-          if (sX >= bend + 4) {
-            // forward link: run along the predecessor's row, drop just BEFORE the
-            // successor — a drop right after the pred stabs through any bar in
-            // the rows between. Converging predecessors STAGGER into separate
-            // drop columns so they don't fuse into one heavy line
-            const dropX = sEdge - 11 - (k % 6) * 5; // ≥11px final approach — always longer than the 8px arrowhead
-            // a MILESTONE successor is always entered through its TOP tip — a
-            // sideways left-tip entry floats disconnected next to the diamond
-            const msIn = t.milestone ? ` L${msAnchorX(t)},${sY - 11}` : ` L${dropX},${sY} L${sEdge - 1},${sY}`;
-            const railX = t.milestone ? msAnchorX(t) : dropX;
-            if (pt.milestone) {
-              // a milestone's date label sits right of the diamond at mid-height —
-              // exit the diamond's bottom (or top) tip and travel the row
-              // boundary instead of slicing through its own label
-              const pRowT = Y0 + pi * ROWH;
-              const below2 = sY > pY;
-              const exitX2 = msAnchorX(pt);
-              const lane2 = below2 ? pRowT + ROWH - 2 : pRowT + 2;
-              links += `<path d="M${exitX2},${below2 ? pY + 11 : pY - 11} L${exitX2},${lane2} L${railX},${lane2}${msIn}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-            } else if (railX - pX > dayW * 2.2) {
-              // LONG run: a mid-row horizontal would cut through the slack hatch
-              // and labels for weeks — hop into this row's edge gap right after
-              // the bar end and travel there instead
-              const pRowT = Y0 + pi * ROWH;
-              const prLane = sY > pY ? pRowT + ROWH - 1.5 : pRowT + 1.5;
-              links += `<path d="M${pX},${pY} L${pX + 5},${pY} L${pX + 5},${prLane} L${railX},${prLane}${msIn}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-            } else
-            links += `<path d="M${pX},${pY} L${railX},${pY}${msIn}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-          } else {
-            // successor starts at/before the predecessor's right edge (typical for
-            // sub-day tasks that each fill a whole day cell). The link EMITS from
-            // the predecessor's finish — right edge, mid height, same place a
-            // forward link leaves from — turns down past the bar's end corner,
-            // runs the lane between rows, and drops into the successor's top
-            // (or rises into its bottom).
-            const sRowTop = Y0 + si * ROWH;
-            const below = sY > pY; // successor drawn below the predecessor
-            const entryY = t.milestone
-              ? (below ? sY - 11 : sY + 11)
-              : t.isSummary
-                ? (below ? sRowTop + 9 : sRowTop + 24)
-                : (below ? sRowTop + 6 : sRowTop + 8 + BAR_H);
-            // ONE rule so the arrowhead always rides a long vertical (a final
-            // approach shorter than the 6.5px head makes it sit crooked on the
-            // bend): pick the entry point nearest the predecessor's end. If it
-            // is AT/RIGHT of the end, run right at the pred's mid-height and
-            // make a single full-height drop. Only when the entry must be LEFT
-            // of the end (pred overshoots the successor) take the lane route,
-            // with a full row-gap approach.
-            // milestone predecessor: emit from the diamond's bottom (or top) TIP
-            // straight down whenever that column lands inside the successor —
-            // the tip is the natural anchor, and a single vertical can't crook
-            const pCx = msAnchorX(pt); // diamond tip column (boundary or end-of-day)
-            if (pt.milestone) {
-              // milestone predecessor: emit from the diamond's tip. Straight
-              // drop when the tip column lands in the successor; otherwise a
-              // short lane jog — never route through the diamond's date label.
-              const tipY = below ? pY + 11 : pY - 11;
-              const dX = t.milestone ? msAnchorX(t) : Math.max(sX + 5, Math.min(sX + sSpanW - 5, pCx));
-              if (Math.abs(dX - pCx) < 3) {
-                links += `<path d="M${pCx},${tipY} L${pCx},${entryY}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-              } else {
-                const laneM = below ? sRowTop - 4 : sRowTop + ROWH + 4;
-                links += `<path d="M${pCx},${tipY} L${pCx},${laneM} L${dX},${laneM} L${dX},${entryY}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-              }
-            } else {
-            // aim the drop column 6px PAST the predecessor's end — the link
-            // should visibly emit and travel forward before it drops; a drop
-            // flush against the bar's edge reads as "leaning", not flowing
-            const desiredX = t.milestone ? msAnchorX(t)
-              : Math.max(sX + 5, Math.min(sX + sSpanW - 5, pX + 6 - k * 7));
-            if (desiredX >= pX - 0.5) {
-              links += `<path d="M${pX},${pY}${desiredX - pX > 0.5 ? ` L${desiredX},${pY}` : ''} L${desiredX},${entryY}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-            } else if (desiredX >= dateX(pt.startDate) + 2) {
-              // entry column passes under (or over) the predecessor itself —
-              // one straight vertical from its edge; a lane here would hug the
-              // bar's bottom and read as an underline
-              const pEdgeY = pt.isSummary
-                ? (below ? Y0 + pi * ROWH + 18 : Y0 + pi * ROWH + 9)
-                : (below ? (Y0 + pi * ROWH + 7 + BAR_H) : (Y0 + pi * ROWH + 7));
-              links += `<path d="M${desiredX},${pEdgeY} L${desiredX},${entryY}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-            } else {
-              const lane = below ? sRowTop - 4 : sRowTop + ROWH + 4;
-              links += `<path d="M${pX},${pY} L${pX},${lane} L${desiredX},${lane} L${desiredX},${entryY}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${mk})"/>`;
-            }
-            }
-          }
-      });
-      // bus spines: ONE vertical per convergence group + one entry arrow
-      mergeGroups.forEach(g => {
-        if (!g.t || g.cols.length < 3) return;
-        const t = g.t, sRowTop = Y0 + g.si * ROWH;
-        const laneC = sRowTop - 4;
-        const spineX = g.maxPX;
-        const entryX = t.milestone ? msAnchorX(t) : Math.max(g.sX + 5, Math.min(g.sX + g.sSpanW - 5, spineX));
-        const entryY = t.milestone ? sRowTop + ROWH / 2 - 11 : t.isSummary ? sRowTop + 9 : sRowTop + 6;
-        const stroke = g.crit ? '#dc2626' : '#94a3b8';
-        const sw = g.crit ? 1.7 : g.allTc ? 0.9 : 1.2, op = g.crit ? 0.9 : g.allTc ? 0.35 : 0.65;
-        const dash = g.allTc ? ' stroke-dasharray="3,3"' : '';
-        const d = `M${spineX},${g.minSubL} L${spineX},${laneC}` +
-          (Math.abs(entryX - spineX) > 0.5 ? ` L${entryX},${laneC}` : '') +
-          ` L${entryX},${entryY}`;
-        links += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash} marker-end="url(#${g.crit ? 'g-arrC' : 'g-arr'})"><title>${escapeXml(g.cols.length + ' predecessors converge here — hover the task bar for the full list')}</title></path>`;
-      });
-      // out-bus spines: single exit from the fanning bar down to its deepest tap
-      outGroups.forEach(o => {
-        if (o.taps < 3) return;
-        const stroke = o.crit ? '#dc2626' : '#94a3b8';
-        const sw = o.crit ? 1.7 : o.allTc ? 0.9 : 1.2, op = o.crit ? 0.9 : o.allTc ? 0.35 : 0.65;
-        const dash = o.allTc ? ' stroke-dasharray="3,3"' : '';
-        links += `<path d="M${o.pX},${o.pY} L${o.pX + 8},${o.pY} L${o.pX + 8},${o.maxLane}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash}><title>${escapeXml(o.taps + ' successors fan out from here')}</title></path>`;
+        }
+        // otherwise down (or up) through a clear column into its top (or bottom)
+        const tries = [c, N.e].map(x0 => {
+          const w = walk(i, j, x0, N.e, own), P = lead();
+          if (Math.abs(x0 - c) > 0.01) P.push([c, laneS], [x0, laneS]);
+          const x = via(P, w, x0);
+          if (Math.abs(x - N.e) > 0.01) P.push([x, laneT], [N.e, laneT]);
+          P.push([N.e, N.y]);
+          return P;
+        });
+        return tries.sort((p1, p2) => cost(p1) - cost(p2))[0];
+      };
+      // grey under red: shared runs read as one line, the critical one on top
+      edgeList.map(e => {
+        const tcLink = isTestCaseTask(e.t0) && !isTestCaseTask(e.pt0);
+        const crit = e.t.isCritical && e.pt.isCritical && !tcLink;
+        return { e, P: routeOf(e), tcLink, crit, rank: tcLink ? 0 : crit ? 2 : 1 };
+      }).sort((p1, p2) => p1.rank - p2.rank).forEach(({ e, P: P0, tcLink, crit }) => {
+        const P = P0.filter((q, n, A) => !n || Math.abs(q[0] - A[n - 1][0]) > 0.01 || Math.abs(q[1] - A[n - 1][1]) > 0.01);
+        const d = P.map((q, n) => (n ? 'L' : 'M') + (+q[0].toFixed(1)) + ',' + (+q[1].toFixed(1))).join(' ');
+        const stroke = crit ? '#dc2626' : '#94a3b8', sw = tcLink ? 0.9 : crit ? 1.7 : 1.2, op = tcLink ? 0.35 : crit ? 0.9 : 0.65;
+        links += `<path data-glink="${e.pt0.id}>${e.t0.id}" data-gfrom="${e.pt.id}" data-gto="${e.t.id}" data-gtype="${e.type}" d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${tcLink ? ' stroke-dasharray="3,3"' : ''} marker-end="url(#${crit ? 'g-arrC' : 'g-arr'})"/>`;
       });
       svg += links;
 
