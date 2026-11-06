@@ -6,7 +6,12 @@
    line dropped through every bar it fed, and short loops between a folded
    phase and its own milestones. The plan here has that plan's shape — its WBS
    codes, durations and links, the folds the screenshot had — under neutral
-   names, plus one phase that uses every link type. The sample plan runs too.
+   names, plus one phase that uses every link type, two that each wait on
+   the other's work (folded, the picture goes round in a circle), and one
+   where four arrows a day apart drop past a gate with a short label and then
+   one with a long label (so one of them, whatever the font, is a step short
+   of clearing the first label and nowhere near clearing the second). The
+   sample plan runs too.
 
    Each view is drawn, and every arrow is measured against the shapes on the
    chart and against dates counted here from the schedule, not asked of the
@@ -30,6 +35,10 @@
       overlap in time, so an arrow into a phase that began earlier has to pass
       that phase's bar, which sits above the activity and spans its date, and
       one between two phases often has to pass the bar of one between them.
+      An activity's bar it may cross only where both ways round it are off
+      the chart or more than max(160 px, 8 days) away — a crossing beats a
+      detour across the chart. Work that starts on day one, under a long bar
+      that also starts on day one, has no way round on the left.
    6. No two arrows draw the same pair.
    7. An arrow out of a folded phase draws the hidden activity that GATES the
       successor — of the phase's activities that the successor waits on, the
@@ -39,21 +48,53 @@
       own ends: it is entering or leaving that phase anyway. Steering round it
       sent arrows out past the phase's far end and back, and boxed in a
       diamond that two arrows into one gate passed on either side.
+   9. No arrow joins a row to the bar of a folded phase that holds it. A gate
+      left showing under a folded phase, linked to work hidden in that same
+      phase, drew a loop: up out of the gate into its own phase bar, and back
+      down from the bar into the next gate.
+   10. No link is lost. Where an activity waits on one that shows as another
+      row (neither holding the other), a chain of drawn arrows leads from the
+      one row to the other. The loops of rule 9 made the folded picture
+      circular, and the pass that drops arrows a longer chain already implies
+      then dropped two arrows each "implied" by the other: nothing led from
+      the first phase into the second.
+   11. Gates showing under one folded phase that wait on each other through
+      its hidden work are joined by arrows, so dropping the loops of rule 9
+      leaves no gate floating with nothing to say where it sits in the flow.
+   12. No line runs through a gate's label where the column beside its diamond,
+      on the side away from the label, was within 40 px. Further than that the
+      line may cross (the label sits on a halo): arrows sent the long way round
+      to spare a label swung out and back across half the chart, which read
+      far worse. Round a diamond it goes on the side away from the label.
+   13. A sideways step that no shape forced pays for itself: the straight
+      line would have run through a label before its next turn (labels
+      measured as drawn — a wide estimate stepped round text that was not
+      there and into the next label), the step is at most 40 px, and the line
+      it steps to crosses none of the labels the straight line would have.
+      Stepping past one label only to cross the next one anyway put a kink in
+      the line and saved nothing.
+   14. The span the chart keeps lines out of for a gate's label (data-glab)
+      is the label as drawn, to within 1.5 px. The chart's room-making guess at
+      a label's width runs up to 35 px wide; kept clear on that guess, a line
+      stepped round text that was not there and into the next label.
 
    Views: everything open on dates, on weeks, and on days zoomed in; the
-   screenshot's folds on dates, on weeks, and on days zoomed in; phases only;
-   two levels zoomed out; the sample plan open and at two levels.
+   screenshot's folds on dates, on weeks, and on days zoomed in; phases only
+   (L1) on dates, on weeks and on days zoomed in; two levels (L2) zoomed out
+   and on weeks; three levels (L3); the sample plan open, at L1 and at L2.
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const { requirePlaywright, chromePath, APP, FIXTURE } = require('./_harness');
 const { chromium } = requirePlaywright();
 
-// [WBS code, days ('' for a phase, 0 for a gate), predecessors]. A lead is
-// written FS-5; the folds below are the ones the screenshot had.
+// [WBS code, days ('' for a phase, 0 for a gate), predecessors, and for a gate
+// what it marks]. A lead is written FS-5; the folds below are the ones the
+// screenshot had. The gates say what they mark, in neutral words as long as a
+// real plan's, because how far a label runs decides where a line can pass it.
 const SHAPE = `P2||PRE-PLAN
-P2.1|0|
+P2.1|0||signed SOW received
 P2.2|4|P2.1
-P2.3|0|P2.2
+P2.3|0|P2.2|welcome email sent to the customer
 P2.4||P2.2
 P2.4.1|1|P2.3
 P2.4.2|5|
@@ -66,14 +107,14 @@ P2.9|4|P2.4.1
 P2.10|4|P2.4.1
 3||PLAN
 3.1||P2.4.3,P2.5,P2.6,P2.7,P2.8,P2.9,P2.10
-3.1.1|0|
-3.1.2|0|
+3.1.1|0||kick-off minutes shared with everyone
+3.1.2|0||weekly status meetings scheduled
 3.2|2|3.1
 3.3||3.2
 3.3.1|2|3.2
 3.3.1.2|3|3.3.1
 3.3.1.3|5|3.3.1
-3.3.1.4|0|3.3.1.3
+3.3.1.4|0|3.3.1.3|customer signoff on the requirements
 4||BUILD
 4.1|3|3.3.1.4
 4.2||3.3.1.4
@@ -106,15 +147,15 @@ P2.10|4|P2.4.1
 4.2.7.2|1|4.2.7.1
 4.2.7.3|1|4.2.7.2
 4.3||3.3.1.4
-4.3.1|0|4.2
+4.3.1|0|4.2|first build review held
 4.3.2|3|4.3.1
-4.3.3|0|4.3.2
+4.3.3|0|4.3.2|final build review held
 5||UAT
 5.1|5|3.3.1.4
 5.2||4.2
 5.2.1|1|5.2
-5.3|0|4.3.3
-5.4|0|4.3.3
+5.3|0|4.3.3|customer approval to proceed with testing
+5.4|0|4.3.3|test kick-off scheduled
 5.5||4.3.3
 5.5.1|3|5.5
 5.5.2|4|5.5
@@ -124,20 +165,20 @@ P2.10|4|P2.4.1
 7.1.2|5|7.1
 7.1.3|5|7.1.2
 7.2||7.1.3
-7.2.1|0|7.2
-7.2.2|0|7.2.1
-7.2.3|0|7.2.2
-7.2.4|0|7.2.1,7.2.2,7.2.3
-7.3|0|7.2.1,7.2.2,7.2.3
+7.2.1|0|7.2|session two on community management
+7.2.2|0|7.2.1|session three on reporting and analytics (1hr)
+7.2.3|0|7.2.2|session four on system admin
+7.2.4|0|7.2.1,7.2.2,7.2.3|all the training content uploaded
+7.3|0|7.2.1,7.2.2,7.2.3|training signed off
 8||GO LIVE
 8.1||5.5.3
-8.2|0|5.5.3
+8.2|0|5.5.3|support told of the launch
 8.3||5.5.3
 8.3.1|2|8.3
-8.1.2|0|8.1
-8.4|0|8.1.2
-8.5|0|8.4
-8.6|0|8.5
+8.1.2|0|8.1|customer signoff on the launch checklist
+8.4|0|8.1.2|go / no-go meeting held
+8.5|0|8.4|customer signoff on the launch date
+8.6|0|8.5|launch
 9||EMPOWER
 9.1|3|5.5.3
 9.2|3|5.5.3
@@ -146,17 +187,35 @@ P2.10|4|P2.4.1
 10||CLOSURE
 10.1|2|9.4FS-5
 10.2|2|9.4FS-5
-10.3|0|10.2
+10.3|0|10.2|internal handover meeting held
 10.4|2|10.3
 10.5|2|10.3
-10.6|0|10.5
-10.7|0|10.6
+10.6|0|10.5|external wrap-up meeting held
+10.7|0|10.6|closing note sent to the customer
 11||LINK TYPES
 11.1|6|4.1SS+1
 11.2|3|4.2.7.3FF
 11.3|2|4.2.2.1FS-1
 11.4|2|8.6SF
-11.5|2|11.1SS`.split('\n').map(l => l.split('|'));
+11.5|2|11.1SS
+12||CROSS A
+12.1|2|11.5
+12.2|2|13.1
+13||CROSS B
+13.1|2|11.5
+13.2|2|12.1
+14||LABELS
+14.1|2|
+14.2|10|
+14.3|9|
+14.4|8|
+14.5|7|
+14.6|0|14.1
+14.7|0|14.1|a long label that runs well past every line
+14.8|2|14.2
+14.9|2|14.3
+14.10|2|14.4
+14.11|2|14.5`.split('\n').map(l => l.split('|'));
 const FOLDS = ['P2.4', '3.1', '3.3', '4.2', '4.3'];
 const TODAY = '2026-11-05';
 
@@ -170,10 +229,10 @@ function shapedPlan() {
   const P = JSON.parse(JSON.stringify(D));
   Object.assign(P, { projectName: 'Arrow check', projectStart: '2026-10-26', holidays: '', baselineDate: '', statusHistory: [],
     raid: [], reqs: [], coLog: [], collapsedIds: [], nextId: codes.length + 10 });
-  P.tasks = SHAPE.map(([c, days, preds], i) => {
+  P.tasks = SHAPE.map(([c, days, preds, marks], i) => {
     const t = JSON.parse(JSON.stringify(base));
     const gate = !phase.has(c) && days === '0';
-    Object.assign(t, { id: i + 1, name: (preds && !/[|,\d]/.test(preds[0]) && days === '' && !parentCode(c)) ? preds : (phase.has(c) ? 'Phase ' : gate ? 'Gate ' : 'Activity ') + c,
+    Object.assign(t, { id: i + 1, name: (preds && !/[|,\d]/.test(preds[0]) && days === '' && !parentCode(c)) ? preds : (phase.has(c) ? 'Phase ' : gate ? 'Gate ' : 'Activity ') + c + (marks ? ' — ' + marks : ''),
       parentId: parentCode(c) ? idOf.get(parentCode(c)) : null, milestone: gate, percentComplete: 0, owner: 'PM', attendees: [],
       description: '', deliverable: '', acceptance: '', actualStart: '', actualFinish: '', actualEffort: null, jira: '',
       startNoEarlier: '', deadline: '', baseStart: '', baseFinish: '', baseTe: 0, baseCost: 0 });
@@ -242,6 +301,18 @@ function judge(C, view, say) {
     return [...ids];
   };
   const finishOf = id => { const t = sched.get(id); return t.ms ? t.start : t.finish; };
+  const nm = id => (sched.get(id) || {}).name || id;
+  // 14. the span kept clear for a gate's label is the label as drawn
+  C.shapes.forEach(s => {
+    if (s.kind !== 'ms' || !s.lab) return;
+    if (!s.glab) { say(view + ' · ' + s.id, 'the diamond of ' + nm(s.id) + ' does not say (data-glab) where its label runs, so nothing can check that lines are kept out of it'); return; }
+    const [a, b] = s.glab.split(',').map(Number);
+    if (Math.abs(a - s.lab.x) > 1.5 || Math.abs(b - (s.lab.x + s.lab.w)) > 1.5)
+      say(view + ' · ' + s.id, 'lines are kept out of ' + a.toFixed(1) + '–' + b.toFixed(1) + ' for the label of ' + nm(s.id) + ', which is drawn at ' + s.lab.x.toFixed(1) + '–' + (s.lab.x + s.lab.w).toFixed(1));
+  });
+  const isAnc = (x, y) => { for (let c = sched.get(y), g = 0; c && c.parent != null && g++ < 50; c = sched.get(c.parent)) if (c.parent === x) return true; return false; };
+  // the row an activity shows as: itself, or the folded phase it is hidden in
+  const repOf = id => { for (let c = sched.get(id), g = 0; c && g++ < 50; c = sched.get(c.parent)) if (shape.has(c.id)) return c.id; return null; };
   C.links.forEach(L => {
     const at = view + ' · ' + (L.link || '?');
     if (!L.link || !L.from || !L.to || !L.type) { say(at, 'an arrow carries no data-glink / data-gfrom / data-gto / data-gtype, so nothing can say which link it draws (d=' + L.d.slice(0, 60) + ')'); return; }
@@ -251,6 +322,11 @@ function judge(C, view, say) {
     const key = from + '>' + to;
     if (seen.has(key)) say(at, 'the pair ' + key + ' is drawn twice');
     seen.add(key);
+    // 9. no loop between a folded phase and a row inside it
+    if (isAnc(from, to) || isAnc(to, from)) {
+      const [row, ph] = isAnc(from, to) ? [to, from] : [from, to];
+      say(at, 'the arrow joins ' + nm(row) + ' to the bar of ' + nm(ph) + ', the folded phase holding it — a loop out of a row and back into the phase it sits in');
+    }
     const P = pts(L.d);
     if (P.length < 2) { say(at, 'the arrow has fewer than two points'); return; }
     for (let n = 1; n < P.length; n++) {
@@ -289,12 +365,12 @@ function judge(C, view, say) {
     const run = Math.hypot(Z[0] - Y[0], Z[1] - Y[1]);
     if (run < HEAD - 0.01) say(at, 'the arrowhead sits on a run of ' + run.toFixed(1) + ' px, shorter than the ' + HEAD + ' px head');
     // 5. nothing stabbed on the way
-    const hit = new Set();
+    const hit = new Map();   // shape → the x where the arrow runs into it
     for (let n = 1; n < P.length; n++) {
       const [x1, y1] = P[n - 1], [x2, y2] = P[n], len = Math.hypot(x2 - x1, y2 - y1), steps = Math.max(1, Math.ceil(len));
       for (let k = 0; k <= steps; k++) {
         const x = x1 + (x2 - x1) * k / steps, y = y1 + (y2 - y1) * k / steps;
-        C.shapes.forEach(s => { if (!hit.has(s.id) && inside(s, x, y)) hit.add(s.id); });
+        C.shapes.forEach(s => { if (!hit.has(s.id) && inside(s, x, y)) hit.set(s.id, x); });
       }
     }
     // 7. a folded phase shows the activity that gates the successor
@@ -319,12 +395,76 @@ function judge(C, view, say) {
         if (passes && beside && hx0 >= sh.x && hx0 <= sh.x + sh.w) say(at, 'the arrow steps aside for the bar of ' + nameOf(ph) + ', a phase holding one of its own ends, from x=' + hx0.toFixed(1) + ' to ' + hx1.toFixed(1));
       });
     }
-    hit.forEach(id => {
-      if (id !== from && id !== to && shape.get(id).kind === 'sum') return;   // a phase bar on the way
+    hit.forEach((hx, id) => {
+      const s = shape.get(id);
+      if (id !== from && id !== to && s.kind === 'sum') return;   // a phase bar on the way
+      if (id !== from && id !== to && s.kind === 'bar') {          // an activity's, with no way round in reach
+        const far = Math.max(160, C.dayW * 8), L = s.x - 4, H = s.x + s.w + 4;
+        if (!(L >= C.x0 + 2 && hx - L <= far) && !(H <= C.w - 14 && H - hx <= far)) return;
+      }
       say(at, 'the arrow runs through ' + (id === from ? 'its own predecessor ' : id === to ? 'its own successor ' : '') + nameOf(id));
     });
+    // 12. no line through a gate's label
+    for (let n = 1; n < P.length; n++) {
+      const [x1, y1] = P[n - 1], [x2, y2] = P[n];
+      if (Math.abs(x1 - x2) > 0.2) continue;
+      const lo = Math.min(y1, y2), hi = Math.max(y1, y2);
+      C.shapes.forEach(s => {
+        if (s.kind !== 'ms' || !s.lab || s.id === from || s.id === to) return;
+        if (!(x1 > s.lab.x + 0.5 && x1 < s.lab.x + s.lab.w - 0.5 && hi > s.lab.y + 0.5 && lo < s.lab.y + s.lab.h - 0.5)) return;
+        const beside = s.lab.x > s.cx ? s.cx - 14 : s.cx + 14;   // clear of the diamond, away from its label
+        if (Math.abs(x1 - beside) <= 40 - 0.5) say(at, 'the arrow runs through the label of ' + nm(s.id) + ' at x=' + x1.toFixed(1) + ', though the column beside its diamond (x=' + beside.toFixed(1) + ') was ' + Math.abs(x1 - beside).toFixed(0) + ' px away');
+      });
+    }
+    // 13. a step no shape forced clears the labels the straight line would have crossed
+    const top = S.kind === 'ms' ? S.cy - 15 : S.kind === 'sum' ? S.y - 10 : S.y - 7, goingDown = Z[1] > F[1];
+    const laneS = goingDown ? top + 27 : top + 3;
+    const crossesLab = (x, ya, yb, slack) => C.shapes.filter(s => s.kind === 'ms' && s.lab && s.id !== from && s.id !== to
+      && x > s.lab.x + 0.5 - slack && x < s.lab.x + s.lab.w - 0.5 + slack && Math.max(ya, yb) > s.lab.y + 0.5 && Math.min(ya, yb) < s.lab.y + s.lab.h - 0.5).map(s => s.id);
+    const inWay = (x, ya, yb) => C.shapes.some(s => {
+      if (s.id === from || s.id === to || anc.has(s.id)) return false;
+      const [y1, y2] = s.kind === 'ms' ? [s.cy - 10, s.cy + 10] : [s.y, s.kind === 'sum' ? s.y + 13 : s.y + s.h];
+      const [x1, x2] = s.kind === 'ms' ? [s.cx - 14, s.cx + 14] : [s.x - 4, s.x + s.w + 4];
+      return x > x1 + 0.5 && x < x2 - 0.5 && Math.max(ya, yb) > y1 && Math.min(ya, yb) < y2;
+    });
+    for (let n = 1; n + 1 < P.length; n++) {
+      if (Math.abs(P[n][1] - P[n - 1][1]) > 0.2 || Math.abs(P[n - 1][0] - P[n][0]) < 0.5) continue;    // a sideways piece…
+      if (Math.abs(P[n][0] - P[n + 1][0]) > 0.2 || n < 2 || Math.abs(P[n - 1][0] - P[n - 2][0]) > 0.2) continue;   // …between two verticals
+      const hy = P[n][1], ox = P[n - 1][0], nx = P[n][0], vy = P[n + 1][1];
+      if (Math.abs(hy - laneS) < 1 || Math.abs(nx - Z[0]) < 0.5 || inWay(ox, hy, vy)) continue;   // the opening move, the line-up on the target, or a shape's doing
+      const was = new Set(crossesLab(ox, hy, vy, 0)), step = 'the arrow steps aside from x=' + ox.toFixed(1) + ' to ' + nx.toFixed(1) + ' with no shape in its way';
+      if (!crossesLab(ox, hy, vy, 1.5).length) say(at, step + ', and no label either');
+      else if (Math.abs(nx - ox) > 40.5) say(at, step + ', ' + Math.abs(nx - ox).toFixed(0) + ' px to spare a label');
+      crossesLab(nx, hy, vy, 0).filter(id => was.has(id)).forEach(id => say(at, step + ', and still crosses the label of ' + nm(id) + ' that it would have crossed anyway'));
+    }
     R_bends.push(P.length - 2);
     R_ink.v += P.reduce((t, q, n) => n ? t + Math.abs(q[0] - P[n - 1][0]) + Math.abs(q[1] - P[n - 1][1]) : 0, 0);
+  });
+  // the drawn picture as a graph, and the plan's own links activity to activity
+  const adj = new Map();
+  C.links.forEach(L => { if (!L.from || !L.to) return; if (!adj.has(+L.from)) adj.set(+L.from, []); adj.get(+L.from).push(+L.to); });
+  const reaches = (x, y) => { const got = new Set([x]), q = [x]; while (q.length) { const u = q.shift(); if (u === y) return true; (adj.get(u) || []).forEach(v => { if (!got.has(v)) { got.add(v); q.push(v); } }); } return false; };
+  const red = new Set(C.redundant), succ = new Map();
+  C.sched.forEach(t => t.eff.forEach(p => { if (red.has(t.id + ':' + p)) return; if (!succ.has(p)) succ.set(p, []); succ.get(p).push(t.id); }));
+  // 10. no link lost: the successor's row is reached from the predecessor's
+  const lost = new Set();
+  succ.forEach((outs, p) => outs.forEach(t => {
+    const A = repOf(p), B = repOf(t), k = A + '>' + B;
+    if (A == null || B == null || A === B || isAnc(A, B) || isAnc(B, A) || lost.has(k)) return;
+    if (!reaches(A, B)) { lost.add(k); say(view + ' · ' + p + '>' + t, 'no chain of arrows leads from ' + nm(A) + ' to ' + nm(B) + ', though ' + nm(t) + ' waits on ' + nm(p)); }
+  }));
+  // 11. gates in one folded phase, chained through its hidden work, are joined
+  C.collapsed.forEach(ph => {
+    if (!shape.has(ph)) return;
+    const inPh = new Set(C.shapes.filter(s => isAnc(ph, s.id)).map(s => s.id));
+    inPh.forEach(m => {
+      const got = new Set([m]), q = [m];
+      while (q.length) (succ.get(q.shift()) || []).forEach(v => {
+        if (got.has(v)) return; got.add(v);
+        if (shape.has(v)) { if (inPh.has(v) && !reaches(m, v)) say(view + ' · ' + m + '>' + v, nm(v) + ' waits on ' + nm(m) + ' through the hidden work of ' + nm(ph) + ', the folded phase both show under, but no chain of arrows joins them'); return; }
+        if (repOf(v) === ph) q.push(v);
+      });
+    });
   });
   return C.links.length;
 }
@@ -348,15 +488,20 @@ function judge(C, view, say) {
     const shapes = live('g[data-grole="bar"]').map(g => {
       const id = +g.dataset.gopen, t = tasks.find(x => x.id === id), r = g.querySelector('rect');
       const x = +r.getAttribute('x'), y = +r.getAttribute('y'), w = +r.getAttribute('width'), h = +r.getAttribute('height');
-      if (r.getAttribute('transform')) return { id, kind: 'ms', cx: x + 7, cy: y + 7 };
+      if (r.getAttribute('transform')) {
+        const tx = g.querySelector('text'), bb = tx ? tx.getBBox() : null;
+        return { id, kind: 'ms', cx: x + 7, cy: y + 7, lab: bb ? { x: bb.x, y: bb.y, w: bb.width, h: bb.height } : null, glab: g.dataset.glab || null };
+      }
       return { id, kind: t && t.isSummary ? 'sum' : 'bar', x, y, w, h };
     });
     // every line drawn in the arrow layer: anything stroked in the two link colours
     const links = live('g[clip-path] path').filter(p => p.getAttribute('fill') === 'none' && /^#(dc2626|94a3b8)$/.test(p.getAttribute('stroke') || ''))
       .map(p => ({ d: p.getAttribute('d'), link: p.dataset.glink, from: p.dataset.gfrom, to: p.dataset.gto, type: p.dataset.gtype, head: p.hasAttribute('marker-end') }));
     return {
-      x0: +svg.dataset.x0, dayW: +svg.dataset.dayw, start: svg.dataset.start, shapes, links,
-      sched: tasks.map(t => ({ id: t.id, parent: t.parentId, preds: (t.predecessors || []).map(p => p.id), name: t.name, start: t.startDate ? fmtISO(t.startDate) : null, finish: t.finishDate ? fmtISO(t.finishDate) : null, ms: !!t.milestone }))
+      x0: +svg.dataset.x0, dayW: +svg.dataset.dayw, start: svg.dataset.start, w: +svg.getAttribute('width'), shapes, links,
+      sched: tasks.map(t => ({ id: t.id, parent: t.parentId, preds: (t.predecessors || []).map(p => p.id), eff: t.isSummary ? [] : effectivePreds(t).map(p => p.id),
+        name: t.name, start: t.startDate ? fmtISO(t.startDate) : null, finish: t.finishDate ? fmtISO(t.finishDate) : null, ms: !!t.milestone })),
+      redundant: redundantLinkList().map(r => r.task.id + ':' + r.predId), collapsed: [...collapsedIds]
     };
   });
   const view = async (name, plan, setup) => {
@@ -384,10 +529,15 @@ function judge(C, view, say) {
   await view('the screenshot\'s folds, dates', plan, { level: 'all', folds, axis: 'dates' });
   await view('the screenshot\'s folds, weeks', plan, { level: 'all', folds, axis: 'weeks' });
   await view('the screenshot\'s folds, days, zoomed in', plan, { level: 'all', folds, axis: 'days', zoom: 2 });
+  await view('phases only, dates', plan, { level: 0, axis: 'dates' });
   await view('phases only, weeks', plan, { level: 0, axis: 'weeks' });
+  await view('phases only, days, zoomed in', plan, { level: 0, axis: 'days', zoom: 2 });
   await view('two levels, zoomed out', plan, { level: 1, axis: 'dates', zoom: -3 });
+  await view('two levels, weeks', plan, { level: 1, axis: 'weeks' });
+  await view('three levels, weeks', plan, { level: 2, axis: 'weeks' });
   const sample = FIXTURE();
   await view('the sample plan, open', sample, { level: 'all', axis: 'dates' });
+  await view('the sample plan, phases only', sample, { level: 0, axis: 'weeks' });
   await view('the sample plan, two levels, weeks', sample, { level: 1, axis: 'weeks' });
 
   R.bends = { most: Math.max(0, ...R_bends), over4: R_bends.filter(n => n > 4).length, of: R_bends.length, total: R_bends.reduce((a, b) => a + b, 0), ink: Math.round(R_ink.v) };

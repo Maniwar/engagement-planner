@@ -993,8 +993,11 @@ dry runs taught:
 Reported with a screenshot of a real engagement plan: "weird arrows coming
 into shapes incorrectly". `gantt-arrows-sweep.js` draws a plan with that plan's
 shape (its WBS codes, durations, links and folds, under neutral names, plus a
-phase using every link type) and the sample plan, in ten views. It measures
-every arrow against the drawn shapes and against dates it counts itself:
+phase using every link type, two phases that each wait on the other's work,
+and a phase built to pass lines by labels of uneven length) and the sample
+plan, in fifteen views: open, the screenshot's folds, and every level button
+(L1, L2, L3). It measures every arrow against the drawn shapes and against
+dates it counts itself:
 
 - **Leaves at the right date.** Finish for finish-to-start and
   finish-to-finish, start for start-to-start and start-to-finish. From a folded
@@ -1012,6 +1015,18 @@ every arrow against the drawn shapes and against dates it counts itself:
   link to one successor, the arrow draws the one that finishes last.
 - **No detour round its own phase.** An arrow does not step aside for the bar of
   a phase that holds one of its ends.
+- **No loop into its own phase.** At L1 every phase folds and its milestones
+  stay on show. A milestone's link to work hidden in its own phase used to draw
+  a loop: up into the phase bar and back down to the next milestone. No arrow
+  joins a row to a folded phase that holds it.
+- **No link lost.** Where an activity waits on one that shows as another row,
+  a chain of drawn arrows joins the two rows. Milestones under one folded phase
+  that wait on each other through its hidden work are joined directly.
+- **Clear of labels where that is cheap.** No line runs through a milestone's
+  label when the column beside its diamond, away from the label, was within
+  40 px. A step taken for a label must have a label to clear, be at most 40 px,
+  and not cross a label the straight line would also have crossed. The span
+  the chart keeps clear for each label matches the label as drawn.
 
 The router behind it travels in the gaps between rows and crosses a row only at
 a column that row's shape leaves clear, stepping aside in the gap above the row
@@ -1021,9 +1036,28 @@ when the straight drop is blocked. What the dry runs taught:
   that adds `tests/` itself. Every check died on a missing file, and the tool
   reported all of them as caught. Run a tryout against the real product first:
   it must come back green.
-- **Steering round labels made staircases.** Arrows that stepped around every
-  milestone label zig-zagged down the chart. Labels sit on a white halo above
-  the lines, so the router steers round shapes only.
+- **Steering round labels: first staircases, then detours.** Stepping round
+  each label in turn zig-zagged down the chart, so the first router ignored
+  labels. Then at L1 a line ran down the first letters of five labels. Keeping
+  lines clear of every label sent arrows 300 px out and back. What works: at a
+  blocked row, take the column that stays clear of shapes and labels the
+  longest, only within 40 px of where the line would go anyway, and only if it
+  clears every label the straight line crosses before the next shape.
+  Otherwise cross the label, which sits on a halo.
+- **A label's width has to be measured.** The room-making guess (5.7 px a
+  character) runs up to 35 px wide. Kept clear on that guess, a line jogged
+  round text that was not there and into the next label. The chart now
+  measures each label in its own font, and the result matches the drawing to
+  0.03 px.
+- **A circular picture defeats "implied".** The loops made the folded picture
+  circular. The pass that drops arrows a longer chain already implies then
+  dropped PRE-PLAN → PLAN and PRE-PLAN → its first milestones, each as implied
+  by the other. Each arrow is now judged on the arrows still drawn, which gives
+  the same answer on a plan without loops.
+- **A bar starting on day one has no left side.** An activity's bar may be
+  crossed when both ways round are off the chart or past the detour limit.
+  The router always did this; the rule now says so, after the label phase put
+  work on day one under longer bars.
 - **Shared rails earned nothing.** Making arrows into one activity reuse an
   earlier arrow's columns changed the bends by about 1%. It came out. Ignoring a
   phase's own bar is what cut the clutter: without it, 88 more arrows bent more

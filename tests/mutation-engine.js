@@ -3344,8 +3344,8 @@ const MUTANTS = [
     with: "if (sh.kind === 'ms') return { pts: [[sh.cx + 11, sh.cy], [sh.cx + 17, sh.cy]], c: sh.cx + 17, horiz: true, dir: 1 };" },
 
   { what: 'arrows: an arrow drops straight through whatever is in its way',
-    find: "if (own.has(r) || !blocks(r, cur)) continue;",
-    with: "continue;" },
+    find: "if (!blocksSoft(r, cur)) { n++; continue; }",
+    with: "{ n++; continue; }" },
 
   { what: 'arrows: the head into the start of a bar sits on a stub shorter than itself',
     find: "const want = N.left - 11;",
@@ -3360,8 +3360,41 @@ const MUTANTS = [
     with: "void ex;" },
 
   { what: 'arrows: an arrow steps aside for the bar of the phase it is entering',
-    find: "if (own.has(r) || !blocks(r, cur)) continue;",
-    with: "if (!blocks(r, cur)) continue;" },
+    find: "if (!own.has(r)) between.push(r);",
+    with: "between.push(r);" },
+
+  /* At L1 every phase folds and its gates stay on show: links from a gate to
+     work hidden in its own phase drew loops into the phase bar, the loops made
+     the folded picture circular, and the implied-arrow pass then dropped two
+     arrows each for the other. Labels: the router keeps lines out of a gate's
+     label only where that is cheap and pays. */
+  { what: 'arrows: a gate\'s link to work hidden in its own folded phase is drawn, a loop into its own phase bar',
+    find: "if (holds(t.id, pt.id) || holds(pt.id, t.id)) return;",
+    with: "void holds;" },
+
+  { what: 'arrows: the implied-arrow pass judges each arrow on the whole picture, so two can go for each other',
+    find: "if (f === skip || f.implied || got.has(f.t.id)) continue;",
+    with: "if (f === skip || got.has(f.t.id)) continue;" },
+
+  { what: 'arrows: gates under one folded phase, chained through its hidden work, are left unjoined',
+    find: "if (shown.has(v) && !drawnPairs.has(key)) {",
+    with: "if (false) {" },
+
+  { what: 'arrows: a gate\'s label is not kept clear at all',
+    find: "return a > cx ? [hardIv[r][0], b + 1] : [a - 1, hardIv[r][1]];",
+    with: "return hardIv[r];" },
+
+  { what: 'arrows: a step for a label jogs past one label only to cross the next',
+    find: "if (labRows.some(q => blocksSoft(q, cx))) continue;",
+    with: "void labRows;" },
+
+  { what: 'arrows: a label is stepped round however far the detour',
+    find: "const reach = Math.min(far, (hardNx === null ? far : Math.abs(hardNx - cur)) + LAB_REACH);",
+    with: "const reach = far;" },
+
+  { what: 'arrows: a label is kept clear by the wide room-making estimate, not as drawn',
+    find: "const L = msLabelOf(t), tw = ganttTextW((t.percentComplete >= 100 ? '✓ ' : '') + L.short, 600) + ganttTextW(' · ' + L.date, 400);",
+    with: "const L = msLabelOf(t), tw = L.w - 18;" },
 ];
 
 /* Filtered AFTER the array is written, never inside it, so the anchor audit and

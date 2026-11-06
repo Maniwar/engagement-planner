@@ -659,5 +659,12 @@
  "arrows: the head into the start of a bar sits on a stub shorter than itself": "gantt-arrows-sweep.js",
  "arrows: the drop into a bar lands well past its start": "gantt-arrows-sweep.js",
  "arrows: a pair folded into one arrow draws its first link, not the one that gates it": "gantt-arrows-sweep.js",
- "arrows: an arrow steps aside for the bar of the phase it is entering": "gantt-arrows-sweep.js"
+ "arrows: an arrow steps aside for the bar of the phase it is entering": "gantt-arrows-sweep.js",
+ "arrows: a gate's link to work hidden in its own folded phase is drawn, a loop into its own phase bar": "gantt-arrows-sweep.js",
+ "arrows: the implied-arrow pass judges each arrow on the whole picture, so two can go for each other": "gantt-arrows-sweep.js",
+ "arrows: gates under one folded phase, chained through its hidden work, are left unjoined": "gantt-arrows-sweep.js",
+ "arrows: a gate's label is not kept clear at all": "gantt-arrows-sweep.js",
+ "arrows: a step for a label jogs past one label only to cross the next": "gantt-arrows-sweep.js",
+ "arrows: a label is stepped round however far the detour": "gantt-arrows-sweep.js",
+ "arrows: a label is kept clear by the wide room-making estimate, not as drawn": "gantt-arrows-sweep.js"
 }

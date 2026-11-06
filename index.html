@@ -5814,7 +5814,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.0033</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.1455</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -21610,6 +21610,17 @@ Or say what you want, in your own words:
 
     // ========================= GANTT (SVG) =========================
     const FF = 'Segoe UI, system-ui, sans-serif';
+    /* Text in the chart's font, measured as the browser will draw it. Making
+       room uses a per-character estimate that runs wide on purpose; keeping a
+       line clear of a label needs where the label really ends, or the line
+       steps round text that is not there and into the next label. */
+    let ganttMeasureCtx;
+    function ganttTextW(txt, weight) {
+      if (ganttMeasureCtx === undefined) ganttMeasureCtx = document.createElement('canvas').getContext('2d');
+      if (!ganttMeasureCtx) return txt.length * 5.7;
+      ganttMeasureCtx.font = weight + ' 10px ' + FF;
+      return ganttMeasureCtx.measureText(txt).width;
+    }
     // short projects (a week or two) need day cells wide enough to read —
     // the ladder tops out at 120px/day, not 30
     const GANTT_ZOOMS = [3, 4, 6, 9, 13, 18, 24, 30, 40, 54, 72, 94, 120];
@@ -21896,6 +21907,13 @@ Or say what you want, in your own words:
         const short = msName.length > 34 ? msName.slice(0, 32).replace(/\s+\S*$/, '') + '…' : msName;
         const date = when(t.finishDate);
         return { short, date, w: (short.length + date.length + 3) * 5.7 + 18 };
+      };
+      // a gate's label sits right of its diamond unless that runs off the chart
+      const msLabelOnRight = (cx, w) => cx + w < W - PAD;
+      // where it is drawn, measured: the span an arrow keeps its lines out of
+      const msLabelSpan = (t, cx) => {
+        const L = msLabelOf(t), tw = ganttTextW((t.percentComplete >= 100 ? '✓ ' : '') + L.short, 600) + ganttTextW(' · ' + L.date, 400);
+        return msLabelOnRight(cx, L.w) ? [cx + 14, cx + 14 + tw] : [cx - 14 - tw, cx - 14];
       };
       /* The name a bar carries in a shut lane, which has no row titles to say
          whose bar is whose: inside the bar when it fits, otherwise just past its
@@ -22211,6 +22229,8 @@ Or say what you want, in your own words:
       // Go-Live diamond) nor draw once per hidden child (dedupe by pair; the
       // first drawn pair wins, and real-flow links come before TC plumbing).
       const repOf = id => { let cur = tasks.find(x => x.id === id); let g = 0; while (cur && !visibleIds.has(cur.id) && g++ < 50) cur = tasks.find(x => x.id === cur.parentId); return (cur && visibleIds.has(cur.id)) ? cur : null; };
+      // whether phase `ph` holds task `id` somewhere below it
+      const holds = (ph, id) => { for (let c = tasks.find(x => x.id === id), g = 0; c && c.parentId != null && g++ < 50; c = tasks.find(x => x.id === c.parentId)) if (c.parentId === ph) return true; return false; };
       const drawnPairs = new Set();
       /* People lanes draw no arrows. An activity two people share sits in two
          lanes, so an arrow has two places to land, and a network routed across
@@ -22220,13 +22240,24 @@ Or say what you want, in your own words:
       // pass 1: resolve the edges (folded ends remapped, one per pair) before any is drawn
       const edgeList = [];
       const pairList = [], pairByKey = new Map();
+      const linkSucc = new Map();   // the plan's own links, activity to activity
       leafOrder.forEach(t0 => {
         effectivePreds(t0).forEach(p => {
           if (redundantEdges.has(t0.id + ':' + p.id)) { redundantDropped++; return; }
           const pt0 = tasks.find(x => x.id === p.id);
           if (!pt0) return;
+          if (!linkSucc.has(p.id)) linkSucc.set(p.id, []);
+          linkSucc.get(p.id).push(t0.id);
           const t = repOf(t0.id), pt = repOf(p.id);
           if (!t || !pt || t.id === pt.id) return;
+          /* A gate stays on show under a folded phase; its links to work
+             hidden in that same phase are inside the phase, like the links
+             between two hidden activities. Drawn, each was a loop: up out of
+             the gate into its own phase bar, and back down into the next gate.
+             The loops also made the folded picture circular, and the pass below
+             then dropped two arrows each "implied" by the other — so nothing
+             led from one phase into the next. The gates are joined below. */
+          if (holds(t.id, pt.id) || holds(pt.id, t.id)) return;
           const plain = p.type === 'FS' && !p.lag;
           const pairKey = pt.id + '>' + t.id;
           if (drawnPairs.has(pairKey)) {
@@ -22258,24 +22289,55 @@ Or say what you want, in your own words:
       // weaker than the direct link, and SS/FF anchor different ends.
       let impliedHidden = 0;
       {
+        // pairs only: the gate-to-gate arrows added below are context, never a bypass
         const succ = new Map();
-        pairList.forEach(e => { if (!e.plain) return; if (!succ.has(e.pt.id)) succ.set(e.pt.id, []); succ.get(e.pt.id).push(e.t.id); });
-        const memo = new Map();
-        const canReach = (from, to) => {
-          const k = from + '>' + to;
-          if (memo.has(k)) return memo.get(k);
-          if (memo.has('#' + k)) return false;           // cycle guard
-          memo.set('#' + k, true);
-          let r = false;
-          for (const n of (succ.get(from) || [])) { if (n === to || canReach(n, to)) { r = true; break; } }
-          memo.set(k, r);
-          return r;
+        pairList.forEach(e => { if (!e.plain) return; if (!succ.has(e.pt.id)) succ.set(e.pt.id, []); succ.get(e.pt.id).push(e); });
+        // can `to` still be reached from `from` without arrow `skip`, on what is still drawn
+        const reachWithout = (from, to, skip) => {
+          const got = new Set([from]), q = [from];
+          while (q.length) for (const f of (succ.get(q.shift()) || [])) {
+            if (f === skip || f.implied || got.has(f.t.id)) continue;
+            if (f.t.id === to) return true;
+            got.add(f.t.id); q.push(f.t.id);
+          }
+          return false;
         };
+        /* One arrow at a time, each judged on the arrows still drawn: on a
+           chain-only picture that is the same reduction as before, and where
+           folding makes the picture circular two arrows can no longer each go
+           as "implied" by the other, which left nothing joining the rows. */
         pairList.forEach(e => {
-          e.implied = e.plain && (succ.get(e.pt.id) || []).some(n => n !== e.t.id && canReach(n, e.t.id));
+          e.implied = e.plain && reachWithout(e.pt.id, e.t.id, e);
           if (e.implied) impliedHidden++;
         });
       }
+      /* Gates showing under one folded phase that wait on each other through
+         its hidden work are joined gate to gate, so dropping their loops into
+         the phase bar leaves none floating with nothing to say where it sits in
+         the flow. The walk goes only through work hidden in that phase and
+         stops at the first row on show. */
+      collapsedIds.forEach(phId => {
+        if (!visibleIds.has(phId)) return;
+        const shown = new Set(rows.filter(o => holds(phId, o.task.id)).map(o => o.task.id));
+        shown.forEach(mId => {
+          const got = new Set([mId]), q = [mId];
+          while (q.length) (linkSucc.get(q.shift()) || []).forEach(v => {
+            if (got.has(v)) return;
+            got.add(v);
+            if (visibleIds.has(v)) {
+              const key = mId + '>' + v;
+              if (shown.has(v) && !drawnPairs.has(key)) {
+                drawnPairs.add(key);
+                const m = tasks.find(x => x.id === mId), n = tasks.find(x => x.id === v);
+                pairList.push({ key, t0: n, pt0: m, t: n, pt: m, plain: false, type: 'FS', implied: false });
+              }
+              return;
+            }
+            const r = repOf(v);
+            if (r && r.id === phId) q.push(v);
+          });
+        });
+      });
       pairList.forEach(({ t0, pt0, t, pt, implied, type }) => { if (!implied) edgeList.push({ t0, pt0, t, pt, type }); });
       // never silently thin the picture — say how many arrows were left out
       {
@@ -22305,8 +22367,14 @@ Or say what you want, in your own words:
          its own ends: it is entering (or leaving) that phase anyway, and the
          detour round the phase's far end made it longer — and drew a box round
          a diamond that two arrows into one gate passed on either side.
-         Milestone labels are not steered round — stepping round every label
-         made staircases — and they sit on a white halo above the lines.
+         A gate's label is kept clear too, but cheaply: where a label is in the
+         way the arrow steps to the column that stays clear of shapes AND
+         labels the longest (nearest on a tie) — so a column of gates is passed
+         on one line, not a staircase — and only if that column is within 40px
+         of where it would have gone anyway. A long detour to spare a label
+         read worse than the label, which sits on a halo above the line. As
+         the label is part of what it steps round, a diamond is passed on the
+         side away from its label.
 
          What earlier fixes taught, and this keeps:
          - a diamond is entered through its top or bottom point — a sideways
@@ -22329,8 +22397,16 @@ Or say what you want, in your own words:
       };
       // per row: the span a vertical line must not cross — the row's one shape
       const hardIv = rows.map(({ task: tt }) => { const sh = shapeOf(tt); return sh.kind === 'ms' ? [sh.cx - 10 - PADX, sh.cx + 10 + PADX] : [sh.x - PADX, sh.x2 + PADX]; });
+      // and with a gate's label, on the side its drawing puts it
+      // — so round a diamond the clear side is the one away from its label
+      const softIv = rows.map(({ task: tt }, r) => {
+        if (!tt.milestone) return hardIv[r];
+        const cx = msAnchorX(tt), [a, b] = msLabelSpan(tt, cx);
+        return a > cx ? [hardIv[r][0], b + 1] : [a - 1, hardIv[r][1]];
+      });
       const COL_LO = X0 + 2, COL_HI = W - PAD - 2;
       const blocks = (r, x) => x > hardIv[r][0] && x < hardIv[r][1];
+      const blocksSoft = (r, x) => x > softIv[r][0] && x < softIv[r][1];
       // the clear column on row r nearest `want`, leaning toward `toward` on a tie
       const clearOn = (r, want, toward) => {
         if (!blocks(r, want)) return want;
@@ -22346,14 +22422,37 @@ Or say what you want, in your own words:
          gap before that row to its nearest clear column — or, where the only
          clear column is far, keep going: a crossing beats a detour across the
          chart. `own` holds the rows of the phases that hold either end. */
+      const LAB_REACH = 40;                            // the most an arrow goes out of its way for a label
       const walk = (i, j, x, goal, own) => {
         const down = j > i, steps = [], far = Math.max(160, dayW * 8);
+        const between = [];
+        for (let r = i + (down ? 1 : -1); down ? r < j : r > j; r += down ? 1 : -1) if (!own.has(r)) between.push(r);
+        // how many rows from the n-th on stay clear at column cx (a run of 60 is as good as any)
+        const runOf = (n, cx) => { let m = n; while (m < between.length && m - n < 60 && !blocksSoft(between[m], cx)) m++; return m - n; };
         let cur = x;
-        for (let r = i + (down ? 1 : -1); down ? r < j : r > j; r += down ? 1 : -1) {
-          if (own.has(r) || !blocks(r, cur)) continue;
-          const nx = clearOn(r, cur, goal);
-          if (nx === null || Math.abs(nx - cur) > far) continue;
-          if (Math.abs(nx - cur) > 0.01) { steps.push([down ? laneUnder(r - 1) : laneOver(r + 1), nx]); cur = nx; }
+        for (let n = 0; n < between.length;) {
+          const r = between[n];
+          if (!blocksSoft(r, cur)) { n++; continue; }
+          const lane = down ? laneUnder(r - 1) : laneOver(r + 1);
+          // the step round the shape alone, if one is in the way; a label may add LAB_REACH to it
+          const hardNx = blocks(r, cur) ? clearOn(r, cur, goal) : cur;
+          const reach = Math.min(far, (hardNx === null ? far : Math.abs(hardNx - cur)) + LAB_REACH);
+          // for a label alone, a step must clear every label the straight line crosses before a
+          // shape stops it, or it jogs past one label only to cross the next
+          const labRows = [];
+          if (hardNx === cur) for (let m = n; m < between.length && !blocks(between[m], cur); m++) if (blocksSoft(between[m], cur)) labRows.push(between[m]);
+          // the column within reach that stays clear of shapes and labels the longest, nearest on a tie
+          let best = null;
+          for (let q = n; q < Math.min(between.length, n + 40); q++) for (const cx of softIv[between[q]]) {
+            if (cx < COL_LO || cx > COL_HI || Math.abs(cx - cur) > reach) continue;
+            const run = runOf(n, cx), d = Math.abs(cx - cur);
+            if (labRows.some(q => blocksSoft(q, cx))) continue;
+            if (run && (!best || run > best.run || (run === best.run && (d < best.d - 0.5 || (Math.abs(d - best.d) <= 0.5 && Math.abs(cx - goal) < Math.abs(best.cx - goal)))))) best = { cx, run, d };
+          }
+          if (best) { steps.push([lane, best.cx]); cur = best.cx; n += best.run; continue; }
+          // no column clears the label within reach: round the shape alone, if it is in the way
+          if (hardNx !== null && Math.abs(hardNx - cur) <= far && Math.abs(hardNx - cur) > 0.01) { steps.push([lane, hardNx]); cur = hardNx; }
+          n++;
         }
         return { cur, steps };
       };
@@ -22471,8 +22570,8 @@ Or say what you want, in your own words:
              long title near the right edge swings left instead of walking off
              the chart. */
           const { short: msShort, date: msDate, w: msW } = msLabelOf(t);
-          const msLabelRight = (cx + msW) < (W - PAD);
-          svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer"><rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" rx="2" transform="rotate(45 ${cx} ${cy})" fill="${done ? '#16a34a' : '#7c3aed'}"/>` +
+          const msLabelRight = msLabelOnRight(cx, msW), msSpan = msLabelSpan(t, cx);
+          svg += `<g data-gopen="${t.id}" data-grole="bar" data-glab="${msSpan[0].toFixed(1)},${msSpan[1].toFixed(1)}" style="cursor:pointer"><rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" rx="2" transform="rotate(45 ${cx} ${cy})" fill="${done ? '#16a34a' : '#7c3aed'}"/>` +
             `<text x="${msLabelRight ? cx + 14 : cx - 14}" y="${cy + 4}" font-family="${FF}" font-size="10" font-weight="600" fill="${done ? '#16a34a' : '#5b21b6'}" stroke="#fff" stroke-width="3" stroke-linejoin="round" paint-order="stroke" ${msLabelRight ? '' : 'text-anchor="end"'}>${done ? '✓ ' : ''}${escapeXml(msShort)}<tspan font-weight="400" fill="${done ? '#16a34a' : '#7c3aed'}" opacity="0.85"> · ${escapeXml(msDate)}</tspan></text>` +
             `<title>${escapeXml(tip)}</title></g>`;
         } else {
