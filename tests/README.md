@@ -725,6 +725,14 @@ Current run: 24 checks, 65 bodies, 340 calls resolved.
 Probes live in `tests/probes/` and are out of scope by design — they observe and
 never fail, which is stated in their own README.
 
+**A check that never started.** The mutation engine counts a check that exits
+non-zero as a catch, and stops the run when the exit is a crash instead. Its
+list of crashes knew missing files and syntax errors, not a browser that would
+not launch. Run inside a sandboxed shell, where Chromium cannot start, it scored
+680 of 680 caught in seventy seconds with no finding behind any of them, and
+wrote that over the journal of a real run. `browserType.launch:` now stops the
+run like any other crash.
+
 ## Which ASSERTIONS have never fired
 
 `node tests/probes/assertion-coverage.js` — and it is a probe, not a check, for

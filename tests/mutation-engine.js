@@ -3698,8 +3698,14 @@ const orderFor = m => {
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ptr-mut-'));
 
 /* Node's own failure modes, not a check's. A sweep reports findings as text
-   or JSON; it never reports them as a module-resolution error. */
-const CRASH_RE = /\b(ENOENT|MODULE_NOT_FOUND|Cannot find module|SyntaxError|ReferenceError)\b/;
+   or JSON; it never reports them as a module-resolution error.
+
+   Nor as a browser that would not start. Run where Chromium cannot launch (a
+   sandboxed shell), every sweep dies on its first line with "browserType.launch:
+   …", and before this pattern knew that, a full run came back 680 of 680 caught
+   in seventy seconds, every catch with no finding behind it, and overwrote the
+   journal of the real run before it. */
+const CRASH_RE = /\b(ENOENT|MODULE_NOT_FOUND|Cannot find module|SyntaxError|ReferenceError)\b|browserType\.launch:/;
 function runAsync(script, appFile) {
   return new Promise(resolve => {
     const ch = spawn(process.execPath, [path.join(__dirname, script)],
