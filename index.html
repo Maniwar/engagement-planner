@@ -5814,7 +5814,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.2239</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.07.1740</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -22564,6 +22564,9 @@ Or say what you want, in your own words:
         const SEP = 3, HEAD_LEN = 8;
         const pairDrawn = new Set(edgeList.map(e => e.pt.id + '>' + e.t.id));
         const mayShare = (a, b) => a.pt.id === b.pt.id || a.t.id === b.t.id || (pairDrawn.has(a.pt.id + '>' + b.t.id) && pairDrawn.has(b.pt.id + '>' + a.t.id));
+        // asked many times over for the few pairs of pieces that come close, so answered once per pair of arrows
+        const shareMemo = new Int8Array(routed.length * routed.length);
+        const share = (i, j) => { const c = i * routed.length + j; return (shareMemo[c] || (shareMemo[c] = mayShare(routed[i].e, routed[j].e) ? 2 : 1)) === 2; };
         const overlap = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
         // the column clear of a gate's diamond on the side away from its label
         const besideOf = r => softIv[r][0] === hardIv[r][0] ? hardIv[r][0] : hardIv[r][1];
@@ -22609,9 +22612,10 @@ Or say what you want, in your own words:
         // beside a line, 3px reads as two; in line with one, a line 3px off reads as the same line kinked. A
         // track move below stretches an upright piece by up to two tracks, so ends that near count as in line.
         const meets = (s, x, q) => {
-          if (q.R === s.R || mayShare(q.R.e, s.R.e)) return false;
-          const ov = overlap(s.ya, s.yb, q.ya, q.yb), dx = Math.abs(q.x - x);
-          return ov > 0 ? dx < SEP - 0.01 : ov > -2 * SEP && dx < 2 * SEP - 0.01;
+          const dx = Math.abs(q.x - x);
+          if (dx >= 2 * SEP - 0.01 || q.R === s.R || share(q.k, s.k)) return false;   // most pieces are nowhere near
+          const ov = overlap(s.ya, s.yb, q.ya, q.yb);
+          return ov > 0 ? dx < SEP - 0.01 : ov > -2 * SEP;
         };
         settle(ups, (s, q) => meets(s, s.x, q), (s, set) => {
           const P = s.R.P, n = P.length - 1, on = rowsOn(s.ya, s.yb).filter(r => !s.R.own.has(r));
@@ -22639,7 +22643,7 @@ Or say what you want, in your own words:
           const mates = [], cands = [];
           set.forEach(q => {
             if (q.R === s.R || overlap(s.ya, s.yb, q.ya, q.yb) <= -2 * SEP) return;
-            if (!mayShare(q.R.e, s.R.e)) cands.push(q.x - SEP, q.x + SEP, q.x - 2 * SEP, q.x + 2 * SEP);
+            if (!share(q.k, s.k)) cands.push(q.x - SEP, q.x + SEP, q.x - 2 * SEP, q.x + 2 * SEP);
             else if (Math.abs(q.x0 - s.x0) < 0.5 && Math.abs(q.x - s.x0) > 0.01) mates.push(q.x);
           });
           on.forEach(r => cands.push(hardIv[r][0], hardIv[r][1], softIv[r][0], softIv[r][1]));
@@ -22656,7 +22660,7 @@ Or say what you want, in your own words:
           if (Math.abs(p[1] - b) <= SEP + 0.01) flats.push({ R, k, m, b, y0: p[1], y: p[1], xa: Math.min(p[0], q[0]), xb: Math.max(p[0], q[0]), len: Math.abs(q[0] - p[0]), pinned: false });
         }));
         // in line along a gap too: ends nearer than 4px read as one line
-        const meetsH = (s, y, q) => q.R !== s.R && !mayShare(q.R.e, s.R.e) && Math.abs(q.y - y) < SEP - 0.01 && overlap(s.xa, s.xb, q.xa, q.xb) > -4;
+        const meetsH = (s, y, q) => Math.abs(q.y - y) < SEP - 0.01 && q.R !== s.R && !share(q.k, s.k) && overlap(s.xa, s.xb, q.xa, q.xb) > -4;
         settle(flats, (s, q) => meetsH(s, s.y, q), (s, set) => {
           const P = s.R.P, n = P.length - 1, a = P[s.m - 1][1], z = P[s.m + 2][1];
           // the upright pieces either side keep their way; the one the head rides keeps its length
@@ -22674,7 +22678,8 @@ Or say what you want, in your own words:
         const stroke = crit ? '#dc2626' : '#94a3b8', sw = tcLink ? 0.9 : crit ? 1.7 : 1.2, op = tcLink ? 0.35 : crit ? 0.9 : 0.65;
         links += `<path data-glink="${e.pt0.id}>${e.t0.id}" data-gfrom="${e.pt.id}" data-gto="${e.t.id}" data-gtype="${e.type}" d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${tcLink ? ' stroke-dasharray="3,3"' : ''} marker-end="url(#${crit ? 'g-arrC' : 'g-arr'})"/>`;
       });
-      svg += links;
+      // a layer of their own, so a fold can hand the arrows over while the rows glide
+      svg += `<g data-glinks="1">${links}</g>`;
 
       // bars — one drawing for a WBS row, an activity row in an open lane, and a
       // bar packed onto a lane's track (`packed`: no slack hatch, which would
@@ -22742,12 +22747,15 @@ Or say what you want, in your own words:
             : 0;
           // baseline underbar — only when it DIFFERS from the current schedule;
           // a just-baselined plan otherwise draws a phantom line under every bar
+          // baseline and slack sit under the bar in a group of their own, so a fold moves them with their row
+          let under = '';
           if (t.baseStart && t.baseFinish && (Math.abs(t.baseStart - t.startDate) > 432e5 || Math.abs(t.baseFinish - t.finishDate) > 432e5)) {
             const bbx = dateX(t.baseStart);
             const bbw = Math.max(4, (calDaysBetween(t.baseStart, t.baseFinish) + 1) * dayW);
-            svg += `<rect data-gbase="${t.id}" x="${bbx}" y="${y + 24}" width="${bbw}" height="3.5" rx="1.5" fill="#94a3b8"><title>Baseline ${escapeXml(when(t.baseStart))} → ${escapeXml(when(t.baseFinish))}</title></rect>`;
+            under += `<rect data-gbase="${t.id}" x="${bbx}" y="${y + 24}" width="${bbw}" height="3.5" rx="1.5" fill="#94a3b8"><title>Baseline ${escapeXml(when(t.baseStart))} → ${escapeXml(when(t.baseFinish))}</title></rect>`;
           }
-          if (slackW > 2) svg += `<rect x="${bx + bw}" y="${y + 10}" width="${slackW}" height="8" rx="3" fill="url(#g-hatchS)" opacity="0.5"><title>Slack / float</title></rect>`;
+          if (slackW > 2) under += `<rect x="${bx + bw}" y="${y + 10}" width="${slackW}" height="8" rx="3" fill="url(#g-hatchS)" opacity="0.5"><title>Slack / float</title></rect>`;
+          if (under) svg += `<g data-gmove="${t.id}·under">${under}</g>`;
           const pctw = bw * Math.min(100, t.percentComplete || 0) / 100;
           svg += `<g data-gopen="${t.id}" data-grole="bar" style="cursor:pointer">`;
           if (done) svg += `<rect x="${bx}" y="${y + 7}" width="${bw}" height="${BAR_H}" rx="4" fill="#15803d"/>`;
@@ -22835,10 +22843,13 @@ Or say what you want, in your own words:
       // reserve row
       if (hasReserve) {
         const y = Y0 + nRows * ROWH;
-        svg += `<g data-gres="1" style="cursor:pointer"><text x="${PAD + 6}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="11" font-weight="600" fill="#b45309">▸ Schedule reserve — click to adjust ⚙</text><title>Contingency &amp; management reserve. Click to open Analytics &amp; Risk, where both are edited (as % of duration or absolute days, or set from P80).</title></g>`;
+        svg += `<g data-gres="1" data-gmove="reserve·label" style="cursor:pointer"><text x="${PAD + 6}" y="${y + ROWH / 2 + 4}" font-family="${FF}" font-size="11" font-weight="600" fill="#b45309">▸ Schedule reserve — click to adjust ⚙</text><title>Contingency &amp; management reserve. Click to open Analytics &amp; Risk, where both are edited (as % of duration or absolute days, or set from P80).</title></g>`;
         const x1 = dateX(rv.cpmDate) + dayW, x2 = dateX(rv.committedDate) + dayW, x3 = dateX(rv.totalDate) + dayW;
+        // the reserve bars sit on the row below the last one, so a fold moves them with it
+        svg += `<g data-gmove="reserve·bar">`;
         if (rv.contingencyUnits > 0) svg += `<rect x="${x1}" y="${y + 8}" width="${Math.max(3, x2 - x1)}" height="14" rx="3" fill="url(#g-hatchC)" stroke="#f59e0b"><title>Contingency reserve → committed ${escapeXml(when(rv.committedDate))}</title></rect>`;
         if (rv.managementUnits > 0) svg += `<rect x="${x2}" y="${y + 8}" width="${Math.max(3, x3 - x2)}" height="14" rx="3" fill="url(#g-hatchM)" stroke="#b45309" stroke-width="1" opacity=".55"><title>Management reserve → total ${escapeXml(when(rv.totalDate))}</title></rect>`;
+        svg += `</g>`;
         svg += `<line x1="${x2}" y1="${Y0}" x2="${x2}" y2="${y + ROWH}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3"/>`;
         if (rv.managementUnits > 0) svg += `<line x1="${x3}" y1="${Y0}" x2="${x3}" y2="${y + ROWH}" stroke="#b45309" stroke-width="1" opacity=".55" stroke-dasharray="2,3"/>`;
       }
@@ -22915,7 +22926,7 @@ Or say what you want, in your own words:
           const x1 = Math.min(Math.max(x0, n.doneX || 0), xEnd);
           const w = xEnd - x1;
           if (w < 1) return;                    // every critical day is finished
-          svg += `<g><rect x="${x1}" y="${yTop}" width="${Math.max(3, w)}" height="3" rx="1.5" fill="#dc2626" opacity="0.95"/>
+          svg += `<g data-gmove="${n.rowId}·crit"><rect x="${x1}" y="${yTop}" width="${Math.max(3, w)}" height="3" rx="1.5" fill="#dc2626" opacity="0.95"/>
             <title>${escapeXml('CRITICAL PATH runs through this collapsed group — the red strip is the part still OUTSTANDING (it starts where the green progress ends). Click the group’s ▸ to see the zero-slack tasks. Any delay here moves the finish date day-for-day.')}</title></g>`;
         });
       }
@@ -22928,7 +22939,7 @@ Or say what you want, in your own words:
         const reason = (firstCritLeaf.levelDelay || 0) > 0
           ? 'The first zero-slack activity ("' + firstCritLeaf.name + '") is pinned by RESOURCE LEVELING (start pushed +' + firstCritLeaf.levelDelay.toFixed(1) + ' ' + unitLabel() + ' to resolve an over-allocation). Clear or change leveling on the Resources tab and the dependency-driven path will reach further back.'
           : 'Everything to the left of this point carries float — those activities can slip (by their slack numbers) WITHOUT moving the finish date. The finish is driven only from "' + firstCritLeaf.name + '" onward, so focus compression there.';
-        svg += `<g data-cpwhy="1" style="cursor:help"><circle cx="${x0c - 17}" cy="${y0c}" r="8" fill="#fff" stroke="#dc2626" stroke-width="1.6"/><text x="${x0c - 17}" y="${y0c + 3.5}" font-family="${FF}" font-size="10" font-weight="800" fill="#dc2626" text-anchor="middle">?</text>
+        svg += `<g data-cpwhy="1" data-gmove="${firstCritLeaf.id}·why" style="cursor:help"><circle cx="${x0c - 17}" cy="${y0c}" r="8" fill="#fff" stroke="#dc2626" stroke-width="1.6"/><text x="${x0c - 17}" y="${y0c + 3.5}" font-family="${FF}" font-size="10" font-weight="800" fill="#dc2626" text-anchor="middle">?</text>
           <title>${escapeXml('Why does the critical path start HERE, not at day one?\n' + reason)}</title></g>`;
       }
       svg += `</g>`; // end clipped chart layer
@@ -45346,96 +45357,177 @@ Return ONLY JSON: {"narrative":"the three paragraphs separated by \\n\\n"}`;
        per group — forty independent clocks, each free to land on a different
        frame — and a single driver is both cheaper and, more to the point,
        synchronised. */
-    let _gGeom = null, _gAnim = 0;
-    const GLIDE_MS = 320;
-    function gKey(g) { return g.dataset.gopen + '·' + (g.dataset.grole || 'x'); }
+    /* ═══ ONE PICTURE MOVING ═══════════════════════════════════════════════
+       Reported: "the animation seems to be messed up and slow on the gantt."
+       Three faults, each found by stopping the glide frame by frame:
+
+       THE ARROWS STAYED PUT. Only rows and bars glided; the arrows were drawn
+       for the new layout from the first frame, so while the rows slid every
+       arrow below the phase pointed at rows that had not arrived. An arrow is
+       re-routed, not moved, so it cannot slide with its bars. It hands over
+       instead: one whose path changes stays on screen as it was and fades out
+       as the rows set off, and its new path fades in as they land. One whose
+       path does not change is left alone, so nothing without a reason to move
+       flickers.
+
+       THE CLOCK STARTED BEFORE THE FIRST FRAME. Chrome stamps an animation
+       frame with the time the frame began, and after a click that took a while
+       to draw, that stamp is earlier than the clock read at the end of the
+       click. The elapsed time was negative, the ease went below zero, and the
+       first frame threw every row past where it had been before it slid back:
+       the slower the redraw, the bigger the throw. The clock now starts on the
+       first frame's own stamp, and the starting pose is set before any frame.
+
+       A CLICK MID-GLIDE JUMPED. The next render started each row from where
+       the LAST render put it, not where it was on screen, and dropped the rows
+       still folding away. Every row now starts from where it is drawn at that
+       moment, read back from the offset and fade the glide gave it; a row on
+       its way out that is wanted back returns from where it is, and one still
+       on its way out carries on.
+
+       Rows are remembered as the elements themselves, not as copies of their
+       markup: a row that leaves is its old element, moved into a ghost and
+       still carrying the offset and fade it was caught with. */
+    let _gGeom = null, _gAnim = 0, _gLinks = null, _gGhosts = [], _gLinkGhosts = [];
+    const GLIDE_MS = 320, ARROW_OUT = 0.3, ARROW_IN = 0.45, SVG_NS = 'http://www.w3.org/2000/svg';
+    // a row's name, its bar, and what is drawn with them (baseline, slack, critical strip, ? badge)
+    function gKey(g) { return g.dataset.gmove || (g.dataset.gopen + '·' + (g.dataset.grole || 'x')); }
+    // where an element is drawn right now, relative to its own place, and how strongly
+    function gPose(el) {
+      const m = /translate\(\s*([-\d.e]+)[ ,]+([-\d.e]+)\s*\)/.exec(el.getAttribute('transform') || '');
+      const a = el.getAttribute('opacity');
+      return { dx: m ? +m[1] : 0, dy: m ? +m[2] : 0, a: a == null ? 1 : +a };
+    }
+    function gGhost(svg, node, before) {
+      const h = document.createElementNS(SVG_NS, 'g');
+      h.setAttribute('class', 'g-ghost');
+      h.style.pointerEvents = 'none';
+      h.appendChild(node);
+      if (before) before.parentNode.insertBefore(h, before); else svg.appendChild(h);
+      return h;
+    }
     function ganttGlide() {
       const cont = document.getElementById('ganttContainer');
-      if (!cont) { _gGeom = null; return; }
-      const svg = cont.querySelector('svg');
-      // a toggle during a run supersedes it: drop its ghosts, take its number
+      const svg = cont && cont.querySelector('svg');
+      // a render during a run supersedes it and takes over everything it had on screen
       const token = ++_gAnim;
-      cont.querySelectorAll('.g-ghost').forEach(x => x.remove());
-      const groups = [...cont.querySelectorAll('g[data-gopen]')];
+      const prev = _gGeom, prevLinks = _gLinks, flying = _gGhosts, flyingLinks = _gLinkGhosts;
+      _gGeom = null; _gLinks = null; _gGhosts = []; _gLinkGhosts = [];
+      if (!svg) return;
       const next = {};
-      groups.forEach(g => {
+      svg.querySelectorAll('g[data-gopen], g[data-gmove]').forEach(g => {
         let bb; try { bb = g.getBBox(); } catch (e) { return; }
-        next[gKey(g)] = { x: bb.x, y: bb.y, html: g.outerHTML };
+        next[gKey(g)] = { x: bb.x, y: bb.y, node: g };
       });
-      const prev = _gGeom;
-      _gGeom = next;
-      if (!prev || !svg || !motionOK()) return;
+      const links = svg.querySelector('[data-glinks]');
+      // each arrow's own strength, as drawn, before any fade touches it
+      if (links) links.querySelectorAll('path').forEach(p => { p._gOp = p.getAttribute('opacity'); });
+      _gGeom = next; _gLinks = links;
+      if (!prev || !motionOK()) return;
+      const num = v => v == null || v === '' ? 1 : +v;
 
-      /* Where a row that is arriving or leaving should come from and go to:
-         the nearest row ABOVE it that is in both renders. For an expansion
-         that is the phase whose twisty was clicked, without this having to ask
-         which one it was. */
+      // where everything is drawn at this moment, with the offsets and fades of a glide in flight
+      const seen = {};
+      Object.keys(prev).forEach(k => { const p = prev[k], o = gPose(p.node); seen[k] = { x: p.x + o.dx, y: p.y + o.dy, a: o.a }; });
+      const ghostAt = gh => { const o = gPose(gh.node), h = gPose(gh.holder); return { x: gh.x + o.dx + h.dx, y: gh.y + o.dy + h.dy, a: o.a * h.a }; };
+      const back = {};
+      flying.forEach(gh => { back[gh.k] = gh; });
+
+      /* Where a row that arrives comes from, or one that leaves goes to: the
+         nearest row ABOVE it that is in both renders. For an expansion that is
+         the phase whose twisty was clicked, without asking which one it was. */
       const survivors = Object.keys(next).filter(k => prev[k]);
       const anchorFor = y => {
         let best = null;
-        survivors.forEach(k => {
-          const yy = next[k].y;
-          if (yy <= y + 1 && (best === null || yy > best)) best = yy;
-        });
+        survivors.forEach(k => { const yy = next[k].y; if (yy <= y + 1 && (best === null || yy > best)) best = yy; });
         return best === null ? y : best;
       };
 
-      const movers = [], entrants = [], leavers = [];
-      groups.forEach(g => {
-        const k = gKey(g), n = next[k], p = prev[k];
-        if (!n) return;
-        if (p) {
-          const dx = p.x - n.x, dy = p.y - n.y;
-          if (Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5) movers.push({ g: g, dx: dx, dy: dy });
-        } else {
-          entrants.push({ g: g, dy: anchorFor(n.y) - n.y });
+      // everything that moves: from an offset and strength to another, then cleared, or removed
+      const tracks = [];
+      const track = (el, from, to, end) => tracks.push({ el, from, to, end });
+      Object.keys(next).forEach(k => {
+        const n = next[k], s = seen[k];
+        if (s) {
+          if (Math.abs(s.x - n.x) >= 0.5 || Math.abs(s.y - n.y) >= 0.5 || s.a < 0.999)
+            track(n.node, { dx: s.x - n.x, dy: s.y - n.y, a: s.a }, { dx: 0, dy: 0, a: 1 }, 'clear');
+          return;
         }
+        const gh = back[k];
+        if (gh) {   // on its way out and wanted back: it returns from where it is
+          const at = ghostAt(gh); delete back[k];
+          track(n.node, { dx: at.x - n.x, dy: at.y - n.y, a: at.a }, { dx: 0, dy: 0, a: 1 }, 'clear');
+        } else track(n.node, { dx: 0, dy: anchorFor(n.y) - n.y, a: 0 }, { dx: 0, dy: 0, a: 1 }, 'clear');
       });
       Object.keys(prev).forEach(k => {
-        if (next[k] || !prev[k].html) return;
-        const holder = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        holder.setAttribute('class', 'g-ghost');
-        holder.style.pointerEvents = 'none';
-        holder.innerHTML = prev[k].html;
-        svg.appendChild(holder);
-        leavers.push({ g: holder, dy: anchorFor(prev[k].y) - prev[k].y });
+        if (next[k]) return;
+        const s = seen[k], h = gGhost(svg, prev[k].node);
+        track(h, { dx: 0, dy: 0, a: 1 }, { dx: 0, dy: anchorFor(s.y) - s.y, a: 0 }, 'remove');
+        _gGhosts.push({ k, node: prev[k].node, holder: h, x: prev[k].x, y: prev[k].y });
       });
-      if (!movers.length && !entrants.length && !leavers.length) return;
+      Object.keys(back).forEach(k => {   // still on its way out: it carries on from where it is
+        const gh = back[k], at = ghostAt(gh), h = gPose(gh.holder);
+        svg.appendChild(gh.holder);
+        track(gh.holder, h, { dx: h.dx, dy: h.dy + anchorFor(at.y) - at.y, a: 0 }, 'remove');
+        _gGhosts.push(gh);
+      });
 
-      /* Set the starting pose NOW, not on the first frame. A rAF callback runs
-         after the browser has already painted, so anything posed inside one
-         flashes at its destination for a frame first — which is the very
-         artefact this exists to remove. */
-      entrants.forEach(a => {
-        a.g.setAttribute('transform', 'translate(0,' + a.dy + ')');
-        a.g.setAttribute('opacity', '0');
+      // the arrows hand over: an unchanged path stays, a changed one fades out as its new one will fade in
+      const fades = [];
+      const out = h => fades.push({ el: h, a0: gPose(h).a, a1: 0, w0: 0, w1: ARROW_OUT, base: 1, end: 'remove' });
+      if (links) {
+        const old = new Map();
+        if (prevLinks) prevLinks.querySelectorAll('path').forEach(p => { const d = p.getAttribute('d'); if (!old.has(d)) old.set(d, []); old.get(d).push(p); });
+        links.querySelectorAll('path').forEach(p => {
+          const same = (old.get(p.getAttribute('d')) || []).shift();
+          const was = same ? num(same.getAttribute('opacity')) / num(same._gOp) : 0;
+          if (same) same.remove();
+          if (was < 0.999) fades.push({ el: p, a0: was, a1: 1, w0: ARROW_IN, w1: 1, base: num(p._gOp), end: 'restore' });
+        });
+      }
+      if (prevLinks && prevLinks.querySelector('path')) {
+        prevLinks.removeAttribute('data-glinks');
+        const h = gGhost(svg, prevLinks, links);
+        out(h); _gLinkGhosts.push(h);
+      }
+      flyingLinks.forEach(h => {
+        if (links) links.parentNode.insertBefore(h, links); else svg.appendChild(h);
+        out(h); _gLinkGhosts.push(h);
       });
+      if (!tracks.length && !fades.length) return;
 
       const ease = k => 1 - Math.pow(1 - k, 3);
-      const t0 = performance.now();
+      const pose = k => {
+        const e = ease(k), done = k >= 1;
+        tracks.forEach(t => {
+          if (done) { if (t.end === 'remove') t.el.remove(); else { t.el.removeAttribute('transform'); t.el.removeAttribute('opacity'); } return; }
+          const dx = t.from.dx + (t.to.dx - t.from.dx) * e, dy = t.from.dy + (t.to.dy - t.from.dy) * e;
+          // the fade leads the movement, so a row is readable before it lands and gone before it is folded in
+          const w = Math.min(1, e * (t.to.a >= t.from.a ? 1.6 : 1.35)), a = t.from.a + (t.to.a - t.from.a) * w;
+          if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) t.el.setAttribute('transform', 'translate(' + dx + ',' + dy + ')');
+          else t.el.removeAttribute('transform');
+          if (a < 0.999) t.el.setAttribute('opacity', String(Math.max(0, a))); else t.el.removeAttribute('opacity');
+        });
+        fades.forEach(f => {
+          if (done) {
+            if (f.end === 'remove') f.el.remove();
+            else if (f.el._gOp == null) f.el.removeAttribute('opacity'); else f.el.setAttribute('opacity', f.el._gOp);
+            return;
+          }
+          const w = Math.max(0, Math.min(1, (k - f.w0) / (f.w1 - f.w0)));
+          f.el.setAttribute('opacity', String((f.a0 + (f.a1 - f.a0) * w) * f.base));
+        });
+        if (done) { _gGhosts = []; _gLinkGhosts = []; }
+      };
+      // the starting pose before any frame: a browser may paint before the first frame callback runs
+      pose(0);
+      let t0 = null;
       const step = nw => {
         if (token !== _gAnim) return;                 // a newer render owns the chart
-        const k = Math.min(1, (nw - t0) / GLIDE_MS), e = ease(k), done = k >= 1;
-        movers.forEach(m => {
-          if (done) m.g.removeAttribute('transform');
-          else m.g.setAttribute('transform', 'translate(' + (m.dx * (1 - e)) + ',' + (m.dy * (1 - e)) + ')');
-        });
-        entrants.forEach(a => {
-          if (done) { a.g.removeAttribute('transform'); a.g.removeAttribute('opacity'); }
-          else {
-            a.g.setAttribute('transform', 'translate(0,' + (a.dy * (1 - e)) + ')');
-            // opacity leads the movement, so a row is readable before it lands
-            a.g.setAttribute('opacity', String(Math.min(1, e * 1.6)));
-          }
-        });
-        leavers.forEach(l => {
-          if (done) l.g.remove();
-          else {
-            l.g.setAttribute('transform', 'translate(0,' + (l.dy * e) + ')');
-            l.g.setAttribute('opacity', String(Math.max(0, 1 - e * 1.35)));
-          }
-        });
-        if (!done) requestAnimationFrame(step);
+        if (t0 === null) t0 = nw;                     // the clock starts on the first frame's own stamp
+        const k = Math.min(1, Math.max(0, (nw - t0) / GLIDE_MS));
+        pose(k);
+        if (k < 1) requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
     }

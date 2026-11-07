@@ -1110,6 +1110,69 @@ when the straight drop is blocked. What the dry runs taught:
 
 Each rule has a planted defect in the engine (prefix `arrows:`).
 
+## The fold glide
+
+Reported: "the animation seems to be messed up and slow on the gantt."
+`gantt-glide-sweep.js` takes over the browser's animation frames, so a glide
+runs only when it says and each frame carries the time it gives. It stops the
+glide where it likes and reads the chart off the screen: every row, bar and
+arrow, where it is drawn and how strongly it shows.
+
+- **The picture does not change when a click lands.** Everything visible just
+  before is visible just after, in the same place at the same strength, and
+  nothing else is. This is read before any frame runs and on a first frame
+  stamped before the click finished. It is checked for a click on a still
+  chart, for closing a phase that is half open, for opening one that is half
+  closed, and for opening another phase while the first is folding away.
+- **Nothing shows twice.** No row is both arriving and leaving at once.
+- **No row travels beyond its old place or its new one.**
+- **An arrow whose path does not change never fades.**
+- **Everything on the chart moves with a row.** A bar's baseline and slack, the
+  critical strip on a folded phase, the ? badge and the reserve row are drawn
+  in groups the glide moves. The arrows have a layer of their own.
+- **After the glide, the chart is the chart as drawn.** No ghost, offset or
+  fade is left, and no frame is still asked for.
+- **Reduced motion moves and fades nothing.**
+
+What it found:
+
+- **The arrows stayed put.** Only rows and bars glided. The arrows were drawn
+  for the new layout from the first frame, so for a third of a second every
+  arrow below an opened phase pointed at rows that had not arrived. An arrow is
+  re-routed, not moved, so it cannot slide. It hands over instead: a changed
+  path stays as it was and fades out as the rows set off, and its new path
+  fades in as they land.
+- **The clock started before the first frame.** Chrome stamps a frame with the
+  time it began. After a slow click, that stamp is earlier than the clock the
+  glide read when the click ended. The elapsed time came out negative, the ease
+  went below zero, and the first frame threw every row past where it had been:
+  43 px on the user's plan. The slower the redraw, the bigger the throw, which
+  is why the slower arrow pass made it worse. The clock now starts on the first
+  frame's own stamp.
+- **A click mid-glide jumped.** The next render started rows from where the
+  last render put them, and dropped the rows still folding away.
+- **Half a row's drawing stayed behind.** The critical strip, baseline, slack,
+  ? badge and reserve row were drawn outside the groups that move.
+
+Two traps in writing it. Folding the chart during setup starts a glide of its
+own, so the frames are taken over before anything is drawn and run out before
+the first reading. And by 110 ms into a fold, the leaving rows are already
+down to 3%, so a click there has nothing to bring back. The re-opening cases
+catch the fold at 40 ms, while those rows still show at about half strength.
+
+The ? badge appears only when the critical path starts after day one, which
+the fixture's never does. Its grouping is kept, without a planted defect.
+
+The slower redraw was the arrow pass from the last change: 4–4.6 ms per build
+on the user's open plan. Most of that went on working out, for every pair of
+line pieces, whether their arrows may share a line, with two strings built
+each time, before checking whether the pieces were anywhere near. It now
+rejects distant pieces first and works out sharing once for each pair of
+arrows. That brings the pass down to about 1.5 ms, with every arrow
+byte-identical across 54 views of three plans.
+
+Each rule has a planted defect in the engine (prefix `glide:`).
+
 ## Feature probes — which are NOT checks
 
 `budget-split.js` and `raid-outcomes.js` moved to `tests/probes/`, because they

@@ -3412,12 +3412,12 @@ const MUTANTS = [
     with: "(pairDrawn.has(a.pt.id + '>' + b.t.id) || pairDrawn.has(b.pt.id + '>' + a.t.id))" },
 
   { what: 'arrows: an upright line may run on in line where an unrelated one stops',
-    find: "return ov > 0 ? dx < SEP - 0.01 : ov > -2 * SEP && dx < 2 * SEP - 0.01;",
+    find: "return ov > 0 ? dx < SEP - 0.01 : ov > -2 * SEP;",
     with: "return ov > 0 && dx < SEP - 0.01;" },
 
   { what: 'arrows: along a gap, a line may run on where an unrelated one stops',
-    find: "Math.abs(q.y - y) < SEP - 0.01 && overlap(s.xa, s.xb, q.xa, q.xb) > -4;",
-    with: "Math.abs(q.y - y) < SEP - 0.01 && overlap(s.xa, s.xb, q.xa, q.xb) > 0.5;" },
+    find: "!share(q.k, s.k) && overlap(s.xa, s.xb, q.xa, q.xb) > -4;",
+    with: "!share(q.k, s.k) && overlap(s.xa, s.xb, q.xa, q.xb) > 0.5;" },
 
   { what: 'arrows: a folded phase\'s end never slides, so its line runs on into the gate under it',
     find: "const slide = w && w[0] <= p[0] + 0.01 && p[0] <= w[1] + 0.01 ? w : null;",
@@ -3438,6 +3438,71 @@ const MUTANTS = [
   { what: 'arrows: a track move shortens the run the head rides',
     find: "Math.abs(z - y) >= (s.m + 2 === n ? Math.min(HEAD_LEN, Math.abs(z - s.y0)) : 1)",
     with: "Math.abs(z - y) >= 1" },
+
+  /* ── the fold glide (gantt-glide-sweep.js) ─────────────────────────────── */
+  { what: 'glide: the clock starts when the click ends, so a first frame stamped earlier throws every row past where it was',
+    find: "      let t0 = null;\n      const step = nw => {\n        if (token !== _gAnim) return;                 // a newer render owns the chart\n        if (t0 === null) t0 = nw;                     // the clock starts on the first frame's own stamp\n        const k = Math.min(1, Math.max(0, (nw - t0) / GLIDE_MS));",
+    with: "      const t0 = performance.now();\n      const step = nw => {\n        if (token !== _gAnim) return;\n        const k = Math.min(1, (nw - t0) / GLIDE_MS);" },
+
+  { what: 'glide: the starting pose waits for the first frame, so a paint before it shows the new layout',
+    find: "      pose(0);\n      let t0 = null;",
+    with: "      let t0 = null;" },
+
+  { what: 'glide: the new arrows show from the click, pointing at rows that have not moved',
+    find: "          if (was < 0.999) fades.push({ el: p, a0: was, a1: 1,",
+    with: "          if (false) fades.push({ el: p, a0: was, a1: 1," },
+
+  { what: 'glide: the old arrows vanish at the click while their rows are still there',
+    find: "      if (prevLinks && prevLinks.querySelector('path')) {",
+    with: "      if (false) {" },
+
+  { what: 'glide: an arrow that does not change fades out and back in like one that does',
+    find: "          const same = (old.get(p.getAttribute('d')) || []).shift();",
+    with: "          const same = null;" },
+
+  { what: 'glide: a click mid-glide restarts every row from where the last render put it',
+    find: "seen[k] = { x: p.x + o.dx, y: p.y + o.dy, a: o.a };",
+    with: "seen[k] = { x: p.x, y: p.y, a: 1 };" },
+
+  { what: 'glide: rows still folding away vanish when another phase is clicked',
+    find: "      Object.keys(back).forEach(k => {   // still on its way out: it carries on from where it is",
+    with: "      Object.keys(back).filter(() => false).forEach(k => {" },
+
+  { what: 'glide: a row wanted back while folding away unfurls again from the row that hid it',
+    find: "        const gh = back[k];\n        if (gh) {",
+    with: "        const gh = null;\n        if (gh) {" },
+
+  { what: 'glide: a row that leaves mid-glide drops the offset it was caught at',
+    find: "        const s = seen[k], h = gGhost(svg, prev[k].node);",
+    with: "        const s = seen[k], h = gGhost(svg, prev[k].node); prev[k].node.removeAttribute('transform'); prev[k].node.removeAttribute('opacity');" },
+
+  { what: 'glide: reduced motion is ignored',
+    find: "      if (!prev || !motionOK()) return;\n      const num",
+    with: "      if (!prev) return;\n      const num" },
+
+  { what: 'glide: leaving copies stay on the chart after the glide',
+    find: "          if (done) { if (t.end === 'remove') t.el.remove(); else {",
+    with: "          if (done) { if (t.end === 'remove') {} else {" },
+
+  { what: 'glide: the new arrows stay faded after the glide',
+    find: "            else if (f.el._gOp == null) f.el.removeAttribute('opacity'); else f.el.setAttribute('opacity', f.el._gOp);",
+    with: "            else {}" },
+
+  { what: 'glide: the arrows are drawn loose on the chart, outside a layer the glide can fade',
+    find: "      svg += `<g data-glinks=\"1\">${links}</g>`;",
+    with: "      svg += links;" },
+
+  { what: 'glide: the critical strip on a folded phase stays put while its phase moves',
+    find: "<g data-gmove=\"${n.rowId}·crit\">",
+    with: "<g>" },
+
+  { what: 'glide: the reserve bars stay put while the rows above them move',
+    find: "        svg += `<g data-gmove=\"reserve·bar\">`;",
+    with: "        svg += `<g>`;" },
+
+  { what: 'glide: a bar\'s baseline and slack stay put while the bar moves',
+    find: "          if (under) svg += `<g data-gmove=\"${t.id}·under\">${under}</g>`;",
+    with: "          if (under) svg += `<g>${under}</g>`;" },
 
   { what: 'arrows: a gate\'s label is not kept clear at all',
     find: "return a > cx ? [hardIv[r][0], b + 1] : [a - 1, hardIv[r][1]];",
@@ -3634,7 +3699,7 @@ const LIKELY = {
   'next step:': 'action-hierarchy-sweep.js', 'adding work:': 'wbs-add-sweep.js',
   'in place:': 'wbs-inline-sweep.js', 'asks first:': 'ask-first-sweep.js',
   'row actions:': 'row-actions-sweep.js', 'gantt view:': 'gantt-view-sweep.js',
-  'arrows:': 'gantt-arrows-sweep.js'
+  'arrows:': 'gantt-arrows-sweep.js', 'glide:': 'gantt-glide-sweep.js'
 };
 /* ═══ WHAT ACTUALLY KILLED THIS MUTANT LAST TIME ════════════════════════════
    judge() walks the checks until one goes red, so the cost of a mutant is
