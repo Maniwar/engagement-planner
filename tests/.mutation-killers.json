@@ -668,5 +668,16 @@
  "arrows: a label is stepped round however far the detour": "gantt-arrows-sweep.js",
  "arrows: a label is kept clear by the wide room-making estimate, not as drawn": "gantt-arrows-sweep.js",
  "arrows: a join never counts as a chain, so a gate's long line runs beside it": "gantt-arrows-sweep.js",
- "arrows: a join counts as a chain even through a lead, so a link it does not imply goes undrawn": "gantt-arrows-sweep.js"
+ "arrows: a join counts as a chain even through a lead, so a link it does not imply goes undrawn": "gantt-arrows-sweep.js",
+ "arrows: unrelated arrows that need one column all run down it, as one line": "gantt-arrows-sweep.js",
+ "arrows: unrelated arrows that need one gap between rows all run along it, as one line": "gantt-arrows-sweep.js",
+ "arrows: any two arrows may share a line, as if every pair were a fan": "gantt-arrows-sweep.js",
+ "arrows: two arrows share a line when only one of the links across them is drawn": "gantt-arrows-sweep.js",
+ "arrows: an upright line may run on in line where an unrelated one stops": "gantt-arrows-sweep.js",
+ "arrows: along a gap, a line may run on where an unrelated one stops": "gantt-arrows-sweep.js",
+ "arrows: a folded phase's end never slides, so its line runs on into the gate under it": "gantt-arrows-sweep.js",
+ "arrows: a line that cannot move is never cleared by moving the one it meets": "gantt-arrows-sweep.js",
+ "arrows: a moved line forgets why the step out of its column was taken": "gantt-arrows-sweep.js",
+ "arrows: a moved line crosses shapes and labels its own column did not": "gantt-arrows-sweep.js",
+ "arrows: a track move shortens the run the head rides": "gantt-arrows-sweep.js"
 }

@@ -5814,7 +5814,7 @@ Or say what you want, in your own words:
 
   <footer>
     All data stays in your browser.
-    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.1638</span>
+    <span id="buildStamp" title="Which build this page is running. If it does not match the latest push, you are on a cached copy — hard-refresh (Ctrl/Cmd+Shift+R) or open a private window." style="margin-left:0.5rem;opacity:0.65;font-variant-numeric:tabular-nums">build 2026.11.06.2239</span>
   </footer>
 
   <!-- Add / Edit Modal -->
@@ -22484,10 +22484,14 @@ Or say what you want, in your own words:
         // a start-anchored link meeting the bar's own start may come in from the left
         return { e, y, left: !toFinish && ax - sh.x < 2 ? sh.x - 1 : null, mid: sh.mid };
       };
-      const routeOf = ({ t0, pt0, t, pt, type }) => {
-        const i = rowIndexOf[pt.id], j = rowIndexOf[t.id], down = j > i;
+      // the rows of the phases that hold either end of a link
+      const ownRows = ({ t0, pt0 }) => {
         const own = new Set();
         [t0, pt0].forEach(tt => { for (let c = tasks.find(x => x.id === tt.parentId), g = 0; c && g++ < 50; c = tasks.find(x => x.id === c.parentId)) if (visibleIds.has(c.id)) own.add(rowIndexOf[c.id]); });
+        return own;
+      };
+      const routeOf = ({ t0, pt0, t, pt, type }, own) => {
+        const i = rowIndexOf[pt.id], j = rowIndexOf[t.id], down = j > i;
         const S = exitOf(shapeOf(pt), pt0, fromFinishOf(type), down), N = entryOf(shapeOf(t), t0, toFinishOf(type), down);
         const laneS = down ? laneUnder(i) : laneOver(i), laneT = down ? laneUnder(j - 1) : laneOver(j + 1);
         const c = S.c, y0 = S.pts[S.pts.length - 1][1];
@@ -22518,13 +22522,154 @@ Or say what you want, in your own words:
         });
         return tries.sort((p1, p2) => cost(p1) - cost(p2))[0];
       };
-      // grey under red: shared runs read as one line, the critical one on top
-      edgeList.map(e => {
+      // a route's corners only: no point twice, none midway along a straight run
+      const tidy = P0 => {
+        const P = P0.filter((q, n, A) => !n || Math.abs(q[0] - A[n - 1][0]) > 0.01 || Math.abs(q[1] - A[n - 1][1]) > 0.01);
+        return P.filter((q, n) => !n || n === P.length - 1 || !(
+          (Math.abs(P[n - 1][0] - q[0]) < 0.01 && Math.abs(P[n + 1][0] - q[0]) < 0.01) || (Math.abs(P[n - 1][1] - q[1]) < 0.01 && Math.abs(P[n + 1][1] - q[1]) < 0.01)));
+      };
+      const routed = edgeList.map(e => {
         const tcLink = isTestCaseTask(e.t0) && !isTestCaseTask(e.pt0);
         const crit = e.t.isCritical && e.pt.isCritical && !tcLink;
-        return { e, P: routeOf(e), tcLink, crit, rank: tcLink ? 0 : crit ? 2 : 1 };
-      }).sort((p1, p2) => p1.rank - p2.rank).forEach(({ e, P: P0, tcLink, crit }) => {
-        const P = P0.filter((q, n, A) => !n || Math.abs(q[0] - A[n - 1][0]) > 0.01 || Math.abs(q[1] - A[n - 1][1]) > 0.01);
+        const own = ownRows(e);
+        return { e, own, P: tidy(routeOf(e, own)), tcLink, crit, rank: tcLink ? 0 : crit ? 2 : 1 };
+      });
+      /* ═══ ARROWS THAT SHARE NEITHER END KEEP TO THEIR OWN LINES ═══════════
+         Each arrow is routed alone, so arrows that need the same clear column,
+         or the same gap between two rows, all take it and run along it as one
+         line: folded, a build phase's arrow to its test phase ran down a
+         signoff gate's line to the build review, and read as the build feeding
+         the review. Once every arrow has its route, a piece that runs beside a
+         piece of an unrelated arrow, or runs on in line where that one stops,
+         moves aside. An upright piece goes to the nearest column clear of the
+         others — 3px beside a line it runs alongside, 6px off one it would
+         otherwise run on into — crossing no shape (and no label) its own
+         column did not, and no label nearer the clear column beside its gate
+         than a line may. A piece along a gap goes to another of the gap's
+         three tracks, 3px apart, which no shape reaches. The pieces
+         either side stretch to follow, so the route keeps its shape. An end
+         stays where its link names it, but a folded phase's end may slide
+         within the hidden activity's day, and an end on a bar's top or bottom
+         along the stretch just inside its start or finish: an arrow leaving a
+         folded build phase right above the review gate under it no longer
+         drops onto the gate's own point. A diamond's point is fixed, so a line
+         out of one gate and a line into the gate stacked under it on the same
+         date still meet in the column between them. Arrows out of one
+         predecessor or into one successor still share a line (a fan reads as
+         one rail with taps), and so do two whose ends are linked crosswise as
+         well: the shared line then reads true whichever way it is followed.
+         Critical arrows and long runs keep their places; the short and the
+         grey move. */
+      {
+        const SEP = 3, HEAD_LEN = 8;
+        const pairDrawn = new Set(edgeList.map(e => e.pt.id + '>' + e.t.id));
+        const mayShare = (a, b) => a.pt.id === b.pt.id || a.t.id === b.t.id || (pairDrawn.has(a.pt.id + '>' + b.t.id) && pairDrawn.has(b.pt.id + '>' + a.t.id));
+        const overlap = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
+        // the column clear of a gate's diamond on the side away from its label
+        const besideOf = r => softIv[r][0] === hardIv[r][0] ? hardIv[r][0] : hardIv[r][1];
+        const order = (p, q) => (p.pinned === q.pinned ? 0 : p.pinned ? -1 : 1) || q.R.rank - p.R.rank || q.len - p.len || p.k - q.k || p.m - q.m;
+        // the rows whose shapes a piece from ya down to yb passes
+        const rowsOn = (ya, yb) => { const out = []; for (let r = Math.max(0, Math.floor((ya - Y0) / ROWH)); r < rows.length && Y0 + r * ROWH + 5 < yb; r++) if (Y0 + r * ROWH + 25 > ya) out.push(r); return out; };
+        // where an end may slide: a folded phase's within the hidden activity's day, clear of the bar's caps;
+        // a bar's top or bottom within the stretch just inside the start (or finish) its link names
+        const dayOf = (tt, atFinish, sh) => {
+          const ax = anchorX(tt, atFinish), [lo, hi] = tt.milestone ? [dateX(tt.startDate), dateX(tt.startDate) + dayW] : [ax - 6, ax + 6];
+          return [Math.max(lo, sh.x + 4), Math.min(hi, sh.x2 - 4)];
+        };
+        const slideOf = (e, leaving) => {
+          const tt = leaving ? e.pt : e.t, tt0 = leaving ? e.pt0 : e.t0, sh = shapeOf(tt);
+          if (sh.kind === 'sum' && tt0 !== tt) return dayOf(tt0, leaving ? fromFinishOf(e.type) : toFinishOf(e.type), sh);
+          if (sh.kind === 'bar' && !leaving) return toFinishOf(e.type) ? [Math.max(sh.x + 1, sh.x2 - 8), sh.x2 - 2] : [sh.x + 2, Math.min(sh.x2 - 1, sh.x + 8)];
+          return null;
+        };
+        // upright pieces; an end stays where it meets its shape, unless that end may slide
+        const ups = [];
+        routed.forEach((R, k) => R.P.forEach((p, m) => {
+          const q = R.P[m + 1], n = R.P.length - 1;
+          if (!q || Math.abs(p[0] - q[0]) > 0.01) return;
+          const end = m === 0 || m === n - 1, w = end && n > 1 ? slideOf(R.e, m === 0) : null;
+          const slide = w && w[0] <= p[0] + 0.01 && p[0] <= w[1] + 0.01 ? w : null;
+          ups.push({ R, k, m, x0: p[0], x: p[0], ya: Math.min(p[1], q[1]), yb: Math.max(p[1], q[1]), len: Math.abs(q[1] - p[1]), slide, pinned: end && !slide });
+        }));
+        /* Pieces settle in order, each moving off any line it meets; then a
+           piece that could not move (one lining up to drop into a diamond, say)
+           is cleared by moving the piece it meets, where that one can go. */
+        const settle = (list, clash, spot, shift) => {
+          const set = [];
+          list.sort(order).forEach(s => {
+            if (!s.pinned && set.some(q => clash(s, q))) { const v = spot(s, set); if (v !== undefined) shift(s, v); }
+            set.push(s);
+          });
+          set.forEach(s => set.forEach(q => {
+            if (q === s || q.pinned || !clash(s, q)) return;
+            const v = spot(q, set.filter(o => o !== q));
+            if (v !== undefined) shift(q, v);
+          }));
+        };
+        // beside a line, 3px reads as two; in line with one, a line 3px off reads as the same line kinked. A
+        // track move below stretches an upright piece by up to two tracks, so ends that near count as in line.
+        const meets = (s, x, q) => {
+          if (q.R === s.R || mayShare(q.R.e, s.R.e)) return false;
+          const ov = overlap(s.ya, s.yb, q.ya, q.yb), dx = Math.abs(q.x - x);
+          return ov > 0 ? dx < SEP - 0.01 : ov > -2 * SEP && dx < 2 * SEP - 0.01;
+        };
+        settle(ups, (s, q) => meets(s, s.x, q), (s, set) => {
+          const P = s.R.P, n = P.length - 1, on = rowsOn(s.ya, s.yb).filter(r => !s.R.own.has(r));
+          // the steps either side keep the reason they were taken: one out of this column still has the
+          // shape (or the label) it stepped round ahead of it, and a step made for a label stays within reach;
+          // the opening move into the first gap and the line-up on the target answer to nothing
+          const i = rowIndexOf[s.R.e.pt.id], gapS = Y0 + (rowIndexOf[s.R.e.t.id] > i ? i + 1 : i) * ROWH;
+          const opening = y => Math.abs(y - gapS) <= SEP + 0.01;
+          const stepIn = s.m >= 2 && s.m < n - 1 && !opening(P[s.m][1]) && !on.some(r => blocks(r, P[s.m - 1][0])) ? P[s.m - 1][0] : null;
+          const onOut = s.m + 3 < n && !opening(P[s.m + 1][1]) ? rowsOn(Math.min(P[s.m + 2][1], P[s.m + 3][1]), Math.max(P[s.m + 2][1], P[s.m + 3][1])).filter(r => !s.R.own.has(r) && r !== i && r !== rowIndexOf[s.R.e.t.id]) : [];
+          const shapeOut = onOut.some(r => blocks(r, s.x0)), labelOut = !shapeOut && onOut.some(r => blocksSoft(r, s.x0));
+          const fits = x => x >= COL_LO && x <= COL_HI && !set.some(q => meets(s, x, q))
+            && !(s.slide && (x < s.slide[0] - 0.01 || x > s.slide[1] + 0.01))
+            && !on.some(r => (blocks(r, x) && !blocks(r, s.x0)) || (blocksSoft(r, x) && !blocksSoft(r, s.x0))
+              // through a gate's label only as far from the column beside its diamond as the walk would have gone
+              || (rows[r].task.milestone && blocksSoft(r, x) && !blocks(r, x) && Math.abs(x - besideOf(r)) < Math.min(LAB_REACH, Math.abs(s.x0 - besideOf(r)))))
+            && !(shapeOut && !onOut.some(r => blocks(r, x)))
+            && !(labelOut && (!onOut.some(r => blocksSoft(r, x)) || Math.abs(x - P[s.m + 2][0]) > LAB_REACH))
+            && !(stepIn !== null && Math.abs(x - stepIn) > LAB_REACH)
+            // the pieces that leave and land keep their way and their length: the head rides the last
+            && !(s.m === 1 && (x - P[0][0]) * Math.sign(P[1][0] - P[0][0]) < 4)
+            && !(s.m + 1 === n - 1 && (P[n][0] - x) * Math.sign(P[n][0] - P[n - 1][0]) < HEAD_LEN + 1);
+          const toward = s.m + 2 <= n ? Math.sign(P[s.m + 2][0] - P[s.m + 1][0]) : s.m > 0 ? Math.sign(P[s.m - 1][0] - P[s.m][0]) : 0;
+          // a fan-mate that moved off this column is followed, so the fan stays one rail
+          const mates = [], cands = [];
+          set.forEach(q => {
+            if (q.R === s.R || overlap(s.ya, s.yb, q.ya, q.yb) <= -2 * SEP) return;
+            if (!mayShare(q.R.e, s.R.e)) cands.push(q.x - SEP, q.x + SEP, q.x - 2 * SEP, q.x + 2 * SEP);
+            else if (Math.abs(q.x0 - s.x0) < 0.5 && Math.abs(q.x - s.x0) > 0.01) mates.push(q.x);
+          });
+          on.forEach(r => cands.push(hardIv[r][0], hardIv[r][1], softIv[r][0], softIv[r][1]));
+          if (s.slide) cands.push(s.slide[0], s.slide[1]);
+          const near = x => Math.abs(x - s.x) > 0.01 && Math.abs(x - s.x0) <= 6 * SEP && fits(x);
+          return mates.filter(near)[0] ?? cands.filter(near).sort((a, b) => Math.abs(a - s.x0) - Math.abs(b - s.x0) || (b - a) * toward)[0];
+        }, (s, x) => { s.x = x; s.R.P[s.m][0] = s.R.P[s.m + 1][0] = x; });
+        // pieces along a gap between two rows, now that the upright pieces have settled
+        const flats = [];
+        routed.forEach((R, k) => R.P.forEach((p, m) => {
+          const q = R.P[m + 1], n = R.P.length - 1;
+          if (!q || m === 0 || m === n - 1 || Math.abs(p[1] - q[1]) > 0.01) return;
+          const b = Y0 + Math.round((p[1] - Y0) / ROWH) * ROWH;
+          if (Math.abs(p[1] - b) <= SEP + 0.01) flats.push({ R, k, m, b, y0: p[1], y: p[1], xa: Math.min(p[0], q[0]), xb: Math.max(p[0], q[0]), len: Math.abs(q[0] - p[0]), pinned: false });
+        }));
+        // in line along a gap too: ends nearer than 4px read as one line
+        const meetsH = (s, y, q) => q.R !== s.R && !mayShare(q.R.e, s.R.e) && Math.abs(q.y - y) < SEP - 0.01 && overlap(s.xa, s.xb, q.xa, q.xb) > -4;
+        settle(flats, (s, q) => meetsH(s, s.y, q), (s, set) => {
+          const P = s.R.P, n = P.length - 1, a = P[s.m - 1][1], z = P[s.m + 2][1];
+          // the upright pieces either side keep their way; the one the head rides keeps its length
+          const fits = y => !set.some(q => meetsH(s, y, q)) && (y - a) * (s.y0 - a) > 0 && Math.abs(y - a) >= 1
+            && (z - y) * (z - s.y0) > 0 && Math.abs(z - y) >= (s.m + 2 === n ? Math.min(HEAD_LEN, Math.abs(z - s.y0)) : 1);
+          // nearest first; on a tie, the track toward where the piece came from, which shortens the run before it
+          return [s.b - SEP, s.b, s.b + SEP].filter(y => Math.abs(y - s.y) > 0.01 && fits(y))
+            .sort((u, w) => Math.abs(u - s.y0) - Math.abs(w - s.y0) || (w - u) * Math.sign(a - s.y0))[0];
+        }, (s, y) => { s.y = y; s.R.P[s.m][1] = s.R.P[s.m + 1][1] = y; });
+        routed.forEach(R => { R.P = tidy(R.P); });
+      }
+      // grey under red: the critical line on top where lines cross
+      routed.sort((p1, p2) => p1.rank - p2.rank).forEach(({ e, P, tcLink, crit }) => {
         const d = P.map((q, n) => (n ? 'L' : 'M') + (+q[0].toFixed(1)) + ',' + (+q[1].toFixed(1))).join(' ');
         const stroke = crit ? '#dc2626' : '#94a3b8', sw = tcLink ? 0.9 : crit ? 1.7 : 1.2, op = tcLink ? 0.35 : crit ? 0.9 : 0.65;
         links += `<path data-glink="${e.pt0.id}>${e.t0.id}" data-gfrom="${e.pt.id}" data-gto="${e.t.id}" data-gtype="${e.type}" d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${tcLink ? ' stroke-dasharray="3,3"' : ''} marker-end="url(#${crit ? 'g-arrC' : 'g-arr'})"/>`;

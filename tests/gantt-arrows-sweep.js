@@ -89,6 +89,22 @@
       rows and no arrow is drawn for it, it is a plain finish-to-start and a
       chain of drawn plain finish-to-start arrows leads there instead. A lead
       in the hidden work makes the chain round it weaker than the link.
+   17. Two arrows that share neither end never run along one line: no piece
+      of one runs beside a piece of the other closer than 3 px for more than
+      2 px, nor lies in line with it less than 4 px from its end — unless the
+      line reads true both ways, the arrows from each one's predecessor to
+      the other's successor being drawn too (a full fan, one rail with taps).
+      Where nothing else is possible they may touch for a head's length
+      (8 px): a gate's line out of its bottom point and another's line into
+      the gate stacked under it on the same date have one column between
+      the two points, and a chain's two arrows meet at the shape between
+      them. A folded phase is not a point: its arrow leaves anywhere in the
+      hidden activity's day, so a line out of a folded build phase that ran
+      on into the line dropping onto the review gate under it read as the
+      build feeding the review, and is caught. Each arrow took the clear column it needed, so arrows
+      that needed the same one ran down it together: folded, a build phase's
+      line to its test phase ran along a signoff gate's line to the build
+      review, and read as the build feeding the review.
 
    Views: everything open on dates, on weeks, and on days zoomed in; the
    screenshot's folds on dates, on weeks, and on days zoomed in; phases only
@@ -436,7 +452,8 @@ function judge(C, view, say) {
     }
     // 13. a step no shape forced clears the labels the straight line would have crossed
     const top = S.kind === 'ms' ? S.cy - 15 : S.kind === 'sum' ? S.y - 10 : S.y - 7, goingDown = Z[1] > F[1];
-    const laneS = goingDown ? top + 27 : top + 3;
+    // the gap the arrow first enters, on any of its three tracks
+    const gapS = goingDown ? top + 30 : top;
     const crossesLab = (x, ya, yb, slack) => C.shapes.filter(s => s.kind === 'ms' && s.lab && s.id !== from && s.id !== to
       && x > s.lab.x + 0.5 - slack && x < s.lab.x + s.lab.w - 0.5 + slack && Math.max(ya, yb) > s.lab.y + 0.5 && Math.min(ya, yb) < s.lab.y + s.lab.h - 0.5).map(s => s.id);
     const inWay = (x, ya, yb) => C.shapes.some(s => {
@@ -449,7 +466,7 @@ function judge(C, view, say) {
       if (Math.abs(P[n][1] - P[n - 1][1]) > 0.2 || Math.abs(P[n - 1][0] - P[n][0]) < 0.5) continue;    // a sideways piece…
       if (Math.abs(P[n][0] - P[n + 1][0]) > 0.2 || n < 2 || Math.abs(P[n - 1][0] - P[n - 2][0]) > 0.2) continue;   // …between two verticals
       const hy = P[n][1], ox = P[n - 1][0], nx = P[n][0], vy = P[n + 1][1];
-      if (Math.abs(hy - laneS) < 1 || Math.abs(nx - Z[0]) < 0.5 || inWay(ox, hy, vy)) continue;   // the opening move, the line-up on the target, or a shape's doing
+      if (Math.abs(hy - gapS) < 3.5 || Math.abs(nx - Z[0]) < 0.5 || inWay(ox, hy, vy)) continue;   // the opening move, the line-up on the target, or a shape's doing
       const was = new Set(crossesLab(ox, hy, vy, 0)), step = 'the arrow steps aside from x=' + ox.toFixed(1) + ' to ' + nx.toFixed(1) + ' with no shape in its way';
       if (!crossesLab(ox, hy, vy, 1.5).length) say(at, step + ', and no label either');
       else if (Math.abs(nx - ox) > 40.5) say(at, step + ', ' + Math.abs(nx - ox).toFixed(0) + ' px to spare a label');
@@ -527,6 +544,31 @@ function judge(C, view, say) {
     const [A, B] = k.split('>').map(Number);
     if (!plain || !plainChain(A, B, null)) say(view + ' · ' + k, 'no arrow joins ' + nm(A) + ' to ' + nm(B) + ', though a link joins them, and ' + (plain ? 'no chain of plain finish-to-start arrows leads there instead' : 'the link is not a plain finish-to-start, so no chain implies it'));
   });
+  // 17. two arrows that share neither end do not run along one line, nor run on where the other stops
+  const pieces = C.links.filter(L => L.from && L.to).map(L => { const P = pts(L.d); return { L, s: P.slice(1).map((q, n) => [P[n], q]) }; });
+  const flat = ([p, q]) => Math.abs(p[1] - q[1]) < 0.2 && Math.abs(p[0] - q[0]) > 0.2;
+  const upright = ([p, q]) => Math.abs(p[0] - q[0]) < 0.2 && Math.abs(p[1] - q[1]) > 0.2;
+  const shared = (a0, a1, b0, b1) => Math.min(Math.max(a0, a1), Math.max(b0, b1)) - Math.max(Math.min(a0, a1), Math.min(b0, b1));
+  // an arrow's first or last piece, where it leaves or lands on a diamond's point
+  const atPoint = (L, n, last) => (n === 0 && shape.get(+L.from).kind === 'ms') || (n === last && shape.get(+L.to).kind === 'ms');
+  for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
+    const a = pieces[i].L, b = pieces[j].L, la = pieces[i].s.length - 1, lb = pieces[j].s.length - 1;
+    if (a.from === b.from || a.to === b.to || (isDrawn.has(a.from + '>' + b.to) && isDrawn.has(b.from + '>' + a.to))) continue;
+    let most = -Infinity, where = '';
+    for (const [gn, g] of pieces[i].s.entries()) for (const [hn, h] of pieces[j].s.entries()) {
+      const o = flat(g) && flat(h) && Math.abs(g[0][1] - h[0][1]) < 3 - 0.01 ? shared(g[0][0], g[1][0], h[0][0], h[1][0])
+        : upright(g) && upright(h) && Math.abs(g[0][0] - h[0][0]) < 3 - 0.01 ? shared(g[0][1], g[1][1], h[0][1], h[1][1]) : -Infinity;
+      if (o <= -4) continue;   // in line, but far enough apart to read as two
+      // where nothing else is possible: two gates stacked on one date, whose points are a column apart, or a chain
+      // whose two arrows meet at the shape between them, one landing where the other leaves
+      if (o <= HEAD + 0.01 && ((atPoint(a, gn, la) && atPoint(b, hn, lb)) || (a.to === b.from && gn === la && hn === 0) || (b.to === a.from && hn === lb && gn === 0))) continue;
+      if (o > most) { most = o; where = flat(g) ? 'at y=' + g[0][1].toFixed(1) + ' and ' + h[0][1].toFixed(1) : 'at x=' + g[0][0].toFixed(1) + ' and ' + h[0][0].toFixed(1); }
+    }
+    const at = view + ' · ' + a.from + '>' + a.to + ' & ' + b.from + '>' + b.to, them = 'the arrow from ' + nm(+a.from) + ' to ' + nm(+a.to);
+    const other = 'the one from ' + nm(+b.from) + ' to ' + nm(+b.to);
+    if (most > 2) say(at, them + ' runs along ' + other + ' for ' + most.toFixed(0) + ' px (' + where + '), though they share neither end: read as one line, it joins each to the other\'s end');
+    else if (most > -4) say(at, them + ' runs on in line with ' + other + ' (' + where + ', ' + (most < 0 ? (-most).toFixed(0) + ' px apart' : 'touching') + '), though they share neither end: read as one line, it joins each to the other\'s end');
+  }
   return C.links.length;
 }
 

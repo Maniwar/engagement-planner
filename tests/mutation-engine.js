@@ -3391,6 +3391,54 @@ const MUTANTS = [
     find: "if ((plainOnly && !plain) || got.has(v)) return;",
     with: "if (got.has(v)) return;" },
 
+  /* Arrows that share neither end keep to their own lines. Each arrow was
+     routed alone, so arrows that needed the same clear column ran down it
+     together, and folded, a build phase's line into its test phase ran on
+     from the line dropping onto the review gate under it. */
+  { what: 'arrows: unrelated arrows that need one column all run down it, as one line',
+    find: "        settle(ups, (s, q) => meets(s, s.x, q), (s, set) => {",
+    with: "        false && settle(ups, (s, q) => meets(s, s.x, q), (s, set) => {" },
+
+  { what: 'arrows: unrelated arrows that need one gap between rows all run along it, as one line',
+    find: "        settle(flats, (s, q) => meetsH(s, s.y, q), (s, set) => {",
+    with: "        false && settle(flats, (s, q) => meetsH(s, s.y, q), (s, set) => {" },
+
+  { what: 'arrows: any two arrows may share a line, as if every pair were a fan',
+    find: "const mayShare = (a, b) => a.pt.id === b.pt.id ||",
+    with: "const mayShare = (a, b) => true ||" },
+
+  { what: 'arrows: two arrows share a line when only one of the links across them is drawn',
+    find: "(pairDrawn.has(a.pt.id + '>' + b.t.id) && pairDrawn.has(b.pt.id + '>' + a.t.id))",
+    with: "(pairDrawn.has(a.pt.id + '>' + b.t.id) || pairDrawn.has(b.pt.id + '>' + a.t.id))" },
+
+  { what: 'arrows: an upright line may run on in line where an unrelated one stops',
+    find: "return ov > 0 ? dx < SEP - 0.01 : ov > -2 * SEP && dx < 2 * SEP - 0.01;",
+    with: "return ov > 0 && dx < SEP - 0.01;" },
+
+  { what: 'arrows: along a gap, a line may run on where an unrelated one stops',
+    find: "Math.abs(q.y - y) < SEP - 0.01 && overlap(s.xa, s.xb, q.xa, q.xb) > -4;",
+    with: "Math.abs(q.y - y) < SEP - 0.01 && overlap(s.xa, s.xb, q.xa, q.xb) > 0.5;" },
+
+  { what: 'arrows: a folded phase\'s end never slides, so its line runs on into the gate under it',
+    find: "const slide = w && w[0] <= p[0] + 0.01 && p[0] <= w[1] + 0.01 ? w : null;",
+    with: "const slide = null;" },
+
+  { what: 'arrows: a line that cannot move is never cleared by moving the one it meets',
+    find: "          set.forEach(s => set.forEach(q => {",
+    with: "          [].forEach(s => set.forEach(q => {" },
+
+  { what: 'arrows: a moved line forgets why the step out of its column was taken',
+    find: "const shapeOut = onOut.some(r => blocks(r, s.x0)), labelOut = !shapeOut && onOut.some(r => blocksSoft(r, s.x0));",
+    with: "const shapeOut = false, labelOut = false;" },
+
+  { what: 'arrows: a moved line crosses shapes and labels its own column did not',
+    find: "&& !on.some(r => (blocks(r, x) && !blocks(r, s.x0)) || (blocksSoft(r, x) && !blocksSoft(r, s.x0))",
+    with: "&& !on.some(r => false" },
+
+  { what: 'arrows: a track move shortens the run the head rides',
+    find: "Math.abs(z - y) >= (s.m + 2 === n ? Math.min(HEAD_LEN, Math.abs(z - s.y0)) : 1)",
+    with: "Math.abs(z - y) >= 1" },
+
   { what: 'arrows: a gate\'s label is not kept clear at all',
     find: "return a > cx ? [hardIv[r][0], b + 1] : [a - 1, hardIv[r][1]];",
     with: "return hardIv[r];" },

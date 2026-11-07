@@ -1029,6 +1029,14 @@ dates it counts itself:
   milestones counts when the hidden work between them is all plain
   finish-to-start. Where a link joins two rows and no arrow is drawn for it,
   the link is plain finish-to-start and such a chain leads there instead.
+- **Unrelated arrows keep to their own lines.** Two arrows that share neither
+  end never run beside each other closer than 3 px, and one never runs on in
+  line where the other stops (less than 4 px from its end). Arrows from one
+  predecessor or into one successor may share a line, as a fan. So may two
+  whose crosswise links are both drawn, because the shared line reads true
+  either way. Two exceptions, each at most 8 px: a gate's line out of its
+  bottom point and a line into the gate stacked under it on the same date,
+  and a chain's two arrows meeting at the shape between them.
 - **Clear of labels where that is cheap.** No line runs through a milestone's
   label when the column beside its diamond, away from the label, was within
   40 px. A step taken for a label must have a label to clear, be at most 40 px,
@@ -1067,6 +1075,18 @@ when the straight drop is blocked. What the dry runs taught:
   review, beside the join from the first review to the final one. A join now
   counts when the hidden work it stands for is all plain finish-to-start. A
   lead in that work makes the chain weaker than the link, and the link stays.
+- **Routed alone, arrows pile onto one line.** Each arrow took the clear
+  column it needed, so arrows that needed the same one ran down it together,
+  and read as each feeding the other's end. A pass after routing moves a
+  piece off any unrelated line it runs beside or runs on into. Upright
+  pieces stay 3 px beside a line and 6 px off one they would run on into.
+  Pieces along a gap use the gap's three tracks, 3 px apart. Neighbouring
+  pieces stretch to follow, and each step keeps the reason it was taken.
+  The first version only stopped pieces overlapping. Folded at L1, the
+  build phase's line to its test phase still dropped straight onto the
+  review gate under it, 3 px from where it had been, and looked the same.
+  A folded phase's end now slides within the hidden activity's day, so
+  the line leaves the bar beside the gate's point, not above it.
 - **A bar starting on day one has no left side.** An activity's bar may be
   crossed when both ways round are off the chart or past the detour limit.
   The router always did this; the rule now says so, after the label phase put
